@@ -17,10 +17,18 @@ interface Module {
   isCapstone?: boolean;
 }
 
+interface DiscoveredSource {
+  institution: string;
+  courseName: string;
+  url: string;
+  type: string;
+}
+
 interface SyllabusData {
   discipline: string;
   modules: Module[];
   source: string;
+  rawSources?: DiscoveredSource[];
   timestamp: string;
 }
 
@@ -148,59 +156,114 @@ const Syllabus = () => {
                 </div>
               </div>
 
-              {/* Raw Sources Collapsible */}
-              <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
-                <CollapsibleTrigger asChild>
-                  <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold">Raw Syllabus Sources</h3>
-                      <span className="text-sm text-muted-foreground">
-                        ({(() => {
-                          const urls = new Set<string>();
-                          syllabusData.modules.forEach(m => {
-                            if (m.sourceUrl && !m.isCapstone) urls.add(m.sourceUrl);
-                          });
-                          return urls.size;
-                        })()})
-                      </span>
-                    </div>
-                    <ChevronDown className={cn(
-                      "h-5 w-5 text-muted-foreground transition-transform",
-                      sourcesOpen && "rotate-180"
-                    )} />
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="border border-t-0 p-4 bg-muted/20">
-                    <div className="space-y-2">
-                      {(() => {
-                        const urls = new Set<string>();
-                        const sourcesList: { url: string; source: string }[] = [];
-                        syllabusData.modules.forEach(m => {
-                          if (m.sourceUrl && !m.isCapstone && !urls.has(m.sourceUrl)) {
-                            urls.add(m.sourceUrl);
-                            sourcesList.push({ url: m.sourceUrl, source: m.source });
-                          }
-                        });
-                        return sourcesList.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-2 py-2 border-b last:border-b-0">
-                            <span className="text-sm font-mono text-muted-foreground min-w-[100px]">{item.source}</span>
+              {/* Discovered Sources Section */}
+              {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
+                <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">Discovered Authoritative Sources</h3>
+                        <span className="text-sm text-muted-foreground">
+                          ({syllabusData.rawSources.length})
+                        </span>
+                      </div>
+                      <ChevronDown className={cn(
+                        "h-5 w-5 text-muted-foreground transition-transform",
+                        sourcesOpen && "rotate-180"
+                      )} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="border border-t-0 p-4 bg-muted/20">
+                      <p className="text-sm text-muted-foreground mb-4">
+                        These are real syllabi and reading lists found from authoritative academic sources:
+                      </p>
+                      <div className="space-y-3">
+                        {syllabusData.rawSources.map((source, idx) => (
+                          <div key={idx} className="border bg-background p-3">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-semibold">{source.institution}</span>
+                                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground">
+                                    {source.type}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-muted-foreground">{source.courseName}</p>
+                              </div>
+                            </div>
                             <a
-                              href={item.url}
+                              href={source.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline inline-flex items-center gap-1 flex-1 truncate"
+                              className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-all"
                             >
                               <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                              {item.url}
+                              {source.url}
                             </a>
                           </div>
-                        ));
-                      })()}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+
+              {/* Module Sources (kept for backward compatibility) */}
+              {(!syllabusData.rawSources || syllabusData.rawSources.length === 0) && (
+                <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">Raw Syllabus Sources</h3>
+                        <span className="text-sm text-muted-foreground">
+                          ({(() => {
+                            const urls = new Set<string>();
+                            syllabusData.modules.forEach(m => {
+                              if (m.sourceUrl && !m.isCapstone) urls.add(m.sourceUrl);
+                            });
+                            return urls.size;
+                          })()})
+                        </span>
+                      </div>
+                      <ChevronDown className={cn(
+                        "h-5 w-5 text-muted-foreground transition-transform",
+                        sourcesOpen && "rotate-180"
+                      )} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="border border-t-0 p-4 bg-muted/20">
+                      <div className="space-y-2">
+                        {(() => {
+                          const urls = new Set<string>();
+                          const sourcesList: { url: string; source: string }[] = [];
+                          syllabusData.modules.forEach(m => {
+                            if (m.sourceUrl && !m.isCapstone && !urls.has(m.sourceUrl)) {
+                              urls.add(m.sourceUrl);
+                              sourcesList.push({ url: m.sourceUrl, source: m.source });
+                            }
+                          });
+                          return sourcesList.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-2 py-2 border-b last:border-b-0">
+                              <span className="text-sm font-mono text-muted-foreground min-w-[100px]">{item.source}</span>
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary hover:underline inline-flex items-center gap-1 flex-1 truncate"
+                              >
+                                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                {item.url}
+                              </a>
+                            </div>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
 
               {/* Capstone Thread Explanation */}
               <div className="bg-muted/50 border p-4">
