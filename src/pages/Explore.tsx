@@ -68,6 +68,12 @@ const Explore = () => {
     }
   };
 
+  const handleBrowseInContext = () => {
+    setSearchQuery("");
+    setShowSearch(false);
+    navigate("/explore");
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
@@ -103,6 +109,7 @@ const Explore = () => {
               results={searchResults} 
               query={searchQuery}
               searching={searching}
+              onBrowseInContext={handleBrowseInContext}
             />
           ) : (
             <div>
