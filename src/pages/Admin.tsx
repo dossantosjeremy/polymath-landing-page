@@ -5,16 +5,30 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Upload, Check } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+interface Discipline {
+  id: string;
+  l1: string;
+  l2: string | null;
+  l3: string | null;
+  l4: string | null;
+  l5: string | null;
+  l6: string | null;
+}
 
 const Admin = () => {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [disciplineCount, setDisciplineCount] = useState<number | null>(null);
+  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
+  const [loadingDisciplines, setLoadingDisciplines] = useState(false);
   const { toast } = useToast();
 
-  // Load current count on mount
+  // Load current count and disciplines on mount
   useEffect(() => {
     loadCount();
+    loadDisciplines();
   }, []);
 
   const loadCount = async () => {
@@ -26,6 +40,24 @@ const Admin = () => {
       setDisciplineCount(count || 0);
     } catch (error) {
       console.error('Error loading count:', error);
+    }
+  };
+
+  const loadDisciplines = async () => {
+    setLoadingDisciplines(true);
+    try {
+      const { data, error } = await supabase
+        .from('disciplines')
+        .select('*')
+        .order('l1', { ascending: true })
+        .limit(100);
+      
+      if (error) throw error;
+      setDisciplines(data || []);
+    } catch (error) {
+      console.error('Error loading disciplines:', error);
+    } finally {
+      setLoadingDisciplines(false);
     }
   };
 
@@ -123,8 +155,9 @@ const Admin = () => {
         description: `Successfully imported ${inserted} disciplines.`
       });
 
-      // Reload count
+      // Reload count and disciplines
       await loadCount();
+      await loadDisciplines();
 
     } catch (error) {
       console.error('Import error:', error);
@@ -159,8 +192,9 @@ const Admin = () => {
         });
       }
 
-      // Reload count
+      // Reload count and disciplines
       await loadCount();
+      await loadDisciplines();
     } catch (error) {
       console.error('Clear error:', error);
       toast({
@@ -269,6 +303,54 @@ const Admin = () => {
                 <li>Expected ~1,727 disciplines from full dataset</li>
               </ul>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Disciplines Preview Table */}
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Imported Disciplines Preview</CardTitle>
+            <CardDescription>
+              Showing first 100 disciplines. Visit the Explore page to browse all.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingDisciplines ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : disciplines.length > 0 ? (
+              <div className="border rounded-lg overflow-auto max-h-[600px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[150px]">Domain (L1)</TableHead>
+                      <TableHead className="min-w-[150px]">L2</TableHead>
+                      <TableHead className="min-w-[150px]">L3</TableHead>
+                      <TableHead className="min-w-[150px]">L4</TableHead>
+                      <TableHead className="min-w-[150px]">L5</TableHead>
+                      <TableHead className="min-w-[150px]">L6</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {disciplines.map((discipline) => (
+                      <TableRow key={discipline.id}>
+                        <TableCell className="font-medium">{discipline.l1}</TableCell>
+                        <TableCell className="text-muted-foreground">{discipline.l2 || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{discipline.l3 || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{discipline.l4 || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{discipline.l5 || "-"}</TableCell>
+                        <TableCell className="text-muted-foreground">{discipline.l6 || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-center text-muted-foreground py-8">
+                No disciplines imported yet. Upload a CSV file to get started.
+              </p>
+            )}
           </CardContent>
         </Card>
       </main>
