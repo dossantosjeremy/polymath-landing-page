@@ -194,14 +194,17 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
     setLevels(newLevels);
     
     // Auto-scroll to the rightmost column after expansion
-    setTimeout(() => {
-      if (scrollContainerRef.current) {
-        scrollContainerRef.current.scrollTo({
-          left: scrollContainerRef.current.scrollWidth,
-          behavior: 'smooth'
-        });
-      }
-    }, 100);
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (scrollContainerRef.current) {
+          const container = scrollContainerRef.current;
+          container.scrollTo({
+            left: container.scrollWidth - container.clientWidth,
+            behavior: 'smooth'
+          });
+        }
+      }, 200);
+    });
   };
 
   if (loading && levels.length === 0) {
