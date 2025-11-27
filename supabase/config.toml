@@ -2,3 +2,6 @@ project_id = "zcempgdbwezipccexcyt"
 
 [functions.import-disciplines]
 verify_jwt = false
+
+[functions.generate-syllabus]
+verify_jwt = false
