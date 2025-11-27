@@ -33,6 +33,7 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
   const [loading, setLoading] = useState(true);
   const [selectedDiscipline, setSelectedDiscipline] = useState<string>("");
   const hasExpandedRef = useRef<string | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadLevel1();
@@ -191,6 +192,16 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
     }
 
     setLevels(newLevels);
+    
+    // Auto-scroll to the rightmost column after expansion
+    setTimeout(() => {
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({
+          left: scrollContainerRef.current.scrollWidth,
+          behavior: 'smooth'
+        });
+      }
+    }, 100);
   };
 
   if (loading && levels.length === 0) {
@@ -217,7 +228,7 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
       )}
       
       <div className="border overflow-hidden h-[600px]">
-        <div className="flex gap-0 overflow-x-auto h-full">
+        <div ref={scrollContainerRef} className="flex gap-0 overflow-x-auto h-full scroll-smooth">
         {levels.map((levelData, levelIndex) => (
           <div
             key={levelIndex}
