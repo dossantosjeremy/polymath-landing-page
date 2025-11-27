@@ -34,6 +34,7 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
   const [selectedDiscipline, setSelectedDiscipline] = useState<string>("");
   const hasExpandedRef = useRef<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   useEffect(() => {
     loadLevel1();
@@ -147,6 +148,24 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
     }
   };
 
+  const scrollSelectedItemsIntoView = () => {
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        columnRefs.current.forEach((columnEl, index) => {
+          if (columnEl && selectedPath[index]) {
+            const selectedButton = columnEl.querySelector('[data-selected="true"]');
+            if (selectedButton) {
+              selectedButton.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+              });
+            }
+          }
+        });
+      }, 100);
+    });
+  };
+
   const expandToPath = async (path: string[]) => {
     setSelectedPath(path);
     const newLevels = [levels[0]];
@@ -203,7 +222,9 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
             behavior: 'smooth'
           });
         }
-      }, 200);
+        // Scroll selected items into view in each column
+        scrollSelectedItemsIntoView();
+      }, 250);
     });
   };
 
@@ -241,7 +262,10 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
             <div className="px-4 py-3 bg-muted font-medium text-sm border-b border-border flex-shrink-0">
               {levelIndex === 0 ? "Domain" : `Level ${levelIndex + 1}`}
             </div>
-            <div className="divide-y divide-border overflow-y-auto flex-1">
+            <div 
+              ref={(el) => { columnRefs.current[levelIndex] = el; }}
+              className="divide-y divide-border overflow-y-auto flex-1"
+            >
               {levelData.map((item) => {
                 const isSelected = selectedPath[levelIndex] === item.value;
                 const hasMore = levelIndex < 5; // Can expand up to level 6
@@ -249,6 +273,7 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
                 return (
                   <button
                     key={item.value}
+                    data-selected={isSelected}
                     onClick={() => loadNextLevel(levelIndex, item.value)}
                     disabled={!hasMore}
                     className={cn(
