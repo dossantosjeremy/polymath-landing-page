@@ -98,6 +98,13 @@ serve(async (req) => {
 
 async function discoverSources(discipline: string, apiKey: string): Promise<DiscoveredSource[]> {
   try {
+    // Check if discipline is philosophy-related for specialized sources
+    const isPhilosophy = discipline.toLowerCase().includes('philosophy') || 
+                         discipline.toLowerCase().includes('plato') ||
+                         discipline.toLowerCase().includes('aristotle') ||
+                         discipline.toLowerCase().includes('kant') ||
+                         discipline.toLowerCase().includes('ethics');
+
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -115,32 +122,58 @@ async function discoverSources(discipline: string, apiKey: string): Promise<Disc
             role: 'user',
             content: `Find ALL available syllabi, reading lists, curriculum guides, or course outlines related to "${discipline}".
 
-Search across these authoritative sources:
+Search across these AUTHORITATIVE sources in priority order:
+
+**Tier 1A - University OpenCourseWare:**
+- Open Syllabus (opensyllabus.org) - Database of millions of real syllabi
 - MIT OpenCourseWare (ocw.mit.edu)
 - Yale Open Courses (oyc.yale.edu)
-- Open Syllabus (opensyllabus.org)
+- Harvard Extension (pll.harvard.edu)
+- Carnegie Mellon OLI (oli.cmu.edu)
+- Hillsdale College (hillsdale.edu/online-courses)
+- Saylor Academy (saylor.org)
+
+**Tier 1B - Great Books & Classical Programs:**
 - St. John's College Great Books (sjc.edu)
-- University course catalogs with public syllabi
-- Great Books programs
+- University of Chicago Basic Program (graham.uchicago.edu)
+- Great Books Academy (greatbooksacademy.org)
+- Sattler College (sattler.edu)
+- Harvard Classics (archive.org/details/Harvard-Classics)
+${isPhilosophy ? `
+**Tier 1C - Philosophy-Specific:**
+- The Daily Idea Philosophy Syllabi (thedailyidea.org/philosophy-syllabi-collection)
+- Stanford Encyclopedia of Philosophy reading guides` : ''}
+
+**Tier 2 - Quality MOOCs & OER:**
+- Coursera (coursera.org)
+- edX (edx.org)
 - Khan Academy (khanacademy.org)
 - OpenLearn (open.edu/openlearn)
-- Archive.org educational resources
+- OER Commons (oercommons.org)
+- MERLOT (merlot.org)
+- OER Project (oerproject.com)
+
+**Tier 3 - Text Repositories:**
+- Archive.org educational collections
+- Project Gutenberg reading guides
 
 Return ONLY valid JSON with all discovered sources:
 
 {
   "sources": [
-    {"institution": "MIT", "courseName": "Course Title", "url": "https://ocw.mit.edu/...", "type": "University Course"},
-    {"institution": "Yale", "courseName": "Course Title", "url": "https://oyc.yale.edu/...", "type": "University Course"},
-    {"institution": "St. John's College", "courseName": "Great Books Reading List", "url": "https://sjc.edu/...", "type": "Great Books Program"}
+    {"institution": "MIT OCW", "courseName": "Exact Course Title", "url": "https://ocw.mit.edu/...", "type": "University OCW"},
+    {"institution": "Open Syllabus", "courseName": "Topic from multiple universities", "url": "https://opensyllabus.org/...", "type": "Syllabus Database"},
+    {"institution": "St. John's College", "courseName": "Great Books Reading List", "url": "https://sjc.edu/...", "type": "Great Books Program"},
+    {"institution": "Carnegie Mellon", "courseName": "OLI Course", "url": "https://oli.cmu.edu/...", "type": "University OCW"},
+    {"institution": "Great Books Academy", "courseName": "Syllabus", "url": "https://greatbooksacademy.org/...", "type": "Classical Curriculum"}
   ]
 }
 
-Find as many real syllabi as possible. Return ONLY the JSON, no other text.`
+Find as many real, authoritative syllabi as possible. Include exact URLs. Return ONLY the JSON, no other text.`
           }
         ],
         temperature: 0.1,
-        max_tokens: 3000,
+        max_tokens: 4000,
         return_citations: true,
       }),
     });
@@ -171,6 +204,13 @@ async function searchTier1Syllabus(discipline: string, apiKey: string) {
   try {
     console.log('[Tier 1] Searching authoritative academic sources...');
     
+    // Check if discipline is philosophy-related
+    const isPhilosophy = discipline.toLowerCase().includes('philosophy') || 
+                         discipline.toLowerCase().includes('plato') ||
+                         discipline.toLowerCase().includes('aristotle') ||
+                         discipline.toLowerCase().includes('kant') ||
+                         discipline.toLowerCase().includes('ethics');
+
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: {
@@ -186,42 +226,58 @@ async function searchTier1Syllabus(discipline: string, apiKey: string) {
           },
           {
             role: 'user',
-            content: `Find a syllabus, reading list, or curriculum guide for "${discipline}" from authoritative academic sources including:
+            content: `Find a real syllabus, reading list, or curriculum guide for "${discipline}" from these AUTHORITATIVE ACADEMIC SOURCES:
 
-Priority sources:
-- MIT OpenCourseWare (ocw.mit.edu) - Look for course syllabi pages
-- Yale Open Courses (oyc.yale.edu) - Look for syllabus sections
-- Open Syllabus (opensyllabus.org) - Search for syllabi from multiple universities
-- St. John's College (sjc.edu) - Great Books reading lists
-- University course catalogs with public syllabi
-- Great Books programs with reading sequences
+**PRIORITY TIER 1A - University OpenCourseWare:**
+- Open Syllabus (opensyllabus.org) - Database of millions of university syllabi
+- MIT OpenCourseWare (ocw.mit.edu) - Course syllabi with detailed schedules
+- Yale Open Courses (oyc.yale.edu) - Full course syllabi
+- Harvard Extension (pll.harvard.edu/catalog) - Professional learning courses
+- Carnegie Mellon Open Learning Initiative (oli.cmu.edu) - Structured courses
+- Hillsdale College Online (hillsdale.edu/online-courses) - Liberal arts courses
+- Saylor Academy (saylor.org) - ACE-accredited courses with syllabi
 
-Accept various formats:
-- Week-by-week course schedules
-- Module-based structures
-- Reading lists with unit divisions
-- Curriculum maps
+**PRIORITY TIER 1B - Great Books & Classical Programs:**
+- St. John's College Great Books (sjc.edu/academic-programs/undergraduate/great-books-reading-list) - Chronological reading list
+- University of Chicago Basic Program (graham.uchicago.edu) - Adult liberal arts program
+- Great Books Academy (greatbooksacademy.org) - Complete syllabi PDFs
+- Sattler College (sattler.edu/academics) - Humanities reading lists
+- Harvard Classics (archive.org/details/Harvard-Classics) - 51-volume reading plan
+${isPhilosophy ? `
+**PRIORITY TIER 1C - Philosophy-Specific Sources:**
+- The Daily Idea (thedailyidea.org/philosophy-syllabi-collection) - Curated philosophy syllabi
+- Stanford Encyclopedia of Philosophy - Reading guides and bibliographies` : ''}
 
-Extract the structure with specific topics/readings. Return ONLY valid JSON:
+**ACCEPTED FORMATS:**
+- Week-by-week course schedules with topics
+- Module-based structures with learning units
+- Reading lists with chronological sequences
+- Unit divisions with themes
+- Curriculum maps with progression
+- Great Books reading orders
+
+**INSTRUCTIONS:**
+1. Search the authoritative sources listed above
+2. Find an actual syllabus/reading list (NOT hypothetical)
+3. Extract the real structure with specific topics/readings
+4. Include exact URLs to each source
+5. Return at least 6 modules/weeks/units
+
+Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week/Unit 1: [Actual topic or reading from source]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"},
-    {"title": "Week/Unit 2: [Actual topic]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"}
+    {"title": "Week/Unit 1: [EXACT topic/reading from the actual source]", "tag": "Theory", "source": "[Institution name from list above]", "sourceUrl": "https://[full-url-to-verify]"},
+    {"title": "Week/Unit 2: [EXACT topic/reading]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"}
   ],
   "sourceUrl": "https://[main-source-url]"
 }
 
-Requirements:
-- Find actual syllabi/reading lists from authoritative sources
-- Extract real topic titles or reading assignments
-- Include exact URLs to verify sources
-- Return at least 6 modules/units
-- Return ONLY the JSON, no other text`
+Return ONLY the JSON, no other text. The source MUST be from the authoritative list above.`
           }
         ],
         temperature: 0.1,
-        max_tokens: 3000,
+        max_tokens: 4000,
         return_citations: true,
       }),
     });
@@ -265,7 +321,7 @@ Requirements:
 
 async function searchTier2Syllabus(discipline: string, apiKey: string) {
   try {
-    console.log('[Tier 2] Searching educational platforms...');
+    console.log('[Tier 2] Searching educational platforms and OER...');
     
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -278,40 +334,53 @@ async function searchTier2Syllabus(discipline: string, apiKey: string) {
         messages: [
           {
             role: 'system',
-            content: 'You are a curriculum aggregator. Find real courses from educational platforms, extract their syllabi or course outlines, and aggregate them into a coherent structure. You MUST return valid JSON only.'
+            content: 'You are a curriculum aggregator. Find real courses from educational platforms and OER repositories, extract their syllabi or course outlines, and aggregate them into a coherent structure. You MUST return valid JSON only.'
           },
           {
             role: 'user',
-            content: `Search for courses on "${discipline}" from educational platforms including:
+            content: `Search for courses and curriculum on "${discipline}" from these QUALITY EDUCATIONAL PLATFORMS:
 
-Priority platforms:
-- Coursera (coursera.org)
-- edX (edx.org)
-- Khan Academy (khanacademy.org)
-- OpenLearn (open.edu/openlearn)
-- University extension courses with public syllabi
+**MOOC Platforms (University-partnered):**
+- Coursera (coursera.org) - University courses with syllabi
+- edX (edx.org) - University courses from Harvard, MIT, Berkeley, etc.
+- Khan Academy (khanacademy.org) - Structured learning progressions
+- OpenLearn (open.edu/openlearn) - Open University courses
 
-Look for:
-- Course syllabi with weekly modules
-- Learning unit breakdowns
-- Curriculum maps
-- Course outlines with topics
+**Open Educational Resources (OER):**
+- OER Commons (oercommons.org) - Curated open courseware
+- MERLOT (merlot.org) - Peer-reviewed OER materials
+- OER Project (oerproject.com) - Complete structured history curricula
+- OpenStax (openstax.org) - Free textbooks with syllabi
+- MIT OpenCourseWare (ocw.mit.edu) - If not found in Tier 1
+- Yale Open Courses (oyc.yale.edu) - If not found in Tier 1
 
-Aggregate the content into 6-8 modules with specific topics from actual courses. Return ONLY valid JSON:
+**Look for:**
+- Course syllabi with weekly modules or unit breakdowns
+- Learning sequences with clear progression
+- Curriculum maps with topics and readings
+- Complete course outlines from actual courses
+
+**INSTRUCTIONS:**
+1. Find 2-3 real courses from the platforms above
+2. Extract their actual syllabus structures
+3. Aggregate into 6-8 coherent modules
+4. Include exact URLs to verify each source
+
+Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week/Unit 1: [Topic from actual course]", "tag": "Theory", "source": "[Platform name]", "sourceUrl": "https://[full-course-url]"},
-    {"title": "Week/Unit 2: [Topic from actual course]", "tag": "Theory", "source": "[Platform name]", "sourceUrl": "https://[full-course-url]"}
+    {"title": "Week/Unit 1: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"},
+    {"title": "Week/Unit 2: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"}
   ],
-  "aggregatedFrom": ["https://www.coursera.org/course1", "https://www.edx.org/course2"]
+  "aggregatedFrom": ["https://www.coursera.org/course1", "https://www.edx.org/course2", "https://oercommons.org/course3"]
 }
 
-Find real courses with actual syllabus structures. Include URLs to verify sources. Return ONLY the JSON, no other text.`
+Find real courses with actual content. Include URLs. Return ONLY the JSON, no other text.`
           }
         ],
         temperature: 0.1,
-        max_tokens: 3000,
+        max_tokens: 4000,
         return_citations: true,
       }),
     });
