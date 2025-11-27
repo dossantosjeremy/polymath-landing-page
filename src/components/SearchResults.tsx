@@ -1,5 +1,7 @@
 import { ChevronRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface Discipline {
   id: string;
@@ -15,9 +17,12 @@ interface SearchResultsProps {
   results: Discipline[];
   query: string;
   searching: boolean;
+  onBrowseInContext: () => void;
 }
 
-export const SearchResults = ({ results, query, searching }: SearchResultsProps) => {
+export const SearchResults = ({ results, query, searching, onBrowseInContext }: SearchResultsProps) => {
+  const navigate = useNavigate();
+  
   const getDisciplinePath = (discipline: Discipline): string[] => {
     const path = [discipline.l1];
     if (discipline.l2) path.push(discipline.l2);
@@ -35,6 +40,16 @@ export const SearchResults = ({ results, query, searching }: SearchResultsProps)
     if (discipline.l3) return "Sub-domain";
     if (discipline.l2) return "Category";
     return "Domain";
+  };
+
+  const getLastLevel = (discipline: Discipline): string => {
+    return discipline.l6 || discipline.l5 || discipline.l4 || discipline.l3 || discipline.l2 || discipline.l1;
+  };
+
+  const handleGenerateSyllabus = (discipline: Discipline) => {
+    const disciplineName = getLastLevel(discipline);
+    const path = getDisciplinePath(discipline).join(" > ");
+    navigate(`/syllabus?discipline=${encodeURIComponent(disciplineName)}&path=${encodeURIComponent(path)}`);
   };
 
   if (searching) {
@@ -83,7 +98,7 @@ export const SearchResults = ({ results, query, searching }: SearchResultsProps)
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2 flex-wrap text-sm">
+                    <div className="flex items-center gap-2 flex-wrap text-sm mb-4">
                       {path.map((segment, index) => (
                         <div key={index} className="flex items-center gap-2">
                           <span className={index === path.length - 1 ? "font-semibold" : "text-muted-foreground"}>
@@ -94,6 +109,22 @@ export const SearchResults = ({ results, query, searching }: SearchResultsProps)
                           )}
                         </div>
                       ))}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => handleGenerateSyllabus(discipline)}
+                        className="flex-1"
+                      >
+                        Generate Syllabus
+                      </Button>
+                      <Button
+                        onClick={onBrowseInContext}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Browse in Context
+                      </Button>
                     </div>
                   </div>
                 </div>
