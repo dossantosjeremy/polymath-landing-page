@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,11 +18,12 @@ interface SearchResultsProps {
   results: Discipline[];
   query: string;
   searching: boolean;
-  onBrowseInContext: () => void;
+  onBrowseInContext: (discipline: Discipline) => void;
 }
 
 export const SearchResults = ({ results, query, searching, onBrowseInContext }: SearchResultsProps) => {
   const navigate = useNavigate();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   
   const getDisciplinePath = (discipline: Discipline): string[] => {
     const path = [discipline.l1];
@@ -87,8 +89,14 @@ export const SearchResults = ({ results, query, searching, onBrowseInContext }: 
           const path = getDisciplinePath(discipline);
           const level = getLevel(discipline);
 
+          const isExpanded = expandedId === discipline.id;
+          
           return (
-            <Card key={discipline.id} className="hover:shadow-md transition-shadow">
+            <Card 
+              key={discipline.id} 
+              className="hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setExpandedId(isExpanded ? null : discipline.id)}
+            >
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -98,7 +106,7 @@ export const SearchResults = ({ results, query, searching, onBrowseInContext }: 
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2 flex-wrap text-sm mb-4">
+                    <div className="flex items-center gap-2 flex-wrap text-sm mb-2">
                       {path.map((segment, index) => (
                         <div key={index} className="flex items-center gap-2">
                           <span className={index === path.length - 1 ? "font-semibold" : "text-muted-foreground"}>
@@ -111,21 +119,23 @@ export const SearchResults = ({ results, query, searching, onBrowseInContext }: 
                       ))}
                     </div>
 
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => handleGenerateSyllabus(discipline)}
-                        className="flex-1"
-                      >
-                        Generate Syllabus
-                      </Button>
-                      <Button
-                        onClick={onBrowseInContext}
-                        variant="outline"
-                        className="flex-1"
-                      >
-                        Browse in Context
-                      </Button>
-                    </div>
+                    {isExpanded && (
+                      <div className="flex gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          onClick={() => handleGenerateSyllabus(discipline)}
+                          className="flex-1"
+                        >
+                          Generate Syllabus
+                        </Button>
+                        <Button
+                          onClick={() => onBrowseInContext(discipline)}
+                          variant="outline"
+                          className="flex-1"
+                        >
+                          Browse in Context
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>

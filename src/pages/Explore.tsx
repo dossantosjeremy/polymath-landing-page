@@ -26,6 +26,7 @@ const Explore = () => {
   const [searchResults, setSearchResults] = useState<Discipline[]>([]);
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(!!searchParams.get("q"));
+  const [contextPath, setContextPath] = useState<string[] | undefined>(undefined);
 
   useEffect(() => {
     const query = searchParams.get("q");
@@ -68,7 +69,19 @@ const Explore = () => {
     }
   };
 
-  const handleBrowseInContext = () => {
+  const getDisciplinePath = (discipline: Discipline): string[] => {
+    const path = [discipline.l1];
+    if (discipline.l2) path.push(discipline.l2);
+    if (discipline.l3) path.push(discipline.l3);
+    if (discipline.l4) path.push(discipline.l4);
+    if (discipline.l5) path.push(discipline.l5);
+    if (discipline.l6) path.push(discipline.l6);
+    return path;
+  };
+
+  const handleBrowseInContext = (discipline: Discipline) => {
+    const path = getDisciplinePath(discipline);
+    setContextPath(path);
     setSearchQuery("");
     setShowSearch(false);
     navigate("/explore");
@@ -116,7 +129,7 @@ const Explore = () => {
               <h1 className="text-3xl font-serif font-bold mb-6">
                 Browse Disciplines
               </h1>
-              <ProgressiveDisclosure />
+              <ProgressiveDisclosure initialPath={contextPath} />
             </div>
           )}
         </div>
