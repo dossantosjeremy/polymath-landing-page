@@ -13,6 +13,13 @@ interface Module {
   isCapstone?: boolean;
 }
 
+interface DiscoveredSource {
+  institution: string;
+  courseName: string;
+  url: string;
+  type: string; // "University Course", "Great Books Program", "MOOC", etc.
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -27,12 +34,18 @@ serve(async (req) => {
       throw new Error('PERPLEXITY_API_KEY is not configured');
     }
 
-    // Tier 1: Search for direct syllabus from Yale/MIT
+    // Step 0: Discover all available sources first
+    console.log('[Discovery] Finding all available syllabi sources...');
+    const discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY);
+    console.log(`[Discovery] Found ${discoveredSources.length} source(s)`);
+
+    // Tier 1: Search for direct syllabus from authoritative academic sources
     const tier1Result = await searchTier1Syllabus(discipline, PERPLEXITY_API_KEY);
     
     let modules: Module[] = [];
     let syllabusSource = '';
     let sourceUrl = '';
+    let rawSources: DiscoveredSource[] = discoveredSources;
 
     if (tier1Result && tier1Result.modules.length >= 4) {
       console.log('✓ Tier 1 successful: Found syllabus from', tier1Result.source);
@@ -40,7 +53,7 @@ serve(async (req) => {
       syllabusSource = tier1Result.source;
       sourceUrl = tier1Result.sourceUrl || '';
     } else {
-      // Tier 2: Aggregate from Coursera/edX
+      // Tier 2: Aggregate from educational platforms
       console.log('⚠ Tier 1 insufficient, trying Tier 2...');
       const tier2Result = await searchTier2Syllabus(discipline, PERPLEXITY_API_KEY);
       
@@ -68,6 +81,7 @@ serve(async (req) => {
         modules,
         source: syllabusSource,
         sourceUrl,
+        rawSources,
         timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -82,9 +96,80 @@ serve(async (req) => {
   }
 });
 
+async function discoverSources(discipline: string, apiKey: string): Promise<DiscoveredSource[]> {
+  try {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a syllabus researcher. Find all available syllabi, reading lists, and course outlines for a given topic from authoritative sources. Return valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: `Find ALL available syllabi, reading lists, curriculum guides, or course outlines related to "${discipline}".
+
+Search across these authoritative sources:
+- MIT OpenCourseWare (ocw.mit.edu)
+- Yale Open Courses (oyc.yale.edu)
+- Open Syllabus (opensyllabus.org)
+- St. John's College Great Books (sjc.edu)
+- University course catalogs with public syllabi
+- Great Books programs
+- Khan Academy (khanacademy.org)
+- OpenLearn (open.edu/openlearn)
+- Archive.org educational resources
+
+Return ONLY valid JSON with all discovered sources:
+
+{
+  "sources": [
+    {"institution": "MIT", "courseName": "Course Title", "url": "https://ocw.mit.edu/...", "type": "University Course"},
+    {"institution": "Yale", "courseName": "Course Title", "url": "https://oyc.yale.edu/...", "type": "University Course"},
+    {"institution": "St. John's College", "courseName": "Great Books Reading List", "url": "https://sjc.edu/...", "type": "Great Books Program"}
+  ]
+}
+
+Find as many real syllabi as possible. Return ONLY the JSON, no other text.`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 3000,
+        return_citations: true,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.choices?.[0]?.message?.content) {
+      console.error('[Discovery] Failed to find sources');
+      return [];
+    }
+
+    const content = data.choices[0].message.content;
+    const parsed = extractJSON(content);
+    
+    if (parsed?.sources && Array.isArray(parsed.sources)) {
+      console.log(`[Discovery] ✓ Found ${parsed.sources.length} sources`);
+      return parsed.sources;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[Discovery] Exception:', error);
+    return [];
+  }
+}
+
 async function searchTier1Syllabus(discipline: string, apiKey: string) {
   try {
-    console.log('[Tier 1] Searching MIT OCW and Yale Open Courses...');
+    console.log('[Tier 1] Searching authoritative academic sources...');
     
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -97,33 +182,46 @@ async function searchTier1Syllabus(discipline: string, apiKey: string) {
         messages: [
           {
             role: 'system',
-            content: 'You are a syllabus extractor. Search for real course syllabi from MIT OpenCourseWare and Yale Open Courses. Extract the actual week-by-week course structure with specific topics. You MUST return valid JSON only, no other text.'
+            content: 'You are a syllabus extractor. Search for real course syllabi, reading lists, and curriculum guides from authoritative academic sources. Extract actual course structures with specific topics. You MUST return valid JSON only, no other text.'
           },
           {
             role: 'user',
-            content: `Find the syllabus for a course on "${discipline}" from MIT OpenCourseWare (ocw.mit.edu) or Yale Open Courses (oyc.yale.edu). 
+            content: `Find a syllabus, reading list, or curriculum guide for "${discipline}" from authoritative academic sources including:
 
-Extract the week-by-week breakdown with specific topics covered each week. Return ONLY valid JSON in this exact format:
+Priority sources:
+- MIT OpenCourseWare (ocw.mit.edu) - Look for course syllabi pages
+- Yale Open Courses (oyc.yale.edu) - Look for syllabus sections
+- Open Syllabus (opensyllabus.org) - Search for syllabi from multiple universities
+- St. John's College (sjc.edu) - Great Books reading lists
+- University course catalogs with public syllabi
+- Great Books programs with reading sequences
+
+Accept various formats:
+- Week-by-week course schedules
+- Module-based structures
+- Reading lists with unit divisions
+- Curriculum maps
+
+Extract the structure with specific topics/readings. Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week 1: [Actual topic from syllabus]", "tag": "Theory", "source": "MIT" or "Yale", "sourceUrl": "https://ocw.mit.edu/..."},
-    {"title": "Week 2: [Actual topic]", "tag": "Theory", "source": "MIT" or "Yale", "sourceUrl": "https://ocw.mit.edu/..."}
+    {"title": "Week/Unit 1: [Actual topic or reading from source]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"},
+    {"title": "Week/Unit 2: [Actual topic]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"}
   ],
-  "sourceUrl": "https://ocw.mit.edu/[course-url]"
+  "sourceUrl": "https://[main-source-url]"
 }
 
 Requirements:
-- Find actual syllabi with weekly schedules
-- Extract real topic titles from the syllabus
-- Include the exact course URL
-- Return at least 6 modules
+- Find actual syllabi/reading lists from authoritative sources
+- Extract real topic titles or reading assignments
+- Include exact URLs to verify sources
+- Return at least 6 modules/units
 - Return ONLY the JSON, no other text`
           }
         ],
         temperature: 0.1,
         max_tokens: 3000,
-        search_domain_filter: ['ocw.mit.edu', 'oyc.yale.edu'],
         return_citations: true,
       }),
     });
@@ -167,7 +265,7 @@ Requirements:
 
 async function searchTier2Syllabus(discipline: string, apiKey: string) {
   try {
-    console.log('[Tier 2] Searching Coursera and edX...');
+    console.log('[Tier 2] Searching educational platforms...');
     
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -180,28 +278,40 @@ async function searchTier2Syllabus(discipline: string, apiKey: string) {
         messages: [
           {
             role: 'system',
-            content: 'You are a curriculum aggregator. Find real courses from Coursera and edX, extract their syllabi, and aggregate them into a coherent structure. You MUST return valid JSON only.'
+            content: 'You are a curriculum aggregator. Find real courses from educational platforms, extract their syllabi or course outlines, and aggregate them into a coherent structure. You MUST return valid JSON only.'
           },
           {
             role: 'user',
-            content: `Search for courses on "${discipline}" from Coursera (coursera.org) and edX (edx.org). Look for course syllabi with weekly modules or learning units.
+            content: `Search for courses on "${discipline}" from educational platforms including:
 
-Aggregate the content into 6-8 modules with specific topics. Return ONLY valid JSON:
+Priority platforms:
+- Coursera (coursera.org)
+- edX (edx.org)
+- Khan Academy (khanacademy.org)
+- OpenLearn (open.edu/openlearn)
+- University extension courses with public syllabi
+
+Look for:
+- Course syllabi with weekly modules
+- Learning unit breakdowns
+- Curriculum maps
+- Course outlines with topics
+
+Aggregate the content into 6-8 modules with specific topics from actual courses. Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week 1: [Topic from actual course]", "tag": "Theory", "source": "Coursera" or "edX", "sourceUrl": "https://www.coursera.org/..."},
-    {"title": "Week 2: [Topic]", "tag": "Theory", "source": "Coursera" or "edX", "sourceUrl": "https://www.coursera.org/..."}
+    {"title": "Week/Unit 1: [Topic from actual course]", "tag": "Theory", "source": "[Platform name]", "sourceUrl": "https://[full-course-url]"},
+    {"title": "Week/Unit 2: [Topic from actual course]", "tag": "Theory", "source": "[Platform name]", "sourceUrl": "https://[full-course-url]"}
   ],
   "aggregatedFrom": ["https://www.coursera.org/course1", "https://www.edx.org/course2"]
 }
 
-Find real courses with actual syllabus structures. Return ONLY the JSON, no other text.`
+Find real courses with actual syllabus structures. Include URLs to verify sources. Return ONLY the JSON, no other text.`
           }
         ],
         temperature: 0.1,
         max_tokens: 3000,
-        search_domain_filter: ['coursera.org', 'edx.org'],
         return_citations: true,
       }),
     });
