@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,25 @@ import { Upload, Check } from "lucide-react";
 const Admin = () => {
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [disciplineCount, setDisciplineCount] = useState<number | null>(null);
   const { toast } = useToast();
+
+  // Load current count on mount
+  useEffect(() => {
+    loadCount();
+  }, []);
+
+  const loadCount = async () => {
+    try {
+      const { count } = await supabase
+        .from('disciplines')
+        .select('*', { count: 'exact', head: true });
+      
+      setDisciplineCount(count || 0);
+    } catch (error) {
+      console.error('Error loading count:', error);
+    }
+  };
 
   const parseCSVLine = (line: string): string[] => {
     const fields: string[] = [];
@@ -42,25 +60,20 @@ const Admin = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Ask for confirmation if data exists
+    if (disciplineCount && disciplineCount > 0) {
+      if (!confirm(`Database currently has ${disciplineCount} disciplines. Do you want to clear and re-import?`)) {
+        event.target.value = '';
+        return;
+      }
+      // Clear first
+      await handleClearTable(true);
+    }
+
     setImporting(true);
     setProgress({ current: 0, total: 0 });
 
     try {
-      // Check if disciplines already exist
-      const { count: existingCount } = await supabase
-        .from('disciplines')
-        .select('*', { count: 'exact', head: true });
-
-      if (existingCount && existingCount > 0) {
-        toast({
-          title: "Data Already Exists",
-          description: `Database already contains ${existingCount} disciplines. Clear the table first if you want to re-import.`,
-          variant: "destructive"
-        });
-        setImporting(false);
-        return;
-      }
-
       const text = await file.text();
       const lines = text.split('\n').slice(1); // Skip header
       const disciplines = [];
@@ -110,6 +123,9 @@ const Admin = () => {
         description: `Successfully imported ${inserted} disciplines.`
       });
 
+      // Reload count
+      await loadCount();
+
     } catch (error) {
       console.error('Import error:', error);
       toast({
@@ -123,8 +139,8 @@ const Admin = () => {
     }
   };
 
-  const handleClearTable = async () => {
-    if (!confirm('Are you sure you want to delete all disciplines? This cannot be undone.')) {
+  const handleClearTable = async (skipConfirm = false) => {
+    if (!skipConfirm && !confirm('Are you sure you want to delete all disciplines? This cannot be undone.')) {
       return;
     }
 
@@ -136,10 +152,15 @@ const Admin = () => {
 
       if (error) throw error;
 
-      toast({
-        title: "Table Cleared",
-        description: "All disciplines have been deleted."
-      });
+      if (!skipConfirm) {
+        toast({
+          title: "Table Cleared",
+          description: "All disciplines have been deleted."
+        });
+      }
+
+      // Reload count
+      await loadCount();
     } catch (error) {
       console.error('Clear error:', error);
       toast({
@@ -165,6 +186,20 @@ const Admin = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Current Status */}
+            <div className="p-4 bg-accent/50 rounded-lg">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Current Database Status:</span>
+                <span className="text-2xl font-bold">
+                  {disciplineCount === null ? (
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                  ) : (
+                    `${disciplineCount} disciplines`
+                  )}
+                </span>
+              </div>
+            </div>
+
             {importing && progress.total > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
@@ -196,7 +231,7 @@ const Admin = () => {
                     ) : (
                       <>
                         <Upload className="h-4 w-4" />
-                        Upload CSV
+                        {disciplineCount && disciplineCount > 0 ? 'Replace Data' : 'Upload CSV'}
                       </>
                     )}
                   </span>
@@ -213,8 +248,8 @@ const Admin = () => {
 
               <Button
                 variant="destructive"
-                onClick={handleClearTable}
-                disabled={importing}
+                onClick={() => handleClearTable(false)}
+                disabled={importing || disciplineCount === 0}
               >
                 Clear Table
               </Button>
@@ -231,6 +266,7 @@ const Admin = () => {
                 <li>L2-L6 are optional (sub-categories)</li>
                 <li>Empty cells will be stored as NULL</li>
                 <li>CSV encoding should be UTF-8</li>
+                <li>Expected ~1,727 disciplines from full dataset</li>
               </ul>
             </div>
           </CardContent>
