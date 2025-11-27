@@ -22,7 +22,11 @@ interface DisciplineLevel {
   count: number;
 }
 
-export const ProgressiveDisclosure = () => {
+interface ProgressiveDisclosureProps {
+  initialPath?: string[];
+}
+
+export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProps = {}) => {
   const navigate = useNavigate();
   const [levels, setLevels] = useState<DisciplineLevel[][]>([]);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
@@ -32,6 +36,12 @@ export const ProgressiveDisclosure = () => {
   useEffect(() => {
     loadLevel1();
   }, []);
+
+  useEffect(() => {
+    if (initialPath && initialPath.length > 0 && levels.length > 0) {
+      expandToPath(initialPath);
+    }
+  }, [initialPath]);
 
   const handleSelectDiscipline = () => {
     if (selectedPath.length === 0) return;
@@ -126,6 +136,53 @@ export const ProgressiveDisclosure = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const expandToPath = async (path: string[]) => {
+    setSelectedPath(path);
+    const newLevels = [levels[0]];
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const levelKey = `l${i + 2}` as 'l2' | 'l3' | 'l4' | 'l5' | 'l6';
+      
+      let query = supabase
+        .from("disciplines")
+        .select(levelKey)
+        .not(levelKey, "is", null)
+        .eq("l1", path[0]);
+
+      if (path[1] && i >= 1) query = query.eq("l2", path[1]);
+      if (path[2] && i >= 2) query = query.eq("l3", path[2]);
+      if (path[3] && i >= 3) query = query.eq("l4", path[3]);
+      if (path[4] && i >= 4) query = query.eq("l5", path[4]);
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("Error expanding path:", error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        const counts: Record<string, number> = {};
+        data.forEach((item) => {
+          const value = item[levelKey];
+          if (value) {
+            counts[value] = (counts[value] || 0) + 1;
+          }
+        });
+
+        const nextLevel = Object.entries(counts)
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value));
+
+        if (nextLevel.length > 0) {
+          newLevels.push(nextLevel);
+        }
+      }
+    }
+
+    setLevels(newLevels);
   };
 
   if (loading && levels.length === 0) {
