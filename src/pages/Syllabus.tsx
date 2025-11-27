@@ -191,7 +191,15 @@ const Syllabus = () => {
                               {source.institution}: {source.courseName}
                             </span>
                           </div>
-                          <span className="text-xs px-2 py-1 bg-muted text-muted-foreground ml-2 flex-shrink-0">
+                          <span className={cn(
+                            "text-xs px-2 py-1 ml-2 flex-shrink-0 font-medium",
+                            source.type === "University OCW" && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]",
+                            source.type === "Great Books Program" && "bg-red-900/20 text-red-900 dark:text-red-300",
+                            source.type === "MOOC Platform" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+                            source.type === "Philosophy Syllabi Collection" && "bg-purple-500/20 text-purple-700 dark:text-purple-300",
+                            source.type === "OER Repository" && "bg-green-500/20 text-green-700 dark:text-green-300",
+                            !["University OCW", "Great Books Program", "MOOC Platform", "Philosophy Syllabi Collection", "OER Repository"].includes(source.type) && "bg-muted text-muted-foreground"
+                          )}>
                             {source.type}
                           </span>
                         </a>
@@ -230,7 +238,15 @@ const Syllabus = () => {
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className="font-semibold">{source.institution}</span>
-                                  <span className="text-xs px-2 py-0.5 bg-muted text-muted-foreground">
+                                  <span className={cn(
+                                    "text-xs px-2 py-0.5 font-medium",
+                                    source.type === "University OCW" && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]",
+                                    source.type === "Great Books Program" && "bg-red-900/20 text-red-900 dark:text-red-300",
+                                    source.type === "MOOC Platform" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+                                    source.type === "Philosophy Syllabi Collection" && "bg-purple-500/20 text-purple-700 dark:text-purple-300",
+                                    source.type === "OER Repository" && "bg-green-500/20 text-green-700 dark:text-green-300",
+                                    !["University OCW", "Great Books Program", "MOOC Platform", "Philosophy Syllabi Collection", "OER Repository"].includes(source.type) && "bg-muted text-muted-foreground"
+                                  )}>
                                     {source.type}
                                   </span>
                                 </div>
@@ -332,15 +348,21 @@ const Syllabus = () => {
                   >
                     <button
                       onClick={() => toggleModule(index)}
-                      className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left"
+                      className={cn(
+                        "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left",
+                        module.tag === "Capstone Integration" && "border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
+                      )}
                     >
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">
+                          {module.tag === "Capstone Integration" && (
+                            <span className="text-xl">🏛️</span>
+                          )}
                           <h3 className="font-semibold">{module.title}</h3>
                           <span className={cn(
                             "text-xs px-2 py-1",
-                            module.isCapstone 
-                              ? "bg-accent text-accent-foreground"
+                            module.tag === "Capstone Integration" 
+                              ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
                               : "bg-muted text-muted-foreground"
                           )}>
                             {module.tag}

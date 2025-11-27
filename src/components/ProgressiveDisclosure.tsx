@@ -1,9 +1,21 @@
 import { useState, useEffect } from "react";
-import { ChevronRight, Check } from "lucide-react";
+import { ChevronRight, Check, ScrollText, FlaskConical, Globe, Palette, Code2, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
+
+const getDomainIcon = (domain: string) => {
+  const iconMap: Record<string, any> = {
+    "Humanities": ScrollText,
+    "Natural Sciences": FlaskConical,
+    "Social Sciences": Globe,
+    "Arts": Palette,
+    "Computer Science": Code2,
+    "Business": BarChart3,
+  };
+  return iconMap[domain] || ScrollText;
+};
 
 interface DisciplineLevel {
   value: string;
@@ -154,6 +166,7 @@ export const ProgressiveDisclosure = () => {
               {levelData.map((item) => {
                 const isSelected = selectedPath[levelIndex] === item.value;
                 const hasMore = levelIndex < 5; // Can expand up to level 6
+                const DomainIcon = levelIndex === 0 ? getDomainIcon(item.value) : null;
                 return (
                   <button
                     key={item.value}
@@ -165,7 +178,10 @@ export const ProgressiveDisclosure = () => {
                       !hasMore && "cursor-default"
                     )}
                   >
-                    <span className="text-sm truncate pr-2">{item.value}</span>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      {DomainIcon && <DomainIcon className="h-4 w-4 flex-shrink-0 text-muted-foreground" />}
+                      <span className="text-sm truncate">{item.value}</span>
+                    </div>
                     {hasMore && (
                       <ChevronRight className={cn(
                         "h-4 w-4 flex-shrink-0 text-muted-foreground group-hover:text-foreground transition-colors",
