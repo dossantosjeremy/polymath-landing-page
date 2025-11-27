@@ -81,28 +81,28 @@ const Syllabus = () => {
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-6 py-8">
           {/* Breadcrumbs */}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+          <nav className="flex items-center gap-2 text-sm mb-6" aria-label="Breadcrumb">
             <button
               onClick={() => navigate('/')}
-              className="hover:text-foreground transition-colors flex items-center gap-1"
+              className="hover:text-foreground hover:underline transition-colors flex items-center gap-1 text-primary"
             >
               <Home className="h-4 w-4" />
               Home
             </button>
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
             <button
               onClick={() => navigate('/explore')}
-              className="hover:text-foreground transition-colors"
+              className="hover:text-foreground hover:underline transition-colors text-primary"
             >
               Explore
             </button>
             {pathArray.map((segment, index) => (
               <div key={index} className="flex items-center gap-2">
-                <ChevronRight className="h-4 w-4" />
-                <span>{segment}</span>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">{segment}</span>
               </div>
             ))}
-          </div>
+          </nav>
 
           {/* Header */}
           <div className="mb-8">
