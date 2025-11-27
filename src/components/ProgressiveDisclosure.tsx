@@ -112,39 +112,46 @@ export const ProgressiveDisclosure = () => {
   }
 
   return (
-    <div className="flex gap-0 overflow-x-auto pb-4">
-      {levels.map((levelData, levelIndex) => (
-        <div
-          key={levelIndex}
-          className="flex-shrink-0 border-r border-border last:border-r-0"
-          style={{ minWidth: '200px', maxWidth: '250px' }}
-        >
-          <div className="px-4 py-2 bg-muted/50 font-medium text-sm">
-            {levelIndex === 0 ? "Domain" : `Level ${levelIndex + 1}`}
+    <div className="border rounded-lg overflow-hidden" style={{ maxHeight: '600px' }}>
+      <div className="flex gap-0 overflow-x-auto h-full">
+        {levels.map((levelData, levelIndex) => (
+          <div
+            key={levelIndex}
+            className="flex-shrink-0 border-r border-border last:border-r-0 flex flex-col"
+            style={{ minWidth: '250px', maxWidth: '250px' }}
+          >
+            <div className="px-4 py-3 bg-muted font-medium text-sm border-b border-border sticky top-0 z-10">
+              {levelIndex === 0 ? "Domain" : `Level ${levelIndex + 1}`}
+            </div>
+            <div className="divide-y divide-border overflow-y-auto flex-1">
+              {levelData.map((item) => {
+                const isSelected = selectedPath[levelIndex] === item.value;
+                const hasMore = levelIndex < 5; // Can expand up to level 6
+                return (
+                  <button
+                    key={item.value}
+                    onClick={() => loadNextLevel(levelIndex, item.value)}
+                    disabled={!hasMore}
+                    className={cn(
+                      "w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors flex items-center justify-between group",
+                      isSelected && "bg-accent/50 font-medium",
+                      !hasMore && "cursor-default"
+                    )}
+                  >
+                    <span className="text-sm truncate pr-2">{item.value}</span>
+                    {hasMore && (
+                      <ChevronRight className={cn(
+                        "h-4 w-4 flex-shrink-0 text-muted-foreground group-hover:text-foreground transition-colors",
+                        isSelected && "text-foreground"
+                      )} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="divide-y divide-border">
-            {levelData.map((item) => {
-              const isSelected = selectedPath[levelIndex] === item.value;
-              return (
-                <button
-                  key={item.value}
-                  onClick={() => loadNextLevel(levelIndex, item.value)}
-                  className={cn(
-                    "w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors flex items-center justify-between group",
-                    isSelected && "bg-accent/50 font-medium"
-                  )}
-                >
-                  <span className="text-sm truncate pr-2">{item.value}</span>
-                  <ChevronRight className={cn(
-                    "h-4 w-4 flex-shrink-0 text-muted-foreground group-hover:text-foreground transition-colors",
-                    isSelected && "text-foreground"
-                  )} />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 };
