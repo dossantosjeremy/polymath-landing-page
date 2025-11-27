@@ -14,7 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      disciplines: {
+        Row: {
+          created_at: string | null
+          id: string
+          l1: string
+          l2: string | null
+          l3: string | null
+          l4: string | null
+          l5: string | null
+          l6: string | null
+          search_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          l1: string
+          l2?: string | null
+          l3?: string | null
+          l4?: string | null
+          l5?: string | null
+          l6?: string | null
+          search_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          l1?: string
+          l2?: string | null
+          l3?: string | null
+          l4?: string | null
+          l5?: string | null
+          l6?: string | null
+          search_text?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          full_name: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_progress: {
+        Row: {
+          discipline_id: string
+          id: string
+          notes: string | null
+          started_at: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          discipline_id: string
+          id?: string
+          notes?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          discipline_id?: string
+          id?: string
+          notes?: string | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_progress_discipline_id_fkey"
+            columns: ["discipline_id"]
+            isOneToOne: false
+            referencedRelation: "disciplines"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
