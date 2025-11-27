@@ -3,10 +3,11 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ChevronRight, Home } from "lucide-react";
+import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface Module {
   title: string;
@@ -30,6 +31,7 @@ const Syllabus = () => {
   const [loading, setLoading] = useState(true);
   const [syllabusData, setSyllabusData] = useState<SyllabusData | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
+  const [sourcesOpen, setSourcesOpen] = useState(false);
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -121,9 +123,9 @@ const Syllabus = () => {
           ) : syllabusData ? (
             <div className="space-y-6">
               {/* Source Banner */}
-              <div className="bg-accent/30 border border-accent rounded-lg p-4 flex items-start gap-4">
+              <div className="bg-accent/30 border border-accent p-4 flex items-start gap-4">
                 <div className="flex-shrink-0 mt-1">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="h-10 w-10 bg-primary/10 flex items-center justify-center">
                     <svg className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
@@ -146,8 +148,62 @@ const Syllabus = () => {
                 </div>
               </div>
 
+              {/* Raw Sources Collapsible */}
+              <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
+                <CollapsibleTrigger asChild>
+                  <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold">Raw Syllabus Sources</h3>
+                      <span className="text-sm text-muted-foreground">
+                        ({(() => {
+                          const urls = new Set<string>();
+                          syllabusData.modules.forEach(m => {
+                            if (m.sourceUrl && !m.isCapstone) urls.add(m.sourceUrl);
+                          });
+                          return urls.size;
+                        })()})
+                      </span>
+                    </div>
+                    <ChevronDown className={cn(
+                      "h-5 w-5 text-muted-foreground transition-transform",
+                      sourcesOpen && "rotate-180"
+                    )} />
+                  </button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="border border-t-0 p-4 bg-muted/20">
+                    <div className="space-y-2">
+                      {(() => {
+                        const urls = new Set<string>();
+                        const sourcesList: { url: string; source: string }[] = [];
+                        syllabusData.modules.forEach(m => {
+                          if (m.sourceUrl && !m.isCapstone && !urls.has(m.sourceUrl)) {
+                            urls.add(m.sourceUrl);
+                            sourcesList.push({ url: m.sourceUrl, source: m.source });
+                          }
+                        });
+                        return sourcesList.map((item, idx) => (
+                          <div key={idx} className="flex items-center gap-2 py-2 border-b last:border-b-0">
+                            <span className="text-sm font-mono text-muted-foreground min-w-[100px]">{item.source}</span>
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-primary hover:underline inline-flex items-center gap-1 flex-1 truncate"
+                            >
+                              <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                              {item.url}
+                            </a>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
               {/* Capstone Thread Explanation */}
-              <div className="bg-muted/50 border rounded-lg p-4">
+              <div className="bg-muted/50 border p-4">
                 <h3 className="font-semibold mb-2">About This Syllabus</h3>
                 <p className="text-sm text-muted-foreground">
                   This course structure integrates project-based learning with theoretical foundations. 
@@ -162,7 +218,7 @@ const Syllabus = () => {
                   <div
                     key={index}
                     className={cn(
-                      "border rounded-lg overflow-hidden transition-all",
+                      "border overflow-hidden transition-all",
                       module.isCapstone && "bg-accent/10 border-accent"
                     )}
                   >
@@ -174,7 +230,7 @@ const Syllabus = () => {
                         <div className="flex items-center gap-3 mb-1">
                           <h3 className="font-semibold">{module.title}</h3>
                           <span className={cn(
-                            "text-xs px-2 py-1 rounded-full",
+                            "text-xs px-2 py-1",
                             module.isCapstone 
                               ? "bg-accent text-accent-foreground"
                               : "bg-muted text-muted-foreground"
