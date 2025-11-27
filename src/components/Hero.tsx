@@ -26,6 +26,14 @@ export const Hero = () => {
           What do you want to master today?
         </h1>
         
+        <div className="flex items-center justify-center gap-3 text-muted-foreground">
+          <span className="text-xl">✦</span>
+          <span className="h-px w-12 bg-border"></span>
+          <span className="text-xl">◆</span>
+          <span className="h-px w-12 bg-border"></span>
+          <span className="text-xl">✦</span>
+        </div>
+        
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           A platform for self-directed learners focusing on project-based learning and creating written artifacts.
         </p>
@@ -35,7 +43,7 @@ export const Hero = () => {
             <Search className="absolute left-4 h-5 w-5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="e.g. Philosophy, Python, Game Theory..."
+              placeholder="e.g. 📜 Philosophy, 💻 Python, 🎯 Game Theory..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-12 pr-32 h-14 text-base rounded-full border-2"
