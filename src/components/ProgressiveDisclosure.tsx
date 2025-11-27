@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ChevronRight, Check, ScrollText, FlaskConical, Globe, Palette, Code2, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -32,16 +32,24 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDiscipline, setSelectedDiscipline] = useState<string>("");
+  const hasExpandedRef = useRef<string | null>(null);
 
   useEffect(() => {
     loadLevel1();
   }, []);
 
   useEffect(() => {
-    if (initialPath && initialPath.length > 0 && levels.length > 0) {
+    const pathKey = initialPath?.join('/') || null;
+    
+    // Only expand if:
+    // - We have an initialPath
+    // - Levels are loaded
+    // - We haven't already expanded to this exact path
+    if (initialPath && initialPath.length > 0 && levels.length > 0 && hasExpandedRef.current !== pathKey) {
+      hasExpandedRef.current = pathKey;
       expandToPath(initialPath);
     }
-  }, [initialPath]);
+  }, [initialPath, levels.length]);
 
   const handleSelectDiscipline = () => {
     if (selectedPath.length === 0) return;
