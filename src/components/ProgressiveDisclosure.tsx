@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { Button } from "./ui/button";
 
 interface DisciplineLevel {
   value: string;
@@ -9,13 +11,24 @@ interface DisciplineLevel {
 }
 
 export const ProgressiveDisclosure = () => {
+  const navigate = useNavigate();
   const [levels, setLevels] = useState<DisciplineLevel[][]>([]);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDiscipline, setSelectedDiscipline] = useState<string>("");
 
   useEffect(() => {
     loadLevel1();
   }, []);
+
+  const handleSelectDiscipline = () => {
+    if (selectedPath.length === 0) return;
+    
+    const fullPath = selectedPath.join(' > ');
+    const lastLevel = selectedPath[selectedPath.length - 1];
+    
+    navigate(`/syllabus?discipline=${encodeURIComponent(lastLevel)}&path=${encodeURIComponent(fullPath)}`);
+  };
 
   const loadLevel1 = async () => {
     setLoading(true);
@@ -112,8 +125,22 @@ export const ProgressiveDisclosure = () => {
   }
 
   return (
-    <div className="border overflow-hidden h-[600px]">
-      <div className="flex gap-0 overflow-x-auto h-full">
+    <div className="space-y-4">
+      {selectedPath.length > 0 && (
+        <div className="flex items-center justify-between bg-accent/20 border border-accent rounded-lg p-4">
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Selected discipline:</p>
+            <p className="font-semibold">{selectedPath.join(' > ')}</p>
+          </div>
+          <Button onClick={handleSelectDiscipline} className="gap-2">
+            <Check className="h-4 w-4" />
+            Generate Syllabus
+          </Button>
+        </div>
+      )}
+      
+      <div className="border overflow-hidden h-[600px]">
+        <div className="flex gap-0 overflow-x-auto h-full">
         {levels.map((levelData, levelIndex) => (
           <div
             key={levelIndex}
@@ -151,6 +178,7 @@ export const ProgressiveDisclosure = () => {
             </div>
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
