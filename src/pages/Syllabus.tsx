@@ -39,6 +39,7 @@ const Syllabus = () => {
   const [loading, setLoading] = useState(true);
   const [syllabusData, setSyllabusData] = useState<SyllabusData | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
+  const [quickAccessOpen, setQuickAccessOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
 
   const discipline = searchParams.get("discipline") || "";
@@ -155,6 +156,50 @@ const Syllabus = () => {
                   )}
                 </div>
               </div>
+
+              {/* Quick Access to Syllabi Section */}
+              {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
+                <Collapsible open={quickAccessOpen} onOpenChange={setQuickAccessOpen}>
+                  <CollapsibleTrigger asChild>
+                    <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="h-4 w-4 text-primary" />
+                        <h3 className="font-semibold">Quick Access to Syllabi</h3>
+                        <span className="text-sm text-muted-foreground">
+                          ({syllabusData.rawSources.length})
+                        </span>
+                      </div>
+                      <ChevronDown className={cn(
+                        "h-5 w-5 text-muted-foreground transition-transform",
+                        quickAccessOpen && "rotate-180"
+                      )} />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="border border-t-0 divide-y">
+                      {syllabusData.rawSources.map((source, idx) => (
+                        <a
+                          key={idx}
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+                            <span className="text-sm font-medium group-hover:text-primary transition-colors">
+                              {source.institution}: {source.courseName}
+                            </span>
+                          </div>
+                          <span className="text-xs px-2 py-1 bg-muted text-muted-foreground ml-2 flex-shrink-0">
+                            {source.type}
+                          </span>
+                        </a>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
 
               {/* Discovered Sources Section */}
               {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
