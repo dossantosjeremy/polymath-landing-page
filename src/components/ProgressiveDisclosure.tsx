@@ -1,0 +1,150 @@
+import { useState, useEffect } from "react";
+import { ChevronRight } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
+
+interface DisciplineLevel {
+  value: string;
+  count: number;
+}
+
+export const ProgressiveDisclosure = () => {
+  const [levels, setLevels] = useState<DisciplineLevel[][]>([]);
+  const [selectedPath, setSelectedPath] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadLevel1();
+  }, []);
+
+  const loadLevel1 = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("disciplines")
+        .select("l1")
+        .not("l1", "is", null);
+
+      if (error) throw error;
+
+      // Count occurrences and get unique values
+      const counts: Record<string, number> = {};
+      data.forEach((item) => {
+        counts[item.l1] = (counts[item.l1] || 0) + 1;
+      });
+
+      const uniqueL1 = Object.entries(counts)
+        .map(([value, count]) => ({ value, count }))
+        .sort((a, b) => a.value.localeCompare(b.value));
+
+      setLevels([uniqueL1]);
+    } catch (error) {
+      console.error("Error loading L1:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadNextLevel = async (levelIndex: number, parentValue: string) => {
+    setLoading(true);
+    
+    // Update selected path
+    const newPath = selectedPath.slice(0, levelIndex);
+    newPath.push(parentValue);
+    setSelectedPath(newPath);
+
+    // Remove levels after current
+    const newLevels = levels.slice(0, levelIndex + 1);
+
+    try {
+      const levelKey = `l${levelIndex + 2}` as 'l2' | 'l3' | 'l4' | 'l5' | 'l6';
+      
+      // Build query based on selected path
+      let query = supabase
+        .from("disciplines")
+        .select(levelKey)
+        .not(levelKey, "is", null)
+        .eq("l1", newPath[0]);
+
+      // Add filters for each level in the path
+      if (newPath[1] && levelIndex >= 1) query = query.eq("l2", newPath[1]);
+      if (newPath[2] && levelIndex >= 2) query = query.eq("l3", newPath[2]);
+      if (newPath[3] && levelIndex >= 3) query = query.eq("l4", newPath[3]);
+      if (newPath[4] && levelIndex >= 4) query = query.eq("l5", newPath[4]);
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        // Count occurrences
+        const counts: Record<string, number> = {};
+        data.forEach((item) => {
+          const value = item[levelKey];
+          if (value) {
+            counts[value] = (counts[value] || 0) + 1;
+          }
+        });
+
+        const nextLevel = Object.entries(counts)
+          .map(([value, count]) => ({ value, count }))
+          .sort((a, b) => a.value.localeCompare(b.value));
+
+        if (nextLevel.length > 0) {
+          newLevels.push(nextLevel);
+        }
+      }
+
+      setLevels(newLevels);
+    } catch (error) {
+      console.error("Error loading next level:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && levels.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-0 overflow-x-auto pb-4">
+      {levels.map((levelData, levelIndex) => (
+        <div
+          key={levelIndex}
+          className="flex-shrink-0 border-r border-border last:border-r-0"
+          style={{ minWidth: '200px', maxWidth: '250px' }}
+        >
+          <div className="px-4 py-2 bg-muted/50 font-medium text-sm">
+            {levelIndex === 0 ? "Domain" : `Level ${levelIndex + 1}`}
+          </div>
+          <div className="divide-y divide-border">
+            {levelData.map((item) => {
+              const isSelected = selectedPath[levelIndex] === item.value;
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => loadNextLevel(levelIndex, item.value)}
+                  className={cn(
+                    "w-full px-4 py-3 text-left hover:bg-muted/50 transition-colors flex items-center justify-between group",
+                    isSelected && "bg-accent/50 font-medium"
+                  )}
+                >
+                  <span className="text-sm truncate pr-2">{item.value}</span>
+                  <ChevronRight className={cn(
+                    "h-4 w-4 flex-shrink-0 text-muted-foreground group-hover:text-foreground transition-colors",
+                    isSelected && "text-foreground"
+                  )} />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
