@@ -105,8 +105,20 @@ async function searchTier1Syllabus(discipline: string, apiKey: string) {
       }),
     });
 
+    if (!response.ok) {
+      console.error('Tier 1 API error:', response.status, await response.text());
+      return null;
+    }
+
     const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    console.log('Tier 1 response:', JSON.stringify(data, null, 2));
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Tier 1 unexpected response format');
+      return null;
+    }
+
+    const content = data.choices[0].message.content;
     
     if (!content) return null;
 
@@ -158,8 +170,20 @@ async function searchTier2Syllabus(discipline: string, apiKey: string) {
       }),
     });
 
+    if (!response.ok) {
+      console.error('Tier 2 API error:', response.status, await response.text());
+      return null;
+    }
+
     const data = await response.json();
-    const content = data.choices[0]?.message?.content;
+    console.log('Tier 2 response:', JSON.stringify(data, null, 2));
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Tier 2 unexpected response format');
+      return null;
+    }
+
+    const content = data.choices[0].message.content;
     
     if (!content) return null;
 
@@ -183,43 +207,67 @@ async function searchTier2Syllabus(discipline: string, apiKey: string) {
 }
 
 async function generateTier3Syllabus(discipline: string, apiKey: string) {
-  const response = await fetch('https://api.perplexity.ai/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama-3.1-sonar-large-128k-online',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a Harvard-trained curriculum designer using Backward Design principles. Create comprehensive, structured course outlines.'
-        },
-        {
-          role: 'user',
-          content: `Design a 6-8 week course on "${discipline}" using Harvard Bok Center's Backward Design principle. Structure: Phase 1 (Weeks 1-2): Core Concepts. Phase 2 (Weeks 3-5): Application & Practice. Phase 3 (Weeks 6-8): Synthesis & Capstone. Return JSON: {"modules": [{"title": "Week 1: Foundation", "tag": "Theory", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"}]}`
+  try {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-sonar-large-128k-online',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a Harvard-trained curriculum designer using Backward Design principles. Create comprehensive, structured course outlines.'
+          },
+          {
+            role: 'user',
+            content: `Design a 6-8 week course on "${discipline}" using Harvard Bok Center's Backward Design principle. Structure: Phase 1 (Weeks 1-2): Core Concepts. Phase 2 (Weeks 3-5): Application & Practice. Phase 3 (Weeks 6-8): Synthesis & Capstone. Return JSON: {"modules": [{"title": "Week 1: Foundation", "tag": "Theory", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"}]}`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 2000,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Tier 3 API error:', response.status, await response.text());
+      return getFallbackSyllabus(discipline);
+    }
+
+    const data = await response.json();
+    console.log('Tier 3 response:', JSON.stringify(data, null, 2));
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      console.error('Tier 3 unexpected response format, using fallback');
+      return getFallbackSyllabus(discipline);
+    }
+
+    const content = data.choices[0].message.content;
+
+    if (content) {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.modules && parsed.modules.length > 0) {
+          return {
+            modules: parsed.modules,
+            source: 'AI-generated using Harvard Backward Design Framework',
+            sourceUrl: 'https://bokcenter.harvard.edu/backward-design'
+          };
         }
-      ],
-      temperature: 0.3,
-      max_tokens: 2000,
-    }),
-  });
+      }
+    }
 
-  const data = await response.json();
-  const content = data.choices[0]?.message?.content;
-
-  const jsonMatch = content.match(/\{[\s\S]*\}/);
-  if (jsonMatch) {
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      modules: parsed.modules || [],
-      source: 'AI-generated using Harvard Backward Design Framework',
-      sourceUrl: 'https://bokcenter.harvard.edu/backward-design'
-    };
+    return getFallbackSyllabus(discipline);
+  } catch (error) {
+    console.error('Tier 3 error:', error);
+    return getFallbackSyllabus(discipline);
   }
+}
 
-  // Fallback basic structure
+function getFallbackSyllabus(discipline: string) {
   return {
     modules: [
       { title: `Week 1: Foundations of ${discipline}`, tag: 'Theory', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
@@ -227,7 +275,7 @@ async function generateTier3Syllabus(discipline: string, apiKey: string) {
       { title: 'Week 3: Application Methods', tag: 'Application', source: 'Harvard Framework' },
       { title: 'Week 4: Practice & Analysis', tag: 'Application', source: 'Harvard Framework' },
       { title: 'Week 5: Advanced Techniques', tag: 'Application', source: 'Harvard Framework' },
-      { title: 'Week 6: Integration', tag: 'Synthesis', source: 'Harvard Framework' },
+      { title: 'Week 6: Integration & Synthesis', tag: 'Synthesis', source: 'Harvard Framework' },
     ],
     source: 'AI-generated using Harvard Backward Design Framework',
     sourceUrl: 'https://bokcenter.harvard.edu/backward-design'
