@@ -112,15 +112,15 @@ export const ProgressiveDisclosure = () => {
   }
 
   return (
-    <div className="border overflow-hidden" style={{ maxHeight: '600px' }}>
+    <div className="border overflow-hidden h-[600px]">
       <div className="flex gap-0 overflow-x-auto h-full">
         {levels.map((levelData, levelIndex) => (
           <div
             key={levelIndex}
-            className="flex-shrink-0 border-r border-border last:border-r-0 flex flex-col"
+            className="flex-shrink-0 border-r border-border last:border-r-0 flex flex-col h-full"
             style={{ minWidth: '250px', maxWidth: '250px' }}
           >
-            <div className="px-4 py-3 bg-muted font-medium text-sm border-b border-border sticky top-0 z-10">
+            <div className="px-4 py-3 bg-muted font-medium text-sm border-b border-border flex-shrink-0">
               {levelIndex === 0 ? "Domain" : `Level ${levelIndex + 1}`}
             </div>
             <div className="divide-y divide-border overflow-y-auto flex-1">
