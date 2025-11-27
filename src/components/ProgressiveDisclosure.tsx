@@ -112,7 +112,7 @@ export const ProgressiveDisclosure = () => {
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden" style={{ maxHeight: '600px' }}>
+    <div className="border overflow-hidden" style={{ maxHeight: '600px' }}>
       <div className="flex gap-0 overflow-x-auto h-full">
         {levels.map((levelData, levelIndex) => (
           <div
