@@ -25,6 +25,11 @@ interface StepResources {
     snippet: string;
     focusHighlight: string;
     favicon?: string;
+    specificReadings?: Array<{
+      citation: string;
+      url: string;
+      type: 'pdf' | 'article' | 'chapter' | 'external';
+    }>;
   } | null;
   
   book: {
@@ -189,12 +194,24 @@ Return a JSON object with these fields:
   },
   
   "deepReading": {
-    "url": "Article/PDF URL or readings page URL (prefer /pages/readings/ for MIT OCW)",
+    "url": "Main readings page URL (prefer /pages/readings/ for MIT OCW)",
     "domain": "mit.edu",
     "title": "Course/Article title",
-    "snippet": "Specific reading citation (e.g., 'Rosenzweig chapters 14-15, Gazzaniga chapter 8')",
-    "focusHighlight": "Exact reading assignment (book, chapter, article, page ranges)",
-    "favicon": "Optional favicon URL"
+    "snippet": "Brief description of readings for this topic",
+    "focusHighlight": "Summary of what to focus on",
+    "favicon": "Optional favicon URL",
+    "specificReadings": [
+      {
+        "citation": "Kanwisher, N. (2010). Functional specificity in the human brain...",
+        "url": "https://direct-link-to-pdf.pdf",
+        "type": "pdf"
+      },
+      {
+        "citation": "Gazzaniga, M.S., Ivry, R.B. & Mangun, G.R. Cognitive Neuroscience, Chapters 2-3",
+        "url": "https://link-if-available-or-empty-string",
+        "type": "chapter"
+      }
+    ]
   },
   
   "book": {
@@ -221,8 +238,10 @@ Return a JSON object with these fields:
 IMPORTANT INSTRUCTIONS:
 - For MIT OCW sources: ALWAYS use /pages/readings/ URLs (not /pages/syllabus/)
 - Extract SPECIFIC reading assignments from the readings page (author, book title, chapters, page ranges)
-- Format citations properly (e.g., "Rosenzweig chapters 14-15" or "Mackay, Donald M. The Bankruptcy of Determinism. New Scientist 2 (1970): 24-26")
-- For deepReading snippet and focusHighlight: include exact citations, not generic summaries
+- When the readings page has DIRECT LINKS to PDFs or articles, include them in deepReading.specificReadings array
+- Each specificReading should have: citation (full bibliographic reference), url (direct link if available, empty string if not), type (pdf/article/chapter/external)
+- Format citations properly (e.g., "Kanwisher, N. (2010). Functional specificity..." or "Gazzaniga et al., Chapters 2-3")
+- If no direct links are available for readings, include them in focusHighlight but omit from specificReadings
 
 Return ONLY the JSON object, no markdown formatting, no explanations.`;
 
