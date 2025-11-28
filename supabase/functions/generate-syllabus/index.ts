@@ -160,6 +160,33 @@ serve(async (req) => {
         // Weave in capstone milestones
         modules = weaveCapstoneCheckpoints(modules, discipline);
 
+        // Cache the result in community_syllabi (unless regenerating with selected sources)
+        if (!selectedSourceUrls) {
+          try {
+            console.log('[Cache Save] Upserting to community_syllabi...');
+            const { error: upsertError } = await supabase
+              .from('community_syllabi')
+              .upsert({
+                discipline,
+                discipline_path: null, // Will be set from frontend when available
+                modules,
+                raw_sources: rawSources,
+                source: syllabusSource
+              }, { 
+                onConflict: 'discipline' 
+              });
+
+            if (upsertError) {
+              console.error('[Cache Save] Failed to upsert:', upsertError);
+            } else {
+              console.log('[Cache Save] Successfully cached for future users');
+            }
+          } catch (cacheError) {
+            console.error('[Cache Save] Exception:', cacheError);
+            // Don't fail the request if caching fails
+          }
+        }
+
         return new Response(
           JSON.stringify({ 
             discipline,
@@ -167,6 +194,7 @@ serve(async (req) => {
             source: syllabusSource,
             sourceUrl,
             rawSources,
+            fromCache: false,
             timestamp: new Date().toISOString()
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -221,6 +249,7 @@ serve(async (req) => {
       source: syllabusSource,
       sourceUrl,
       rawSources,
+      fromCache: false,
       timestamp: new Date().toISOString()
     };
 
