@@ -386,11 +386,11 @@ async function extractFullSyllabus(source: DiscoveredSource, discipline: string,
         messages: [
           {
             role: 'system',
-            content: 'You are a syllabus parser. Extract ALL modules, weeks, units, and topics from a syllabus. Return complete JSON only.'
+            content: 'You are a syllabus parser. Extract ALL topics from a syllabus and organize them into modules with multiple steps per module. NEVER use "Week" terminology - always use "Module". Return complete JSON only.'
           },
           {
             role: 'user',
-            content: `Extract EVERY module, unit, and topic from this syllabus content.
+            content: `Extract EVERY topic from this syllabus and organize into modules with 3-5 steps each.
 
 Source: ${source.institution} - ${source.courseName}
 URL: ${source.url}
@@ -399,21 +399,29 @@ Topic: ${discipline}
 Syllabus Content:
 ${source.content}
 
-Extract ALL modules/units/steps. Group them by logical modules. Return ONLY valid JSON:
+CRITICAL REQUIREMENTS:
+1. ALWAYS use "Module" terminology (NEVER "Week")
+2. Group related topics into logical modules
+3. Each module should contain 3-5 steps
+4. Use format: "Module X - Step Y: Topic"
+
+Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Module 1 - Step 1: [Exact topic from syllabus]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 1 - Step 2: [Exact topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 2 - Step 1: [Exact topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"}
+    {"title": "Module 1 - Step 1: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 1 - Step 2: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 1 - Step 3: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 2 - Step 1: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 2 - Step 2: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"}
   ]
 }
 
-Use "Module X - Step Y" format. Group related topics into modules. Include EVERY topic from the syllabus. Return ONLY the JSON, no other text.`
+Include ALL topics organized into modules with multiple steps each. Return ONLY the JSON, no other text.`
           }
         ],
         temperature: 0.1,
-        max_tokens: 8000, // High limit to capture all modules
+        max_tokens: 8000,
       }),
     });
 
@@ -478,10 +486,11 @@ REQUIREMENTS:
 1. Include ALL unique topics from all syllabi
 2. Organize logically into modules: Foundations → Core Concepts → Advanced Topics
 3. Remove duplicates but preserve all unique content
-4. Use "Module X - Step Y" format (e.g., "Module 1 - Step 1: Introduction")
-5. Group related steps within each module
+4. Use "Module X - Step Y" format (NEVER "Week")
+5. Group 3-5 related steps within each module
 6. Aim for ${Math.max(...extractions.map(e => e.modules.length))} or more steps
 7. Attribute each step to its source institution
+8. ONLY reference sources from the discovered list (no phantom sources)
 
 Return ONLY valid JSON:
 
@@ -489,12 +498,14 @@ Return ONLY valid JSON:
   "modules": [
     {"title": "Module 1 - Step 1: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
     {"title": "Module 1 - Step 2: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
+    {"title": "Module 1 - Step 3: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
     {"title": "Module 2 - Step 1: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
-    ...more steps (include ALL unique topics organized into logical modules)
+    {"title": "Module 2 - Step 2: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
+    ...more steps (include ALL unique topics with 3-5 steps per module)
   ]
 }
 
-Return ONLY the JSON with the comprehensive merged syllabus. Include as many modules as possible.`
+Return ONLY the JSON with the comprehensive merged syllabus with multiple steps per module.`
           }
         ],
         temperature: 0.2,
@@ -588,21 +599,24 @@ ${isPhilosophy ? `
 2. Find an actual syllabus/reading list (NOT hypothetical)
 3. Extract the real structure with specific topics/readings
 4. Include exact URLs to each source
-5. Use "Module X - Step Y" format for organization
-6. Return at least 6 steps grouped into logical modules
+5. Use "Module X - Step Y" format (NEVER "Week")
+6. Group 3-5 related steps within each module
+7. Return at least 10 steps organized into logical modules
 
 Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Module 1 - Step 1: [EXACT topic/reading from the actual source]", "tag": "Theory", "source": "[Institution name from list above]", "sourceUrl": "https://[full-url-to-verify]"},
-    {"title": "Module 1 - Step 2: [EXACT topic/reading]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"},
-    {"title": "Module 2 - Step 1: [EXACT topic/reading]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"}
+    {"title": "Module 1 - Step 1: [EXACT topic from source]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "https://[full-url]"},
+    {"title": "Module 1 - Step 2: [EXACT topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "https://[full-url]"},
+    {"title": "Module 1 - Step 3: [EXACT topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "https://[full-url]"},
+    {"title": "Module 2 - Step 1: [EXACT topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "https://[full-url]"},
+    {"title": "Module 2 - Step 2: [EXACT topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "https://[full-url]"}
   ],
   "sourceUrl": "https://[main-source-url]"
 }
 
-Return ONLY the JSON, no other text. The source MUST be from the authoritative list above.`
+Return ONLY the JSON with 3-5 steps per module. The source MUST be from the authoritative list above.`
           }
         ],
         temperature: 0.1,
@@ -692,22 +706,24 @@ async function searchTier2Syllabus(discipline: string, apiKey: string) {
 **INSTRUCTIONS:**
 1. Find 2-3 real courses from the platforms above
 2. Extract their actual syllabus structures
-3. Aggregate into 6-8 coherent steps grouped into logical modules
-4. Use "Module X - Step Y" format for organization
+3. Aggregate into 10+ coherent steps with 3-5 steps per module
+4. Use "Module X - Step Y" format (NEVER "Week")
 5. Include exact URLs to verify each source
 
 Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Module 1 - Step 1: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"},
-    {"title": "Module 1 - Step 2: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"},
-    {"title": "Module 2 - Step 1: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"}
+    {"title": "Module 1 - Step 1: [Topic]", "tag": "Theory", "source": "[Platform]", "sourceUrl": "https://[url]"},
+    {"title": "Module 1 - Step 2: [Topic]", "tag": "Theory", "source": "[Platform]", "sourceUrl": "https://[url]"},
+    {"title": "Module 1 - Step 3: [Topic]", "tag": "Theory", "source": "[Platform]", "sourceUrl": "https://[url]"},
+    {"title": "Module 2 - Step 1: [Topic]", "tag": "Theory", "source": "[Platform]", "sourceUrl": "https://[url]"},
+    {"title": "Module 2 - Step 2: [Topic]", "tag": "Theory", "source": "[Platform]", "sourceUrl": "https://[url]"}
   ],
-  "aggregatedFrom": ["https://www.coursera.org/course1", "https://www.edx.org/course2", "https://oercommons.org/course3"]
+  "aggregatedFrom": ["https://www.coursera.org/course1", "https://www.edx.org/course2"]
 }
 
-Find real courses with actual content. Include URLs. Return ONLY the JSON, no other text.`
+Find real courses with actual content. Group 3-5 steps per module. Return ONLY the JSON, no other text.`
           }
         ],
         temperature: 0.1,

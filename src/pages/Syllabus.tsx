@@ -51,6 +51,7 @@ const Syllabus = () => {
   const [selectedSources, setSelectedSources] = useState<Set<number>>(new Set());
   const [regenerating, setRegenerating] = useState(false);
   const [originalSources, setOriginalSources] = useState<DiscoveredSource[]>([]);
+  const [expandedModuleGroups, setExpandedModuleGroups] = useState<Set<number>>(new Set([1])); // First module open by default
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -261,6 +262,16 @@ const Syllabus = () => {
       newExpanded.add(index);
     }
     setExpandedModules(newExpanded);
+  };
+
+  const toggleModuleGroup = (moduleNumber: number) => {
+    const newExpanded = new Set(expandedModuleGroups);
+    if (newExpanded.has(moduleNumber)) {
+      newExpanded.delete(moduleNumber);
+    } else {
+      newExpanded.add(moduleNumber);
+    }
+    setExpandedModuleGroups(newExpanded);
   };
 
   const toggleSourceContent = (index: number) => {
@@ -672,93 +683,105 @@ const Syllabus = () => {
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
                 {parseModuleGroups(syllabusData.modules).map((moduleGroup) => (
-                  <div key={moduleGroup.moduleNumber} className="space-y-2">
-                    {/* Module Header */}
-                    <div className="bg-muted/50 border-l-4 border-l-primary p-3">
-                      <h3 className="font-bold text-lg">{moduleGroup.moduleName}</h3>
-                    </div>
+                  <Collapsible 
+                    key={moduleGroup.moduleNumber}
+                    open={expandedModuleGroups.has(moduleGroup.moduleNumber)}
+                    onOpenChange={() => toggleModuleGroup(moduleGroup.moduleNumber)}
+                  >
+                    {/* Module Header - Collapsible Trigger */}
+                    <CollapsibleTrigger asChild>
+                      <button className="w-full bg-muted/50 border-l-4 border-l-primary p-4 flex items-center justify-between hover:bg-muted transition-colors">
+                        <h3 className="font-bold text-lg text-left">{moduleGroup.moduleName}</h3>
+                        <ChevronDown className={cn(
+                          "h-5 w-5 text-muted-foreground transition-transform",
+                          expandedModuleGroups.has(moduleGroup.moduleNumber) && "rotate-180"
+                        )} />
+                      </button>
+                    </CollapsibleTrigger>
                     
-                    {/* Steps within the module */}
-                    <div className="space-y-2 ml-4">
-                      {moduleGroup.steps.map((step) => {
-                        const sourceType = originalSources.find(s => s.url === step.sourceUrl)?.type || 
-                                         syllabusData.rawSources?.find(s => s.url === step.sourceUrl)?.type || '';
-                        const domainName = step.sourceUrl ? getDomainShortName(step.sourceUrl) : step.source;
-                        
-                        return (
-                          <div
-                            key={step.originalIndex}
-                            className={cn(
-                              "border overflow-hidden transition-all",
-                              step.isCapstone && "bg-accent/10 border-accent"
-                            )}
-                          >
-                            <button
-                              onClick={() => toggleModule(step.originalIndex)}
+                    {/* Steps within the module - Collapsible Content */}
+                    <CollapsibleContent>
+                      <div className="space-y-2 ml-4 mt-2">
+                        {moduleGroup.steps.map((step) => {
+                          const sourceType = originalSources.find(s => s.url === step.sourceUrl)?.type || 
+                                           syllabusData.rawSources?.find(s => s.url === step.sourceUrl)?.type || '';
+                          const domainName = step.sourceUrl ? getDomainShortName(step.sourceUrl) : step.source;
+                          
+                          return (
+                            <div
+                              key={step.originalIndex}
                               className={cn(
-                                "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left",
-                                step.tag === "Capstone Integration" && "border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
+                                "border overflow-hidden transition-all",
+                                step.isCapstone && "bg-accent/10 border-accent"
                               )}
                             >
-                              <div className="flex-1">
-                                <div className="flex items-center gap-3 mb-1">
-                                  {step.tag === "Capstone Integration" && (
-                                    <span className="text-xl">🏛️</span>
-                                  )}
-                                  <h4 className="font-semibold">Step {step.stepNumber}: {step.stepTitle}</h4>
-                                  <span className={cn(
-                                    "text-xs px-2 py-1",
-                                    step.tag === "Capstone Integration" 
-                                      ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
-                                      : "bg-muted text-muted-foreground"
-                                  )}>
-                                    {step.tag}
-                                  </span>
-                                  {/* Source badge with color matching pills */}
-                                  <span className={cn(
-                                    "text-xs px-2 py-1 inline-flex items-center gap-1",
-                                    getSourceColor(sourceType)
-                                  )}>
-                                    {domainName}
-                                  </span>
-                                </div>
-                                {step.sourceUrl && (
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <a
-                                      href={step.sourceUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-primary hover:underline inline-flex items-center gap-1"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      View Source
-                                      <ExternalLink className="h-3 w-3" />
-                                    </a>
-                                  </div>
+                              <button
+                                onClick={() => toggleModule(step.originalIndex)}
+                                className={cn(
+                                  "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left",
+                                  step.tag === "Capstone Integration" && "border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
                                 )}
-                              </div>
-                              <ChevronRight className={cn(
-                                "h-5 w-5 text-muted-foreground transition-transform",
-                                expandedModules.has(step.originalIndex) && "rotate-90"
-                              )} />
-                            </button>
-                            
-                            {expandedModules.has(step.originalIndex) && (
-                              <div className="px-4 pb-4 border-t bg-muted/20">
-                                <div className="pt-4 text-sm text-muted-foreground">
-                                  {step.isCapstone ? (
-                                    <p>This is a project milestone where you'll apply what you've learned to your capstone project.</p>
-                                  ) : (
-                                    <p>Detailed content and resources will be populated after you approve this structure.</p>
+                              >
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-3 mb-1">
+                                    {step.tag === "Capstone Integration" && (
+                                      <span className="text-xl">🏛️</span>
+                                    )}
+                                    <h4 className="font-semibold">Step {step.stepNumber}: {step.stepTitle}</h4>
+                                    <span className={cn(
+                                      "text-xs px-2 py-1",
+                                      step.tag === "Capstone Integration" 
+                                        ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
+                                        : "bg-muted text-muted-foreground"
+                                    )}>
+                                      {step.tag}
+                                    </span>
+                                    {/* Source badge with color matching pills */}
+                                    <span className={cn(
+                                      "text-xs px-2 py-1 inline-flex items-center gap-1",
+                                      getSourceColor(sourceType)
+                                    )}>
+                                      {domainName}
+                                    </span>
+                                  </div>
+                                  {step.sourceUrl && (
+                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                      <a
+                                        href={step.sourceUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline inline-flex items-center gap-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        View Source
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    </div>
                                   )}
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                                <ChevronRight className={cn(
+                                  "h-5 w-5 text-muted-foreground transition-transform",
+                                  expandedModules.has(step.originalIndex) && "rotate-90"
+                                )} />
+                              </button>
+                              
+                              {expandedModules.has(step.originalIndex) && (
+                                <div className="px-4 pb-4 border-t bg-muted/20">
+                                  <div className="pt-4 text-sm text-muted-foreground">
+                                    {step.isCapstone ? (
+                                      <p>This is a project milestone where you'll apply what you've learned to your capstone project.</p>
+                                    ) : (
+                                      <p>Click "Generate Resources" above to populate this step with curated learning materials.</p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CollapsibleContent>
+                   </Collapsible>
                 ))}
               </div>
 
