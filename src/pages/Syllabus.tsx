@@ -50,6 +50,7 @@ const Syllabus = () => {
   const [isSaved, setIsSaved] = useState(false);
   const [selectedSources, setSelectedSources] = useState<Set<number>>(new Set());
   const [regenerating, setRegenerating] = useState(false);
+  const [originalSources, setOriginalSources] = useState<DiscoveredSource[]>([]);
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -63,9 +64,13 @@ const Syllabus = () => {
     }
   }, [discipline, savedId]);
 
-  // Initialize all sources as selected when syllabus data loads
+  // Initialize all sources as selected when syllabus data loads and store original sources
   useEffect(() => {
     if (syllabusData?.rawSources) {
+      // Store original sources only on first load
+      if (originalSources.length === 0) {
+        setOriginalSources(syllabusData.rawSources);
+      }
       setSelectedSources(new Set(syllabusData.rawSources.map((_, idx) => idx)));
     }
   }, [syllabusData?.rawSources]);
@@ -127,7 +132,11 @@ const Syllabus = () => {
 
       if (error) throw error;
 
-      setSyllabusData(data);
+      // Preserve original sources when regenerating
+      setSyllabusData({
+        ...data,
+        rawSources: originalSources.length > 0 ? originalSources : data.rawSources
+      });
       
       if (isRegenerating) {
         toast({
@@ -182,8 +191,9 @@ const Syllabus = () => {
   };
 
   const selectAllSources = () => {
-    if (syllabusData?.rawSources) {
-      setSelectedSources(new Set(syllabusData.rawSources.map((_, idx) => idx)));
+    const sourcesToUse = originalSources.length > 0 ? originalSources : syllabusData?.rawSources;
+    if (sourcesToUse) {
+      setSelectedSources(new Set(sourcesToUse.map((_, idx) => idx)));
     }
   };
 
@@ -192,7 +202,8 @@ const Syllabus = () => {
   };
 
   const regenerateWithSelectedSources = async () => {
-    if (!syllabusData?.rawSources || selectedSources.size === 0) {
+    const sourcesToUse = originalSources.length > 0 ? originalSources : syllabusData?.rawSources;
+    if (!sourcesToUse || selectedSources.size === 0) {
       toast({
         title: "No Sources Selected",
         description: "Please select at least one source to regenerate the syllabus.",
@@ -202,7 +213,7 @@ const Syllabus = () => {
     }
 
     const selectedUrls = Array.from(selectedSources)
-      .map(idx => syllabusData.rawSources?.[idx]?.url)
+      .map(idx => sourcesToUse[idx]?.url)
       .filter(Boolean) as string[];
 
     await generateSyllabus(selectedUrls);
@@ -346,40 +357,42 @@ const Syllabus = () => {
               </div>
 
               {/* Source Syllabi Section */}
-              {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
-                <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
-                  <CollapsibleTrigger asChild>
-                    <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">Source Syllabi</h3>
-                        <span className="text-sm text-muted-foreground">
-                          ({syllabusData.rawSources.length})
-                        </span>
-                      </div>
-                      <ChevronDown className={cn(
-                        "h-5 w-5 text-muted-foreground transition-transform",
-                        sourcesOpen && "rotate-180"
-                      )} />
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="border border-t-0 p-4 bg-muted/20">
-                      <div className="flex items-center justify-between mb-4 pb-3 border-b">
-                        <div className="flex items-center gap-3">
-                          <Checkbox
-                            checked={selectedSources.size === syllabusData.rawSources.length}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                selectAllSources();
-                              } else {
-                                deselectAllSources();
-                              }
-                            }}
-                          />
-                          <span className="text-sm font-medium">
-                            Select All ({selectedSources.size}/{syllabusData.rawSources.length})
+              {((originalSources.length > 0) || (syllabusData.rawSources && syllabusData.rawSources.length > 0)) && (() => {
+                const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
+                return (
+                  <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
+                    <CollapsibleTrigger asChild>
+                      <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold">Source Syllabi</h3>
+                          <span className="text-sm text-muted-foreground">
+                            ({sourcesToDisplay.length})
                           </span>
                         </div>
+                        <ChevronDown className={cn(
+                          "h-5 w-5 text-muted-foreground transition-transform",
+                          sourcesOpen && "rotate-180"
+                        )} />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="border border-t-0 p-4 bg-muted/20">
+                        <div className="flex items-center justify-between mb-4 pb-3 border-b">
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={selectedSources.size === sourcesToDisplay.length}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  selectAllSources();
+                                } else {
+                                  deselectAllSources();
+                                }
+                              }}
+                            />
+                            <span className="text-sm font-medium">
+                              Select All ({selectedSources.size}/{sourcesToDisplay.length})
+                            </span>
+                          </div>
                         <Button
                           onClick={regenerateWithSelectedSources}
                           disabled={regenerating || selectedSources.size === 0}
@@ -395,11 +408,11 @@ const Syllabus = () => {
                           )}
                         </Button>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Select which sources to include in the syllabus generation:
-                      </p>
-                      <div className="space-y-3">
-                        {syllabusData.rawSources.map((source, idx) => (
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Select which sources to include in the syllabus generation:
+                        </p>
+                        <div className="space-y-3">
+                          {sourcesToDisplay.map((source, idx) => (
                           <div key={idx} className="border bg-background">
                             <div className="p-3">
                               <div className="flex items-start gap-3">
@@ -438,38 +451,41 @@ const Syllabus = () => {
                             </div>
                             
                             {/* Embedded Content Section */}
-                            {source.content && (
-                              <Collapsible 
-                                open={expandedSourceContent.has(idx)} 
-                                onOpenChange={() => toggleSourceContent(idx)}
-                              >
-                                <CollapsibleTrigger asChild>
-                                  <button className="w-full border-t p-3 flex items-center justify-between hover:bg-muted/30 transition-colors text-sm">
-                                    <span className="font-medium">View Original Syllabus Content</span>
-                                    <ChevronDown className={cn(
-                                      "h-4 w-4 text-muted-foreground transition-transform",
-                                      expandedSourceContent.has(idx) && "rotate-180"
-                                    )} />
-                                  </button>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                  <div className="border-t p-4 bg-muted/10 max-h-96 overflow-y-auto">
+                            <Collapsible 
+                              open={expandedSourceContent.has(idx)} 
+                              onOpenChange={() => toggleSourceContent(idx)}
+                            >
+                              <CollapsibleTrigger asChild>
+                                <button className="w-full border-t p-3 flex items-center justify-between hover:bg-muted/30 transition-colors text-sm">
+                                  <span className="font-medium">View Original Syllabus Content</span>
+                                  <ChevronDown className={cn(
+                                    "h-4 w-4 text-muted-foreground transition-transform",
+                                    expandedSourceContent.has(idx) && "rotate-180"
+                                  )} />
+                                </button>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <div className="border-t p-4 bg-muted/10 max-h-96 overflow-y-auto">
+                                  {source.content ? (
                                     <div className="prose prose-sm dark:prose-invert max-w-none">
                                       <pre className="whitespace-pre-wrap text-xs leading-relaxed font-mono">
                                         {source.content}
                                       </pre>
                                     </div>
-                                  </div>
-                                </CollapsibleContent>
-                              </Collapsible>
-                            )}
+                                  ) : (
+                                    <p className="text-sm text-muted-foreground italic">No Syllabus content could be identified.</p>
+                                  )}
+                                </div>
+                              </CollapsibleContent>
+                            </Collapsible>
                           </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })()}
 
               {/* Module Sources (kept for backward compatibility) */}
               {(!syllabusData.rawSources || syllabusData.rawSources.length === 0) && (
