@@ -117,6 +117,9 @@ serve(async (req) => {
         syllabusSource = `Comprehensive syllabus merged from ${validExtractions.length} authoritative source(s)`;
         sourceUrl = validExtractions[0].source.url;
         
+        // Deduplicate modules to remove duplicates
+        modules = deduplicateModules(modules);
+        
         // Ensure ALL discovered sources appear in final syllabus
         modules = ensureAllSourcesAppear(modules, sourcesWithContent);
         
@@ -380,16 +383,21 @@ Return the full syllabus text exactly as it appears on the source page. Include 
     
     // Detect verbose AI responses that indicate no real content was found
     const noContentIndicators = [
+      "I apologize",
       "I appreciate your request",
       "I need to clarify",
       "I cannot provide",
-      "search results provided contain only partial",
-      "does not contain the complete",
+      "I cannot extract",
       "I'm unable to",
+      "search results provided contain",
+      "does not contain the complete",
       "not available in the search results",
       "couldn't find",
-      "cannot access the full content",
-      "don't have access to"
+      "cannot access",
+      "don't have access",
+      "To obtain the complete",
+      "Visit the URL directly",
+      "would need to"
     ];
     
     const hasNoRealContent = noContentIndicators.some(indicator => 
@@ -398,7 +406,7 @@ Return the full syllabus text exactly as it appears on the source page. Include 
     
     if (hasNoRealContent) {
       console.log(`[Content Fetch] ⚠ No real content found for ${url}`);
-      return ''; // Return empty string for verbose AI explanations
+      return '[[EXTRACTION_FAILED]]'; // Return marker for frontend handling
     }
     
     if (content) {
@@ -599,6 +607,49 @@ Return ONLY the JSON preserving original progression with multiple steps per mod
     // Fallback: concatenate all modules
     return extractions.flatMap(e => e.modules);
   }
+}
+
+// Post-processing function to deduplicate modules by title
+function deduplicateModules(modules: Module[]): Module[] {
+  console.log('[Deduplication] Checking for duplicate steps...');
+  
+  const seen = new Map<string, Module>();
+  let duplicatesRemoved = 0;
+  
+  modules.forEach(module => {
+    // Normalize title for comparison (lowercase, remove "Module X - Step Y:" prefix)
+    const normalizedTitle = module.title
+      .replace(/^Module\s+\d+\s*-?\s*Step\s+\d+:\s*/i, '')
+      .replace(/^Step\s+\d+:\s*/i, '')
+      .replace(/^Week\s+\d+:\s*/i, '')
+      .toLowerCase()
+      .trim();
+    
+    if (seen.has(normalizedTitle)) {
+      // Duplicate found - merge sourceUrls
+      const existing = seen.get(normalizedTitle)!;
+      const newUrls = module.sourceUrls || (module.sourceUrl ? [module.sourceUrl] : []);
+      const existingUrls = existing.sourceUrls || (existing.sourceUrl ? [existing.sourceUrl] : []);
+      existing.sourceUrls = [...new Set([...existingUrls, ...newUrls])];
+      duplicatesRemoved++;
+    } else {
+      // New topic - add to map
+      const moduleClone = { ...module };
+      // Ensure sourceUrls array is populated
+      if (!moduleClone.sourceUrls && moduleClone.sourceUrl) {
+        moduleClone.sourceUrls = [moduleClone.sourceUrl];
+      }
+      seen.set(normalizedTitle, moduleClone);
+    }
+  });
+  
+  if (duplicatesRemoved > 0) {
+    console.log(`[Deduplication] ✓ Removed ${duplicatesRemoved} duplicate step(s)`);
+  } else {
+    console.log('[Deduplication] ✓ No duplicates found');
+  }
+  
+  return Array.from(seen.values());
 }
 
 // Post-processing function to ensure ALL discovered sources appear in final syllabus

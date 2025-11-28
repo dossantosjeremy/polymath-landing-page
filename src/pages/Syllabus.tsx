@@ -720,7 +720,14 @@ const Syllabus = () => {
                           Select which sources to include in the syllabus generation:
                         </p>
                         <div className="space-y-3">
-                          {sourcesToDisplay.map((source, idx) => (
+                          {sourcesToDisplay.map((source, idx) => {
+                            // Calculate how many times this source appears in the final syllabus
+                            const usageCount = syllabusData.modules.filter(m => {
+                              const urls = m.sourceUrls || (m.sourceUrl ? [m.sourceUrl] : []);
+                              return urls.includes(source.url);
+                            }).length;
+                            
+                            return (
                           <div key={idx} className="border bg-background">
                             <div className="p-3">
                               <div className="flex items-start gap-3">
@@ -730,7 +737,7 @@ const Syllabus = () => {
                                   className="mt-1"
                                 />
                                 <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
+                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                                     <span className="font-semibold">{source.courseName}</span>
                                     <span className={cn(
                                       "text-xs px-2 py-0.5 font-medium",
@@ -743,6 +750,11 @@ const Syllabus = () => {
                                     )}>
                                       {source.type}
                                     </span>
+                                    {usageCount > 0 && (
+                                      <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                        ✓ Used in {usageCount} step{usageCount !== 1 ? 's' : ''}
+                                      </span>
+                                    )}
                                   </div>
                                   <p className="text-sm text-muted-foreground">{source.institution}</p>
                                   <a
@@ -774,20 +786,32 @@ const Syllabus = () => {
                               </CollapsibleTrigger>
                               <CollapsibleContent>
                                 <div className="border-t p-4 bg-muted/10 max-h-96 overflow-y-auto">
-                                  {source.content ? (
+                                  {source.content && source.content !== '[[EXTRACTION_FAILED]]' ? (
                                     <div className="prose prose-sm dark:prose-invert max-w-none">
                                       <pre className="whitespace-pre-wrap text-xs leading-relaxed font-mono">
                                         {source.content}
                                       </pre>
                                     </div>
                                   ) : (
-                                    <p className="text-sm text-muted-foreground italic">No Syllabus content could be identified.</p>
+                                    <div className="text-sm text-muted-foreground space-y-2">
+                                      <p className="italic">Original syllabus content could not be automatically extracted.</p>
+                                      <a 
+                                        href={source.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline inline-flex items-center gap-1"
+                                      >
+                                        <ExternalLink className="h-3 w-3" /> View original source directly
+                                      </a>
+                                      <p className="text-xs">Note: This source is still being used to inform the generated syllabus structure.</p>
+                                    </div>
                                   )}
                                 </div>
                               </CollapsibleContent>
                             </Collapsible>
                           </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     </CollapsibleContent>
