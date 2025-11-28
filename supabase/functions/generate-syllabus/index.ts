@@ -327,6 +327,29 @@ Return the full syllabus text exactly as it appears on the source page. Include 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
     
+    // Detect verbose AI responses that indicate no real content was found
+    const noContentIndicators = [
+      "I appreciate your request",
+      "I need to clarify",
+      "I cannot provide",
+      "search results provided contain only partial",
+      "does not contain the complete",
+      "I'm unable to",
+      "not available in the search results",
+      "couldn't find",
+      "cannot access the full content",
+      "don't have access to"
+    ];
+    
+    const hasNoRealContent = noContentIndicators.some(indicator => 
+      content.toLowerCase().includes(indicator.toLowerCase())
+    );
+    
+    if (hasNoRealContent) {
+      console.log(`[Content Fetch] ⚠ No real content found for ${url}`);
+      return ''; // Return empty string for verbose AI explanations
+    }
+    
     if (content) {
       console.log(`[Content Fetch] ✓ Fetched ${content.length} characters from ${url}`);
     }
