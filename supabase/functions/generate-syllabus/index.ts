@@ -380,7 +380,7 @@ async function extractFullSyllabus(source: DiscoveredSource, discipline: string,
           },
           {
             role: 'user',
-            content: `Extract EVERY module, week, unit, and topic from this syllabus content.
+            content: `Extract EVERY module, unit, and topic from this syllabus content.
 
 Source: ${source.institution} - ${source.courseName}
 URL: ${source.url}
@@ -389,16 +389,17 @@ Topic: ${discipline}
 Syllabus Content:
 ${source.content}
 
-Extract ALL modules/weeks/units. Do not skip any. Return ONLY valid JSON:
+Extract ALL modules/units/steps. Group them by logical modules. Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week/Unit 1: [Exact topic from syllabus]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Week/Unit 2: [Exact topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"}
+    {"title": "Module 1 - Step 1: [Exact topic from syllabus]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 1 - Step 2: [Exact topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 2 - Step 1: [Exact topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"}
   ]
 }
 
-Include EVERY module from the syllabus. Return ONLY the JSON, no other text.`
+Use "Module X - Step Y" format. Group related topics into modules. Include EVERY topic from the syllabus. Return ONLY the JSON, no other text.`
           }
         ],
         temperature: 0.1,
@@ -465,17 +466,21 @@ ${syllabusDescriptions}
 
 REQUIREMENTS:
 1. Include ALL unique topics from all syllabi
-2. Organize logically: Foundations → Core Concepts → Advanced Topics
+2. Organize logically into modules: Foundations → Core Concepts → Advanced Topics
 3. Remove duplicates but preserve all unique content
-4. Aim for ${Math.max(...extractions.map(e => e.modules.length))} or more modules
-5. Attribute each module to its source institution
+4. Use "Module X - Step Y" format (e.g., "Module 1 - Step 1: Introduction")
+5. Group related steps within each module
+6. Aim for ${Math.max(...extractions.map(e => e.modules.length))} or more steps
+7. Attribute each step to its source institution
 
 Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week 1: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
-    ...more modules (include ALL unique topics)
+    {"title": "Module 1 - Step 1: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
+    {"title": "Module 1 - Step 2: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
+    {"title": "Module 2 - Step 1: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
+    ...more steps (include ALL unique topics organized into logical modules)
   ]
 }
 
@@ -573,14 +578,16 @@ ${isPhilosophy ? `
 2. Find an actual syllabus/reading list (NOT hypothetical)
 3. Extract the real structure with specific topics/readings
 4. Include exact URLs to each source
-5. Return at least 6 modules/weeks/units
+5. Use "Module X - Step Y" format for organization
+6. Return at least 6 steps grouped into logical modules
 
 Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week/Unit 1: [EXACT topic/reading from the actual source]", "tag": "Theory", "source": "[Institution name from list above]", "sourceUrl": "https://[full-url-to-verify]"},
-    {"title": "Week/Unit 2: [EXACT topic/reading]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"}
+    {"title": "Module 1 - Step 1: [EXACT topic/reading from the actual source]", "tag": "Theory", "source": "[Institution name from list above]", "sourceUrl": "https://[full-url-to-verify]"},
+    {"title": "Module 1 - Step 2: [EXACT topic/reading]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"},
+    {"title": "Module 2 - Step 1: [EXACT topic/reading]", "tag": "Theory", "source": "[Institution name]", "sourceUrl": "https://[full-url]"}
   ],
   "sourceUrl": "https://[main-source-url]"
 }
@@ -675,15 +682,17 @@ async function searchTier2Syllabus(discipline: string, apiKey: string) {
 **INSTRUCTIONS:**
 1. Find 2-3 real courses from the platforms above
 2. Extract their actual syllabus structures
-3. Aggregate into 6-8 coherent modules
-4. Include exact URLs to verify each source
+3. Aggregate into 6-8 coherent steps grouped into logical modules
+4. Use "Module X - Step Y" format for organization
+5. Include exact URLs to verify each source
 
 Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week/Unit 1: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"},
-    {"title": "Week/Unit 2: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"}
+    {"title": "Module 1 - Step 1: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"},
+    {"title": "Module 1 - Step 2: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"},
+    {"title": "Module 2 - Step 1: [Topic from actual course]", "tag": "Theory", "source": "[Platform/Institution name]", "sourceUrl": "https://[full-course-url]"}
   ],
   "aggregatedFrom": ["https://www.coursera.org/course1", "https://www.edx.org/course2", "https://oercommons.org/course3"]
 }
@@ -752,27 +761,25 @@ async function generateTier3Syllabus(discipline: string, apiKey: string) {
           },
           {
             role: 'user',
-            content: `Design a comprehensive 8-week course on "${discipline}" using Harvard Bok Center's Backward Design methodology.
+            content: `Design a comprehensive course on "${discipline}" using Harvard Bok Center's Backward Design methodology.
 
-Structure the course using these phases:
-- Phase 1 (Weeks 1-2): Foundational Concepts - Build core knowledge
-- Phase 2 (Weeks 3-5): Application & Practice - Apply concepts to problems
-- Phase 3 (Weeks 6-8): Synthesis & Integration - Advanced topics and connections
+Structure the course using these phases organized into logical modules and steps:
+- Module 1 (Foundational Concepts): Build core knowledge through 2-3 steps
+- Module 2 (Application & Practice): Apply concepts to problems through 2-3 steps
+- Module 3 (Synthesis & Integration): Advanced topics and connections through 2-3 steps
 
-For each week, create specific, detailed learning topics relevant to ${discipline}.
+For each step, create specific, detailed learning topics relevant to ${discipline}.
 
 Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Week 1: [Specific foundational topic]", "tag": "Theory", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
-    {"title": "Week 2: [Core principles]", "tag": "Theory", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
-    {"title": "Week 3: [Application methods]", "tag": "Application", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
-    {"title": "Week 4: [Practice & analysis]", "tag": "Application", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
-    {"title": "Week 5: [Advanced application]", "tag": "Application", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
-    {"title": "Week 6: [Integration concepts]", "tag": "Synthesis", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
-    {"title": "Week 7: [Synthesis & connections]", "tag": "Synthesis", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
-    {"title": "Week 8: [Advanced synthesis]", "tag": "Synthesis", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"}
+    {"title": "Module 1 - Step 1: [Specific foundational topic]", "tag": "Theory", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
+    {"title": "Module 1 - Step 2: [Core principles]", "tag": "Theory", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
+    {"title": "Module 2 - Step 1: [Application methods]", "tag": "Application", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
+    {"title": "Module 2 - Step 2: [Practice & analysis]", "tag": "Application", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
+    {"title": "Module 3 - Step 1: [Integration concepts]", "tag": "Synthesis", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"},
+    {"title": "Module 3 - Step 2: [Synthesis & connections]", "tag": "Synthesis", "source": "Harvard Framework", "sourceUrl": "https://bokcenter.harvard.edu/backward-design"}
   ]
 }
 
@@ -851,14 +858,14 @@ function extractJSON(text: string): any {
 function getFallbackSyllabus(discipline: string) {
   return {
     modules: [
-      { title: `Week 1: Introduction to ${discipline}`, tag: 'Theory', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
-      { title: `Week 2: Foundational Concepts in ${discipline}`, tag: 'Theory', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
-      { title: 'Week 3: Core Methodologies', tag: 'Application', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
-      { title: 'Week 4: Practical Applications', tag: 'Application', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
-      { title: 'Week 5: Advanced Techniques & Analysis', tag: 'Application', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
-      { title: 'Week 6: Integration & Cross-Disciplinary Connections', tag: 'Synthesis', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
-      { title: 'Week 7: Contemporary Issues & Debates', tag: 'Synthesis', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
-      { title: 'Week 8: Synthesis & Future Directions', tag: 'Synthesis', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
+      { title: `Module 1 - Step 1: Introduction to ${discipline}`, tag: 'Theory', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
+      { title: `Module 1 - Step 2: Foundational Concepts in ${discipline}`, tag: 'Theory', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
+      { title: 'Module 2 - Step 1: Core Methodologies', tag: 'Application', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
+      { title: 'Module 2 - Step 2: Practical Applications', tag: 'Application', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
+      { title: 'Module 3 - Step 1: Advanced Techniques & Analysis', tag: 'Application', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
+      { title: 'Module 3 - Step 2: Integration & Cross-Disciplinary Connections', tag: 'Synthesis', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
+      { title: 'Module 4 - Step 1: Contemporary Issues & Debates', tag: 'Synthesis', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
+      { title: 'Module 4 - Step 2: Synthesis & Future Directions', tag: 'Synthesis', source: 'Harvard Framework', sourceUrl: 'https://bokcenter.harvard.edu/backward-design' },
     ],
     source: 'AI-generated using Harvard Backward Design Framework',
     sourceUrl: 'https://bokcenter.harvard.edu/backward-design'

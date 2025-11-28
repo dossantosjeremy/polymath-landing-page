@@ -69,11 +69,33 @@ const Syllabus = () => {
     if (syllabusData?.rawSources) {
       // Store original sources only on first load
       if (originalSources.length === 0) {
-        setOriginalSources(syllabusData.rawSources);
+        // Merge any sources from modules into rawSources
+        const mergedSources = mergeModuleSources(syllabusData.modules, syllabusData.rawSources);
+        setOriginalSources(mergedSources);
       }
       setSelectedSources(new Set(syllabusData.rawSources.map((_, idx) => idx)));
     }
   }, [syllabusData?.rawSources]);
+
+  // Helper function to merge module sources into discovered sources
+  const mergeModuleSources = (modules: Module[], existingSources: DiscoveredSource[]): DiscoveredSource[] => {
+    const existingUrls = new Set(existingSources.map(s => s.url));
+    const newSources: DiscoveredSource[] = [];
+    
+    modules.forEach(module => {
+      if (module.sourceUrl && !existingUrls.has(module.sourceUrl)) {
+        existingUrls.add(module.sourceUrl);
+        newSources.push({
+          institution: module.source,
+          courseName: 'Referenced in syllabus',
+          url: module.sourceUrl,
+          type: 'Module Source'
+        });
+      }
+    });
+    
+    return [...existingSources, ...newSources];
+  };
 
   const loadSavedSyllabus = async (id: string) => {
     setLoading(true);
@@ -330,31 +352,50 @@ const Syllabus = () => {
             </div>
           ) : syllabusData ? (
             <div className="space-y-6">
-              {/* Source Banner */}
-              <div className="bg-accent/30 border border-accent p-4 flex items-start gap-4">
-                <div className="flex-shrink-0 mt-1">
-                  <div className="h-10 w-10 bg-primary/10 flex items-center justify-center">
-                    <svg className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
+              {/* Source Pills Banner */}
+              {(() => {
+                const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
+                const uniqueSources = Array.from(
+                  new Map(sourcesToDisplay.map(s => [s.url, s])).values()
+                );
+                
+                return (
+                  <div className="bg-accent/30 border border-accent p-4 flex items-start gap-4">
+                    <div className="flex-shrink-0 mt-1">
+                      <div className="h-10 w-10 bg-primary/10 flex items-center justify-center">
+                        <svg className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold mb-2">Curriculum Sources</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {uniqueSources.map((source, idx) => (
+                          <a
+                            key={idx}
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={cn(
+                              "inline-flex items-center gap-1 px-3 py-1 text-sm font-medium transition-colors hover:opacity-80",
+                              source.type === "University OCW" && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]",
+                              source.type === "Great Books Program" && "bg-red-900/20 text-red-900 dark:text-red-300",
+                              source.type === "MOOC Platform" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+                              source.type === "Philosophy Syllabi Collection" && "bg-purple-500/20 text-purple-700 dark:text-purple-300",
+                              source.type === "OER Repository" && "bg-green-500/20 text-green-700 dark:text-green-300",
+                              !["University OCW", "Great Books Program", "MOOC Platform", "Philosophy Syllabi Collection", "OER Repository"].includes(source.type) && "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {source.institution}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold mb-1">Curriculum Source</h3>
-                  <p className="text-sm text-muted-foreground mb-2">{syllabusData.source}</p>
-                  {syllabusData.modules[0]?.sourceUrl && (
-                    <a
-                      href={syllabusData.modules[0].sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-                    >
-                      View Original Source
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )}
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Source Syllabi Section */}
               {((originalSources.length > 0) || (syllabusData.rawSources && syllabusData.rawSources.length > 0)) && (() => {
@@ -423,7 +464,7 @@ const Syllabus = () => {
                                 />
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
-                                    <span className="font-semibold">{source.institution}</span>
+                                    <span className="font-semibold">{source.courseName}</span>
                                     <span className={cn(
                                       "text-xs px-2 py-0.5 font-medium",
                                       source.type === "University OCW" && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]",
@@ -436,7 +477,7 @@ const Syllabus = () => {
                                       {source.type}
                                     </span>
                                   </div>
-                                  <p className="text-sm text-muted-foreground">{source.courseName}</p>
+                                  <p className="text-sm text-muted-foreground">{source.institution}</p>
                                   <a
                                     href={source.url}
                                     target="_blank"
