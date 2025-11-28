@@ -90,46 +90,55 @@ serve(async (req) => {
     const lengthConfig = {
       brief: {
         maxTokens: 1500,
-        instruction: 'Create a concise overview focusing on the essential concepts and key takeaways only. Keep it brief and actionable.'
+        instruction: 'Provide a concise explanation of the core ideas, key arguments, and essential concepts only. Focus on clarity and brevity.'
       },
       standard: {
         maxTokens: 3000,
-        instruction: 'Create a balanced teaching reference covering key concepts, essential details, and practical guidance.'
+        instruction: 'Provide a thorough explanation of the subject matter, including key concepts, important thinkers, main arguments, and relevant historical context.'
       },
       comprehensive: {
         maxTokens: 6000,
-        instruction: 'Create an exhaustive, comprehensive teaching reference including all concepts, historical context, related theories, detailed examples, and extensive guidance.'
+        instruction: 'Provide an exhaustive exploration of the subject matter, including detailed explanations of concepts, extensive historical and intellectual context, related debates, counterarguments, and concrete examples.'
       }
     };
 
     const config = lengthConfig[referenceLength as keyof typeof lengthConfig] || lengthConfig.standard;
 
-    const systemPrompt = `You are an expert educator creating teaching references for self-directed learners. Your role is to synthesize all available information about a learning step into an accurate and pedagogically sound reference document.
+    const systemPrompt = `You are a subject-matter expert delivering lecture notes on this topic. Your role is to explain the ACTUAL CONTENT—the ideas, theories, arguments, historical context, and key thinkers—as if you were teaching the material in a lecture.
 
 LEVEL: ${referenceLength.toUpperCase()}
 ${config.instruction}
 
-CRITICAL REQUIREMENTS:
-1. Write as if speaking directly to a student (use "you" and conversational but authoritative tone)
-2. Include key concepts, theories, and details from the source material
-3. Quote or paraphrase verbatim from source syllabi when explaining core concepts
-4. Include clickable links to all sources mentioned (format as: [Source Name](URL))
-5. Organize content logically with clear sections using markdown headers
-6. Prioritize accuracy and relevance
-7. If source material mentions specific readings, thinkers, theories, or frameworks, include the most important ones
+CRITICAL REQUIREMENTS - WHAT TO INCLUDE:
+1. Write as if delivering a lecture to a student (use "you" and conversational but authoritative tone)
+2. Explain the actual philosophical/scientific/historical IDEAS and ARGUMENTS from the source material
+3. Identify key thinkers and their specific contributions, theories, or positions
+4. Provide historical and intellectual context that illuminates the ideas
+5. Use concrete examples to illustrate abstract concepts
+6. Include clickable links to sources when referencing specific ideas (format as: [Source Name](URL))
+7. Organize content logically with clear sections using markdown headers
+
+CRITICAL REQUIREMENTS - WHAT TO EXCLUDE:
+1. DO NOT discuss course logistics (reading assignments, page counts, weekly schedules)
+2. DO NOT mention grading, participation requirements, or assessment criteria
+3. DO NOT include study tips or "how to approach the material" advice
+4. DO NOT reference "this course" or "this class" or course structure
+5. DO NOT list what the syllabus says—teach what the syllabus is ABOUT
+
+THINK OF THIS AS: "What would a classmate's lecture notes look like?" Focus entirely on the subject matter itself.
 
 OUTPUT FORMAT:
 - Use markdown formatting (headers, lists, bold, links)
-- Start with a brief introduction
-- Present key concepts with citations
-- Link to recommended resources with explanations
-- End with guidance on how to approach the material`;
+- Start with context-setting introduction to the topic
+- Present key ideas, concepts, and arguments with explanations
+- Include relevant thinkers and their contributions
+- Provide examples and historical context where appropriate`;
 
-    const userPrompt = `Create a comprehensive teaching reference for this learning step:
+    const userPrompt = `Write lecture notes for: ${stepTitle}
 
 ${fullContext}
 
-Generate a thorough reference document that explains everything a student needs to know about this topic. Include all key concepts from the source material, cite and link to sources, and write in a pedagogical tone as if teaching a student directly.`;
+Explain the ACTUAL SUBJECT MATTER a student needs to understand about this topic. Write as if delivering a lecture—explain the ideas themselves, the key thinkers, their arguments, and the historical/intellectual context. Focus on CONTENT, not course structure or how to study. Think: "What would a classmate's notes from this lecture look like?"`;
 
     console.log('Calling Lovable AI...');
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
