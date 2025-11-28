@@ -128,8 +128,8 @@ const Syllabus = () => {
     const groups = new Map<number, ModuleGroup>();
     
     modules.forEach((module, originalIndex) => {
-      // Parse "Module X - Step Y: Topic" format
-      const match = module.title.match(/Module\s+(\d+)\s*-?\s*Step\s+(\d+):\s*(.+)/i);
+      // Try parsing "Module X - Step Y: Topic" format (new format)
+      let match = module.title.match(/Module\s+(\d+)\s*-?\s*Step\s+(\d+):\s*(.+)/i);
       
       if (match) {
         const moduleNumber = parseInt(match[1]);
@@ -151,18 +151,44 @@ const Syllabus = () => {
           originalIndex
         });
       } else {
-        // If it doesn't match the format, treat it as a standalone module
-        const moduleNumber = groups.size + 1;
-        groups.set(moduleNumber, {
-          moduleNumber,
-          moduleName: module.title,
-          steps: [{
+        // Try parsing old "Week X: Topic" or "Step X: Week Y: Topic" format
+        const weekMatch = module.title.match(/(?:Step\s+\d+:\s*)?Week\s+(\d+):\s*(.+)/i);
+        
+        if (weekMatch) {
+          const moduleNumber = parseInt(weekMatch[1]);
+          const stepTitle = weekMatch[2];
+          
+          if (!groups.has(moduleNumber)) {
+            groups.set(moduleNumber, {
+              moduleNumber,
+              moduleName: `Module ${moduleNumber}`,
+              steps: []
+            });
+          }
+          
+          const existingSteps = groups.get(moduleNumber)!.steps;
+          const stepNumber = existingSteps.length + 1;
+          
+          groups.get(moduleNumber)!.steps.push({
             ...module,
-            stepNumber: 1,
-            stepTitle: module.title,
+            stepNumber,
+            stepTitle,
             originalIndex
-          }]
-        });
+          });
+        } else {
+          // Fallback: treat as standalone module
+          const moduleNumber = groups.size + 1;
+          groups.set(moduleNumber, {
+            moduleNumber,
+            moduleName: module.title,
+            steps: [{
+              ...module,
+              stepNumber: 1,
+              stepTitle: module.title,
+              originalIndex
+            }]
+          });
+        }
       }
     });
     
@@ -727,7 +753,7 @@ const Syllabus = () => {
                                     {step.tag === "Capstone Integration" && (
                                       <span className="text-xl">🏛️</span>
                                     )}
-                                    <h4 className="font-semibold">Step {step.stepNumber}: {step.stepTitle}</h4>
+                                    <h4 className="font-semibold">{step.stepNumber}. {step.stepTitle}</h4>
                                     <span className={cn(
                                       "text-xs px-2 py-1",
                                       step.tag === "Capstone Integration" 
