@@ -1,16 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { callPerplexityWithThrottle, extractJSON } from "../_shared/perplexity-client.ts";
-import { generateLightweightStructure } from "./lightweight-structure.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Configuration for rate limiting
-const CONFIG = {
-  maxSourcesForContentFetch: 3,  // Reduced from 5
-  maxSourcesForExtraction: 2,     // Reduced from 5
 };
 
 interface Module {
@@ -55,10 +47,11 @@ serve(async (req) => {
       throw new Error('PERPLEXITY_API_KEY is not configured');
     }
 
-    // Step 1: Discover all available sources
+    // Step 0: Discover all available sources first (unless regenerating with selected sources)
     let discoveredSources: DiscoveredSource[] = [];
     
     if (selectedSourceUrls && selectedSourceUrls.length > 0) {
+      // Regenerating with specific sources - create minimal source objects
       console.log('[Regenerate] Using pre-selected sources');
       discoveredSources = selectedSourceUrls.map((url: string) => ({
         url,
@@ -67,34 +60,138 @@ serve(async (req) => {
         type: 'Selected'
       }));
     } else {
+      // Initial generation - discover sources
       console.log('[Discovery] Finding all available syllabi sources...');
       discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY, customSources, enabledSources);
       console.log(`[Discovery] Found ${discoveredSources.length} source(s)`);
     }
 
-    // Step 2: Generate lightweight syllabus structure (titles + tags only)
-    console.log('[Structure] Generating lightweight syllabus structure...');
-    const modules = await generateLightweightStructure(discipline, discoveredSources, PERPLEXITY_API_KEY);
+    // Step 0.5: Fetch full content for each discovered source
+    console.log('[Content Fetch] Fetching full syllabus content from sources...');
+    const sourcesWithContent = await Promise.all(
+      discoveredSources.map(async (source) => {
+        try {
+          const content = await fetchSyllabusContent(source.url, discipline, PERPLEXITY_API_KEY);
+          return { ...source, content };
+        } catch (error) {
+          console.error(`[Content Fetch] Failed for ${source.url}:`, error);
+          return source; // Return without content if fetch fails
+        }
+      })
+    );
+    console.log(`[Content Fetch] Fetched content for ${sourcesWithContent.filter(s => s.content).length} source(s)`);
+
+    // Initialize variables
+    let modules: Module[] = [];
+    let syllabusSource = '';
+    let sourceUrl = '';
+    let rawSources: DiscoveredSource[] = sourcesWithContent;
+
+    // Step 0.75: Extract full module lists from each source
+    console.log('[Module Extraction] Extracting complete module lists from each source...');
+    const extractedSyllabi = await Promise.all(
+      sourcesWithContent
+        .filter(s => s.content) // Only process sources with content
+        .slice(0, 5) // Limit to top 5 sources to avoid rate limits
+        .map(async (source) => {
+          try {
+            const modules = await extractFullSyllabus(source, discipline, PERPLEXITY_API_KEY);
+            return { source, modules };
+          } catch (error) {
+            console.error(`[Module Extraction] Failed for ${source.institution}:`, error);
+            return { source, modules: [] };
+          }
+        })
+    );
     
-    if (modules.length === 0) {
-      throw new Error('Failed to generate syllabus structure');
+    const validExtractions = extractedSyllabi.filter(e => e.modules.length > 0);
+    console.log(`[Module Extraction] Successfully extracted from ${validExtractions.length} source(s)`);
+
+    // If we have multiple extracted syllabi, merge them into a comprehensive syllabus
+    if (validExtractions.length > 0) {
+      console.log('[Merge] Merging extracted syllabi into comprehensive structure...');
+      const mergedModules = await mergeSyllabi(validExtractions, discipline, PERPLEXITY_API_KEY);
+      
+      if (mergedModules.length >= 4) {
+        modules = mergedModules;
+        syllabusSource = `Comprehensive syllabus merged from ${validExtractions.length} authoritative source(s)`;
+        sourceUrl = validExtractions[0].source.url;
+        
+        // Deduplicate modules to remove duplicates
+        modules = deduplicateModules(modules);
+        
+        // Ensure ALL discovered sources appear in final syllabus
+        modules = ensureAllSourcesAppear(modules, sourcesWithContent);
+        
+        // Weave in capstone milestones
+        modules = weaveCapstoneCheckpoints(modules, discipline);
+
+        return new Response(
+          JSON.stringify({ 
+            discipline,
+            modules,
+            source: syllabusSource,
+            sourceUrl,
+            rawSources,
+            timestamp: new Date().toISOString()
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    console.log(`[Structure] ✓ Generated ${modules.length} modules`);
+    // Tier 1: Search for direct syllabus from authoritative academic sources
+    const tier1Result = await searchTier1Syllabus(discipline, PERPLEXITY_API_KEY);
 
-    // Return lightweight structure immediately
+    if (tier1Result && tier1Result.modules.length >= 4) {
+      console.log('✓ Tier 1 successful: Found syllabus from', tier1Result.source);
+      modules = tier1Result.modules;
+      syllabusSource = tier1Result.source;
+      sourceUrl = tier1Result.sourceUrl || '';
+    } else {
+      // Tier 2: Aggregate from educational platforms
+      console.log('⚠ Tier 1 insufficient, trying Tier 2...');
+      const tier2Result = await searchTier2Syllabus(discipline, PERPLEXITY_API_KEY);
+      
+      if (tier2Result && tier2Result.modules.length >= 4) {
+        console.log('✓ Tier 2 successful: Aggregated from online courses');
+        modules = tier2Result.modules;
+        syllabusSource = tier2Result.source;
+        sourceUrl = tier2Result.sourceUrls?.[0] || '';
+      } else {
+        // Tier 3: Generate using Harvard Backward Design
+        console.log('⚠ Tier 2 insufficient, using Tier 3 (AI generation)...');
+        const tier3Result = await generateTier3Syllabus(discipline, PERPLEXITY_API_KEY);
+        modules = tier3Result.modules;
+        syllabusSource = tier3Result.source;
+        sourceUrl = tier3Result.sourceUrl || '';
+      }
+    }
+
+    // Weave in capstone milestones
+    modules = weaveCapstoneCheckpoints(modules, discipline);
+
+    // Filter out modules with invalid sourceUrls (not in rawSources)
+    const validSourceUrls = new Set(rawSources.map(s => s.url));
+    const filteredModules = modules.filter(m => 
+      !m.sourceUrl || m.isCapstone || validSourceUrls.has(m.sourceUrl)
+    );
+    
+    if (filteredModules.length < modules.length) {
+      console.log(`[Filter] Removed ${modules.length - filteredModules.length} modules with invalid sources`);
+    }
+
     return new Response(
       JSON.stringify({ 
         discipline,
-        modules,
-        source: `Lightweight structure from ${discoveredSources.length} source(s)`,
-        sourceUrl: discoveredSources[0]?.url || '',
-        rawSources: discoveredSources,
+        modules: filteredModules,
+        source: syllabusSource,
+        sourceUrl,
+        rawSources,
         timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
 
   } catch (error) {
     console.error('Error in generate-syllabus:', error);
@@ -162,16 +259,22 @@ async function discoverSources(
       ? `\n**User Custom Sources:**\n${customSources.map(s => `- ${s.name} (${s.url})`).join('\n')}\n`
       : '';
 
-    const data = await callPerplexityWithThrottle({
-      model: 'sonar-pro',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a syllabus researcher. Find all available syllabi, reading lists, and course outlines for a given topic from authoritative sources. Return valid JSON only.'
-        },
-        {
-          role: 'user',
-          content: `Find ALL available syllabi, reading lists, curriculum guides, or course outlines related to "${discipline}".
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a syllabus researcher. Find all available syllabi, reading lists, and course outlines for a given topic from authoritative sources. Return valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: `Find ALL available syllabi, reading lists, curriculum guides, or course outlines related to "${discipline}".
 
 Search across these AUTHORITATIVE sources in priority order:
 ${tier1A.length > 0 ? `
@@ -206,9 +309,17 @@ Find as many real, authoritative syllabi as possible. Include exact URLs. Return
           }
         ],
         temperature: 0.1,
-        max_tokens: 8000,
+        max_tokens: 8000, // Increased for comprehensive syllabi
         return_citations: true,
-      }, apiKey);
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.choices?.[0]?.message?.content) {
+      console.error('[Discovery] Failed to find sources');
+      return [];
+    }
 
     const content = data.choices[0].message.content;
     const parsed = extractJSON(content);
@@ -900,6 +1011,34 @@ Return ONLY the JSON, no other text.`
   } catch (error) {
     console.error('[Tier 3] Exception:', error);
     return getFallbackSyllabus(discipline);
+  }
+}
+
+function extractJSON(text: string): any {
+  try {
+    // Strategy 1: Direct JSON parse (if the response is pure JSON)
+    try {
+      return JSON.parse(text);
+    } catch {}
+
+    // Strategy 2: Extract JSON block with regex
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+
+    // Strategy 3: Extract from markdown code blocks
+    const codeBlockMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (codeBlockMatch) {
+      return JSON.parse(codeBlockMatch[1]);
+    }
+
+    console.error('No JSON found in response');
+    return null;
+
+  } catch (error) {
+    console.error('JSON parsing error:', error);
+    return null;
   }
 }
 

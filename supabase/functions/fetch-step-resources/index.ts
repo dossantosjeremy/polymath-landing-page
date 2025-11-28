@@ -7,12 +7,6 @@ const corsHeaders = {
 };
 
 interface StepResources {
-  stepDetails?: {
-    description: string;
-    sourceUrls: string[];
-    difficulty: string;
-  };
-  
   primaryVideo: {
     url: string;
     title: string;
@@ -131,28 +125,7 @@ serve(async (req) => {
     
     console.log('Fetching resources for:', { stepTitle, discipline, syllabusUrlsCount: syllabusUrls.length });
 
-    // First, fetch step details
-    const detailsPrompt = `Provide a brief description and difficulty level for this learning step: "${stepTitle}" in ${discipline}.
-
-${syllabusUrls.length > 0 ? `Reference these authoritative sources:\n${syllabusUrls.slice(0, 5).map((url: string) => `- ${url}`).join('\n')}` : ''}
-
-Return ONLY valid JSON:
-{
-  "description": "1-2 sentence description of what this step covers",
-  "difficulty": "Introductory" | "Intermediate" | "Advanced",
-  "sourceUrls": ["url1", "url2"]
-}`;
-
-    const detailsResponse = await callPerplexityAPI(detailsPrompt);
-    let stepDetails = null;
-    try {
-      const detailsData = extractJSON(detailsResponse.choices[0].message.content);
-      stepDetails = detailsData;
-    } catch (err) {
-      console.log('Failed to parse step details, continuing without them');
-    }
-
-    // Then fetch learning resources
+    // Build context about authoritative sources
     const sourceContext = syllabusUrls.length > 0 
       ? `\n\nPrioritize resources from these authoritative syllabi sources:\n${syllabusUrls.slice(0, 10).join('\n')}`
       : '';
@@ -225,13 +198,7 @@ IMPORTANT: Return ONLY the JSON object, no markdown formatting, no explanations.
       alternativesCount: resources.alternatives?.length || 0
     });
 
-    // Add step details to response
-    const response = {
-      ...resources,
-      stepDetails
-    };
-
-    return new Response(JSON.stringify(response), {
+    return new Response(JSON.stringify(resources), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 

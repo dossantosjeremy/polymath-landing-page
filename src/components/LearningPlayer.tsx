@@ -72,18 +72,6 @@ export const LearningPlayer = ({
 
   return (
     <div className="space-y-6 py-6">
-      {/* Step Details */}
-      {resources.stepDetails && (
-        <div className="space-y-2 pb-4 border-b border-border">
-          <p className="text-sm text-muted-foreground">{resources.stepDetails.description}</p>
-          <div className="flex items-center gap-2">
-            <span className="text-xs px-2 py-1 rounded-sm bg-primary/10 text-primary">
-              {resources.stepDetails.difficulty}
-            </span>
-          </div>
-        </div>
-      )}
-
       {/* Primary Video */}
       {resources.primaryVideo && (
         <div>
