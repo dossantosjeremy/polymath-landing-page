@@ -134,8 +134,8 @@ const Syllabus = () => {
     let moduleNumber = 1;
     
     modules.forEach((module, idx) => {
-      // If it's a capstone, finalize current group and add capstone as its own module
-      if (module.isCapstone) {
+      // Only treat as isolated capstone if explicitly marked as capstone
+      if (module.isCapstone === true) {
         // Finalize current group first
         if (currentGroup.length > 0) {
           // Split large groups into modules of 3-5 steps
@@ -155,7 +155,11 @@ const Syllabus = () => {
               steps: chunk.map((item, stepIdx) => ({
                 ...item,
                 stepNumber: stepIdx + 1,
-                stepTitle: item.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '')
+                stepTitle: item.title
+                  .replace(/^Module\s+\d+\s*-?\s*Step\s+\d+:\s*/i, '')
+                  .replace(/^Step\s+\d+:\s*/i, '')
+                  .replace(/^Week\s+\d+:\s*/i, '')
+                  .trim()
               }))
             });
           }
@@ -169,7 +173,11 @@ const Syllabus = () => {
           steps: [{ 
             ...module, 
             stepNumber: 1, 
-            stepTitle: module.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, ''),
+            stepTitle: module.title
+              .replace(/^Module\s+\d+\s*-?\s*Step\s+\d+:\s*/i, '')
+              .replace(/^Step\s+\d+:\s*/i, '')
+              .replace(/^Week\s+\d+:\s*/i, '')
+              .trim(),
             tag: 'Capstone Integration',
             originalIndex: idx
           }]
@@ -178,8 +186,16 @@ const Syllabus = () => {
       }
       
       // Regular module processing
-      const tag = module.tag || 'General';
-      const cleanTitle = module.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '');
+      // Remap "Capstone & Integration" tag to "Applied" for non-capstone steps
+      const rawTag = module.tag || 'General';
+      const tag = (rawTag === 'Capstone & Integration' || rawTag === 'Capstone Integration') && !module.isCapstone
+        ? 'Applied'
+        : rawTag;
+      const cleanTitle = module.title
+        .replace(/^Module\s+\d+\s*-?\s*Step\s+\d+:\s*/i, '')
+        .replace(/^Step\s+\d+:\s*/i, '')
+        .replace(/^Week\s+\d+:\s*/i, '')
+        .trim();
       
       if (tag !== currentTag && currentTag !== '') {
         // Tag changed - finalize current group
@@ -200,7 +216,11 @@ const Syllabus = () => {
               steps: chunk.map((item, stepIdx) => ({
                 ...item,
                 stepNumber: stepIdx + 1,
-                stepTitle: item.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '')
+                stepTitle: item.title
+                  .replace(/^Module\s+\d+\s*-?\s*Step\s+\d+:\s*/i, '')
+                  .replace(/^Step\s+\d+:\s*/i, '')
+                  .replace(/^Week\s+\d+:\s*/i, '')
+                  .trim()
               }))
             });
           }
@@ -230,7 +250,11 @@ const Syllabus = () => {
             steps: chunk.map((item, stepIdx) => ({
               ...item,
               stepNumber: stepIdx + 1,
-              stepTitle: item.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '')
+              stepTitle: item.title
+                .replace(/^Module\s+\d+\s*-?\s*Step\s+\d+:\s*/i, '')
+                .replace(/^Step\s+\d+:\s*/i, '')
+                .replace(/^Week\s+\d+:\s*/i, '')
+                .trim()
             }))
           });
         }
