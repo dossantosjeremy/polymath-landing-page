@@ -181,6 +181,7 @@ export type Database = {
           created_at: string | null
           discipline: string
           id: string
+          length: string | null
           step_title: string
           summary: string
         }
@@ -188,6 +189,7 @@ export type Database = {
           created_at?: string | null
           discipline: string
           id?: string
+          length?: string | null
           step_title: string
           summary: string
         }
@@ -195,6 +197,7 @@ export type Database = {
           created_at?: string | null
           discipline?: string
           id?: string
+          length?: string | null
           step_title?: string
           summary?: string
         }

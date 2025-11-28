@@ -3,6 +3,8 @@ import { BookOpen, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStepSummary } from '@/hooks/useStepSummary';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ReactMarkdown from 'react-markdown';
 
 interface StepSummaryProps {
   stepTitle: string;
@@ -20,10 +22,11 @@ export const StepSummary = ({
   resources,
 }: StepSummaryProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [referenceLength, setReferenceLength] = useState<'brief' | 'standard' | 'comprehensive'>('standard');
   const { summary, isLoading, error, generateSummary } = useStepSummary();
 
   const handleGenerate = (forceRefresh: boolean = false) => {
-    generateSummary(stepTitle, discipline, stepDescription, sourceContent, resources, forceRefresh);
+    generateSummary(stepTitle, discipline, stepDescription, sourceContent, resources, referenceLength, forceRefresh);
     if (!isOpen) setIsOpen(true);
   };
 
@@ -38,13 +41,25 @@ export const StepSummary = ({
           </CollapsibleTrigger>
           
           {!summary && !isLoading && (
-            <Button
-              onClick={() => handleGenerate(false)}
-              size="sm"
-              variant="outline"
-            >
-              Generate Reference
-            </Button>
+            <div className="flex items-center gap-2">
+              <Select value={referenceLength} onValueChange={(value: any) => setReferenceLength(value)}>
+                <SelectTrigger className="w-[180px] h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="brief">Quick Overview</SelectItem>
+                  <SelectItem value="standard">Standard Reference</SelectItem>
+                  <SelectItem value="comprehensive">Full Reference</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => handleGenerate(false)}
+                size="sm"
+                variant="outline"
+              >
+                Generate
+              </Button>
+            </div>
           )}
           
           {summary && !isLoading && (
@@ -86,18 +101,16 @@ export const StepSummary = ({
           )}
 
           {summary && !isLoading && (
-            <div className="prose prose-sm max-w-none">
-              <div 
-                className="text-sm leading-relaxed space-y-3 text-foreground"
-                dangerouslySetInnerHTML={{ 
-                  __html: summary
-                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">$1</a>')
-                    .replace(/\n\n/g, '</p><p class="mt-3">')
-                    .replace(/^(.+)$/, '<p>$1</p>')
-                    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            <div className="prose prose-sm max-w-none text-foreground">
+              <ReactMarkdown
+                components={{
+                  a: ({ node, ...props }) => (
+                    <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" />
+                  ),
                 }}
-              />
+              >
+                {summary}
+              </ReactMarkdown>
             </div>
           )}
         </CollapsibleContent>

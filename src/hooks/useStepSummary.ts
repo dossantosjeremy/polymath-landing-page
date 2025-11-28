@@ -12,6 +12,7 @@ export const useStepSummary = () => {
     stepDescription: string,
     sourceContent: string,
     resources?: any,
+    referenceLength: 'brief' | 'standard' | 'comprehensive' = 'standard',
     forceRefresh: boolean = false
   ) => {
     setIsLoading(true);
@@ -25,6 +26,7 @@ export const useStepSummary = () => {
           stepDescription,
           sourceContent,
           resources,
+          referenceLength,
           forceRefresh,
         }
       });
