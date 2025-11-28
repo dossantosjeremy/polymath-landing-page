@@ -157,10 +157,20 @@ serve(async (req) => {
     // Weave in capstone milestones
     modules = weaveCapstoneCheckpoints(modules, discipline);
 
+    // Filter out modules with invalid sourceUrls (not in rawSources)
+    const validSourceUrls = new Set(rawSources.map(s => s.url));
+    const filteredModules = modules.filter(m => 
+      !m.sourceUrl || m.isCapstone || validSourceUrls.has(m.sourceUrl)
+    );
+    
+    if (filteredModules.length < modules.length) {
+      console.log(`[Filter] Removed ${modules.length - filteredModules.length} modules with invalid sources`);
+    }
+
     return new Response(
       JSON.stringify({ 
         discipline,
-        modules,
+        modules: filteredModules,
         source: syllabusSource,
         sourceUrl,
         rawSources,

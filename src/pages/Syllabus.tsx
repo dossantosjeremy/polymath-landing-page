@@ -69,32 +69,103 @@ const Syllabus = () => {
     if (syllabusData?.rawSources) {
       // Store original sources only on first load
       if (originalSources.length === 0) {
-        // Merge any sources from modules into rawSources
-        const mergedSources = mergeModuleSources(syllabusData.modules, syllabusData.rawSources);
-        setOriginalSources(mergedSources);
+        setOriginalSources(syllabusData.rawSources);
       }
       setSelectedSources(new Set(syllabusData.rawSources.map((_, idx) => idx)));
     }
   }, [syllabusData?.rawSources]);
 
-  // Helper function to merge module sources into discovered sources
-  const mergeModuleSources = (modules: Module[], existingSources: DiscoveredSource[]): DiscoveredSource[] => {
-    const existingUrls = new Set(existingSources.map(s => s.url));
-    const newSources: DiscoveredSource[] = [];
+  // Helper function to extract domain short name from URL
+  const getDomainShortName = (url: string): string => {
+    try {
+      const hostname = new URL(url).hostname.replace('www.', '');
+      const domainMap: Record<string, string> = {
+        'ocw.mit.edu': 'MIT',
+        'oyc.yale.edu': 'Yale',
+        'coursera.org': 'Coursera',
+        'edx.org': 'edX',
+        'khanacademy.org': 'Khan',
+        'oli.cmu.edu': 'CMU',
+        'pll.harvard.edu': 'Harvard',
+        'sjc.edu': 'St. John\'s',
+        'uchicago.edu': 'UChicago',
+        'hillsdale.edu': 'Hillsdale',
+        'saylor.org': 'Saylor',
+        'thedailyidea.org': 'Daily Idea',
+        'gutenberg.org': 'Gutenberg',
+        'archive.org': 'Archive',
+        'opensyllabus.org': 'Open Syllabus',
+        'open.edu': 'OpenLearn',
+        'oercommons.org': 'OER Commons',
+        'merlot.org': 'MERLOT',
+        'openstax.org': 'OpenStax'
+      };
+      return domainMap[hostname] || hostname.split('.')[0].toUpperCase();
+    } catch {
+      return 'Source';
+    }
+  };
+
+  // Helper function to get color for source type
+  const getSourceColor = (type: string): string => {
+    if (type === "University OCW") return "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]";
+    if (type === "Great Books Program") return "bg-red-900/20 text-red-900 dark:text-red-300";
+    if (type === "MOOC Platform") return "bg-blue-500/20 text-blue-700 dark:text-blue-300";
+    if (type === "Philosophy Syllabi Collection") return "bg-purple-500/20 text-purple-700 dark:text-purple-300";
+    if (type === "OER Repository") return "bg-green-500/20 text-green-700 dark:text-green-300";
+    return "bg-muted text-muted-foreground";
+  };
+
+  // Helper function to parse and group modules by module number
+  interface ModuleGroup {
+    moduleNumber: number;
+    moduleName: string;
+    steps: Array<Module & { stepNumber: number; stepTitle: string; originalIndex: number }>;
+  }
+
+  const parseModuleGroups = (modules: Module[]): ModuleGroup[] => {
+    const groups = new Map<number, ModuleGroup>();
     
-    modules.forEach(module => {
-      if (module.sourceUrl && !existingUrls.has(module.sourceUrl)) {
-        existingUrls.add(module.sourceUrl);
-        newSources.push({
-          institution: module.source,
-          courseName: 'Referenced in syllabus',
-          url: module.sourceUrl,
-          type: 'Module Source'
+    modules.forEach((module, originalIndex) => {
+      // Parse "Module X - Step Y: Topic" format
+      const match = module.title.match(/Module\s+(\d+)\s*-?\s*Step\s+(\d+):\s*(.+)/i);
+      
+      if (match) {
+        const moduleNumber = parseInt(match[1]);
+        const stepNumber = parseInt(match[2]);
+        const stepTitle = match[3];
+        
+        if (!groups.has(moduleNumber)) {
+          groups.set(moduleNumber, {
+            moduleNumber,
+            moduleName: `Module ${moduleNumber}`,
+            steps: []
+          });
+        }
+        
+        groups.get(moduleNumber)!.steps.push({
+          ...module,
+          stepNumber,
+          stepTitle,
+          originalIndex
+        });
+      } else {
+        // If it doesn't match the format, treat it as a standalone module
+        const moduleNumber = groups.size + 1;
+        groups.set(moduleNumber, {
+          moduleNumber,
+          moduleName: module.title,
+          steps: [{
+            ...module,
+            stepNumber: 1,
+            stepTitle: module.title,
+            originalIndex
+          }]
         });
       }
     });
     
-    return [...existingSources, ...newSources];
+    return Array.from(groups.values()).sort((a, b) => a.moduleNumber - b.moduleNumber);
   };
 
   const loadSavedSyllabus = async (id: string) => {
@@ -355,9 +426,15 @@ const Syllabus = () => {
               {/* Source Pills Banner */}
               {(() => {
                 const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                const uniqueSources = Array.from(
-                  new Map(sourcesToDisplay.map(s => [s.url, s])).values()
-                );
+                // Create unique domain pills
+                const domainMap = new Map<string, DiscoveredSource>();
+                sourcesToDisplay.forEach(source => {
+                  const domain = getDomainShortName(source.url);
+                  if (!domainMap.has(domain)) {
+                    domainMap.set(domain, source);
+                  }
+                });
+                const uniqueDomainSources = Array.from(domainMap.values());
                 
                 return (
                   <div className="bg-accent/30 border border-accent p-4 flex items-start gap-4">
@@ -371,26 +448,24 @@ const Syllabus = () => {
                     <div className="flex-1">
                       <h3 className="font-semibold mb-2">Curriculum Sources</h3>
                       <div className="flex flex-wrap gap-2">
-                        {uniqueSources.map((source, idx) => (
-                          <a
-                            key={idx}
-                            href={source.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={cn(
-                              "inline-flex items-center gap-1 px-3 py-1 text-sm font-medium transition-colors hover:opacity-80",
-                              source.type === "University OCW" && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]",
-                              source.type === "Great Books Program" && "bg-red-900/20 text-red-900 dark:text-red-300",
-                              source.type === "MOOC Platform" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
-                              source.type === "Philosophy Syllabi Collection" && "bg-purple-500/20 text-purple-700 dark:text-purple-300",
-                              source.type === "OER Repository" && "bg-green-500/20 text-green-700 dark:text-green-300",
-                              !["University OCW", "Great Books Program", "MOOC Platform", "Philosophy Syllabi Collection", "OER Repository"].includes(source.type) && "bg-muted text-muted-foreground"
-                            )}
-                          >
-                            {source.institution}
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ))}
+                        {uniqueDomainSources.map((source, idx) => {
+                          const domainName = getDomainShortName(source.url);
+                          return (
+                            <a
+                              key={idx}
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={cn(
+                                "inline-flex items-center gap-1 px-3 py-1 text-sm font-medium transition-colors hover:opacity-80",
+                                getSourceColor(source.type)
+                              )}
+                            >
+                              {domainName}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -594,71 +669,95 @@ const Syllabus = () => {
               </div>
 
               {/* Modules List */}
-              <div className="space-y-3">
+              <div className="space-y-6">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
-                {syllabusData.modules.map((module, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "border overflow-hidden transition-all",
-                      module.isCapstone && "bg-accent/10 border-accent"
-                    )}
-                  >
-                    <button
-                      onClick={() => toggleModule(index)}
-                      className={cn(
-                        "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left",
-                        module.tag === "Capstone Integration" && "border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
-                      )}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          {module.tag === "Capstone Integration" && (
-                            <span className="text-xl">🏛️</span>
-                          )}
-                          <h3 className="font-semibold">{module.title}</h3>
-                          <span className={cn(
-                            "text-xs px-2 py-1",
-                            module.tag === "Capstone Integration" 
-                              ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
-                              : "bg-muted text-muted-foreground"
-                          )}>
-                            {module.tag}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>Source: {module.source}</span>
-                          {module.sourceUrl && (
-                            <a
-                              href={module.sourceUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline inline-flex items-center gap-1"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              View
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                      <ChevronRight className={cn(
-                        "h-5 w-5 text-muted-foreground transition-transform",
-                        expandedModules.has(index) && "rotate-90"
-                      )} />
-                    </button>
+                {parseModuleGroups(syllabusData.modules).map((moduleGroup) => (
+                  <div key={moduleGroup.moduleNumber} className="space-y-2">
+                    {/* Module Header */}
+                    <div className="bg-muted/50 border-l-4 border-l-primary p-3">
+                      <h3 className="font-bold text-lg">{moduleGroup.moduleName}</h3>
+                    </div>
                     
-                    {expandedModules.has(index) && (
-                      <div className="px-4 pb-4 border-t bg-muted/20">
-                        <div className="pt-4 text-sm text-muted-foreground">
-                          {module.isCapstone ? (
-                            <p>This is a project milestone where you'll apply what you've learned to your capstone project.</p>
-                          ) : (
-                            <p>Detailed content and resources will be populated after you approve this structure.</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    {/* Steps within the module */}
+                    <div className="space-y-2 ml-4">
+                      {moduleGroup.steps.map((step) => {
+                        const sourceType = originalSources.find(s => s.url === step.sourceUrl)?.type || 
+                                         syllabusData.rawSources?.find(s => s.url === step.sourceUrl)?.type || '';
+                        const domainName = step.sourceUrl ? getDomainShortName(step.sourceUrl) : step.source;
+                        
+                        return (
+                          <div
+                            key={step.originalIndex}
+                            className={cn(
+                              "border overflow-hidden transition-all",
+                              step.isCapstone && "bg-accent/10 border-accent"
+                            )}
+                          >
+                            <button
+                              onClick={() => toggleModule(step.originalIndex)}
+                              className={cn(
+                                "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left",
+                                step.tag === "Capstone Integration" && "border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
+                              )}
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-1">
+                                  {step.tag === "Capstone Integration" && (
+                                    <span className="text-xl">🏛️</span>
+                                  )}
+                                  <h4 className="font-semibold">Step {step.stepNumber}: {step.stepTitle}</h4>
+                                  <span className={cn(
+                                    "text-xs px-2 py-1",
+                                    step.tag === "Capstone Integration" 
+                                      ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
+                                      : "bg-muted text-muted-foreground"
+                                  )}>
+                                    {step.tag}
+                                  </span>
+                                  {/* Source badge with color matching pills */}
+                                  <span className={cn(
+                                    "text-xs px-2 py-1 inline-flex items-center gap-1",
+                                    getSourceColor(sourceType)
+                                  )}>
+                                    {domainName}
+                                  </span>
+                                </div>
+                                {step.sourceUrl && (
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <a
+                                      href={step.sourceUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-primary hover:underline inline-flex items-center gap-1"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      View Source
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  </div>
+                                )}
+                              </div>
+                              <ChevronRight className={cn(
+                                "h-5 w-5 text-muted-foreground transition-transform",
+                                expandedModules.has(step.originalIndex) && "rotate-90"
+                              )} />
+                            </button>
+                            
+                            {expandedModules.has(step.originalIndex) && (
+                              <div className="px-4 pb-4 border-t bg-muted/20">
+                                <div className="pt-4 text-sm text-muted-foreground">
+                                  {step.isCapstone ? (
+                                    <p>This is a project milestone where you'll apply what you've learned to your capstone project.</p>
+                                  ) : (
+                                    <p>Detailed content and resources will be populated after you approve this structure.</p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 ))}
               </div>
