@@ -148,11 +148,11 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
     }
   };
 
-  const scrollSelectedItemsIntoView = () => {
+  const scrollSelectedItemsIntoView = (pathToScroll: string[]) => {
     requestAnimationFrame(() => {
       setTimeout(() => {
         columnRefs.current.forEach((columnEl, index) => {
-          if (columnEl && selectedPath[index]) {
+          if (columnEl && pathToScroll[index]) {
             const selectedButton = columnEl.querySelector('[data-selected="true"]');
             if (selectedButton) {
               selectedButton.scrollIntoView({ 
@@ -223,7 +223,7 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
           });
         }
         // Scroll selected items into view in each column
-        scrollSelectedItemsIntoView();
+        scrollSelectedItemsIntoView(path);
       }, 250);
     });
   };
