@@ -3,6 +3,7 @@ import { ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 
 interface Discipline {
   id: string;
@@ -24,6 +25,11 @@ interface SearchResultsProps {
 export const SearchResults = ({ results, query, searching, onBrowseInContext }: SearchResultsProps) => {
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Check cache for expanded discipline
+  const expandedDiscipline = results.find(r => r.id === expandedId);
+  const expandedDisciplineName = expandedDiscipline ? getLastLevel(expandedDiscipline) : '';
+  const { cachedSyllabus, cacheDate, sourceCount } = useCommuniySyllabus(expandedDisciplineName);
   
   const getDisciplinePath = (discipline: Discipline): string[] => {
     const path = [discipline.l1];
@@ -44,14 +50,20 @@ export const SearchResults = ({ results, query, searching, onBrowseInContext }: 
     return "Domain";
   };
 
-  const getLastLevel = (discipline: Discipline): string => {
+  function getLastLevel(discipline: Discipline): string {
     return discipline.l6 || discipline.l5 || discipline.l4 || discipline.l3 || discipline.l2 || discipline.l1;
-  };
+  }
 
   const handleGenerateSyllabus = (discipline: Discipline) => {
     const disciplineName = getLastLevel(discipline);
     const path = getDisciplinePath(discipline).join(" > ");
     navigate(`/syllabus?discipline=${encodeURIComponent(disciplineName)}&path=${encodeURIComponent(path)}`);
+  };
+
+  const handleLoadCachedSyllabus = (discipline: Discipline) => {
+    const disciplineName = getLastLevel(discipline);
+    const path = getDisciplinePath(discipline).join(" > ");
+    navigate(`/syllabus?useCache=true&discipline=${encodeURIComponent(disciplineName)}&path=${encodeURIComponent(path)}`);
   };
 
   if (searching) {
@@ -121,19 +133,46 @@ export const SearchResults = ({ results, query, searching, onBrowseInContext }: 
 
                     {isExpanded && (
                       <div className="flex gap-2 mt-4" onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          onClick={() => handleGenerateSyllabus(discipline)}
-                          className="flex-1"
-                        >
-                          Generate Syllabus
-                        </Button>
-                        <Button
-                          onClick={() => onBrowseInContext(discipline)}
-                          variant="outline"
-                          className="flex-1"
-                        >
-                          Browse in Context
-                        </Button>
+                        {cachedSyllabus ? (
+                          <>
+                            <div className="flex-1">
+                              <Button
+                                onClick={() => handleLoadCachedSyllabus(discipline)}
+                                className="w-full mb-2"
+                              >
+                                Load Cached Syllabus
+                              </Button>
+                              {cacheDate && (
+                                <p className="text-xs text-muted-foreground text-center">
+                                  Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              onClick={() => handleGenerateSyllabus(discipline)}
+                              variant="outline"
+                              className="flex-1"
+                            >
+                              Generate Fresh
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button
+                              onClick={() => handleGenerateSyllabus(discipline)}
+                              className="flex-1"
+                            >
+                              Generate Syllabus
+                            </Button>
+                            <Button
+                              onClick={() => onBrowseInContext(discipline)}
+                              variant="outline"
+                              className="flex-1"
+                            >
+                              Browse in Context
+                            </Button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

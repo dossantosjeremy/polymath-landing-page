@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      community_syllabi: {
+        Row: {
+          created_at: string | null
+          discipline: string
+          discipline_path: string | null
+          id: string
+          modules: Json
+          raw_sources: Json | null
+          source: string
+        }
+        Insert: {
+          created_at?: string | null
+          discipline: string
+          discipline_path?: string | null
+          id?: string
+          modules: Json
+          raw_sources?: Json | null
+          source: string
+        }
+        Update: {
+          created_at?: string | null
+          discipline?: string
+          discipline_path?: string | null
+          id?: string
+          modules?: Json
+          raw_sources?: Json | null
+          source?: string
+        }
+        Relationships: []
+      }
       disciplines: {
         Row: {
           created_at: string | null

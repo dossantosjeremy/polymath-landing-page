@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
+import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 
 const getDomainIcon = (domain: string) => {
   const iconMap: Record<string, any> = {
@@ -36,6 +37,10 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // Check for cached community syllabus
+  const lastSelectedDiscipline = selectedPath[selectedPath.length - 1] || '';
+  const { cachedSyllabus, isLoading: cacheLoading, cacheDate, sourceCount } = useCommuniySyllabus(lastSelectedDiscipline);
+
   useEffect(() => {
     loadLevel1();
   }, []);
@@ -60,6 +65,15 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
     const lastLevel = selectedPath[selectedPath.length - 1];
     
     navigate(`/syllabus?discipline=${encodeURIComponent(lastLevel)}&path=${encodeURIComponent(fullPath)}`);
+  };
+
+  const handleLoadCachedSyllabus = () => {
+    if (selectedPath.length === 0) return;
+    
+    const fullPath = selectedPath.join(' > ');
+    const lastLevel = selectedPath[selectedPath.length - 1];
+    
+    navigate(`/syllabus?useCache=true&discipline=${encodeURIComponent(lastLevel)}&path=${encodeURIComponent(fullPath)}`);
   };
 
   const loadLevel1 = async () => {
@@ -239,15 +253,34 @@ export const ProgressiveDisclosure = ({ initialPath }: ProgressiveDisclosureProp
   return (
     <div className="space-y-4">
       {selectedPath.length > 0 && (
-        <div className="flex items-center justify-between bg-accent/20 border border-accent rounded-lg p-4">
+        <div className="flex items-center justify-between bg-accent/20 border border-accent p-4">
           <div>
             <p className="text-sm text-muted-foreground mb-1">Selected discipline:</p>
             <p className="font-semibold">{selectedPath.join(' > ')}</p>
+            {cachedSyllabus && cacheDate && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+              </p>
+            )}
           </div>
-          <Button onClick={handleSelectDiscipline} className="gap-2">
-            <Check className="h-4 w-4" />
-            Generate Syllabus
-          </Button>
+          <div className="flex gap-2">
+            {cachedSyllabus ? (
+              <>
+                <Button onClick={handleLoadCachedSyllabus} className="gap-2" disabled={cacheLoading}>
+                  <Check className="h-4 w-4" />
+                  Load Cached Syllabus
+                </Button>
+                <Button onClick={handleSelectDiscipline} variant="outline" className="gap-2">
+                  Generate Fresh
+                </Button>
+              </>
+            ) : (
+              <Button onClick={handleSelectDiscipline} className="gap-2">
+                <Check className="h-4 w-4" />
+                Generate Syllabus
+              </Button>
+            )}
+          </div>
         </div>
       )}
       

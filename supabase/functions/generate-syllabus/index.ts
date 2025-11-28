@@ -30,7 +30,7 @@ serve(async (req) => {
   }
 
   try {
-    const { discipline, selectedSourceUrls, customSources, enabledSources } = await req.json();
+    const { discipline, selectedSourceUrls, customSources, enabledSources, forceRefresh } = await req.json();
     console.log('Generating syllabus for:', discipline);
     if (selectedSourceUrls) {
       console.log('Using selected sources:', selectedSourceUrls.length);
@@ -41,10 +41,44 @@ serve(async (req) => {
     if (enabledSources) {
       console.log('Enabled authoritative sources:', enabledSources.length);
     }
+    if (forceRefresh) {
+      console.log('Force refresh: bypassing cache');
+    }
 
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
     if (!PERPLEXITY_API_KEY) {
       throw new Error('PERPLEXITY_API_KEY is not configured');
+    }
+
+    // Initialize Supabase client for caching
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.86.0');
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Check community cache first (unless regenerating with selected sources or force refresh)
+    if (!selectedSourceUrls && !forceRefresh) {
+      console.log('[Cache Check] Checking community_syllabi cache...');
+      const { data: cachedSyllabus, error: cacheError } = await supabase
+        .from('community_syllabi')
+        .select('*')
+        .eq('discipline', discipline)
+        .maybeSingle();
+
+      if (!cacheError && cachedSyllabus) {
+        console.log('[Cache Hit] Returning cached syllabus (cost: $0.00)');
+        return new Response(JSON.stringify({
+          discipline: cachedSyllabus.discipline,
+          modules: cachedSyllabus.modules,
+          source: cachedSyllabus.source,
+          rawSources: cachedSyllabus.raw_sources,
+          timestamp: cachedSyllabus.created_at,
+          fromCache: true
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      console.log('[Cache Miss] No cached syllabus found, proceeding with generation');
     }
 
     // Step 0: Discover all available sources first (unless regenerating with selected sources)
@@ -181,15 +215,44 @@ serve(async (req) => {
       console.log(`[Filter] Removed ${modules.length - filteredModules.length} modules with invalid sources`);
     }
 
+    const responseData = {
+      discipline,
+      modules: filteredModules,
+      source: syllabusSource,
+      sourceUrl,
+      rawSources,
+      timestamp: new Date().toISOString()
+    };
+
+    // Cache the result in community_syllabi (unless regenerating with selected sources)
+    if (!selectedSourceUrls) {
+      try {
+        console.log('[Cache Save] Upserting to community_syllabi...');
+        const { error: upsertError } = await supabase
+          .from('community_syllabi')
+          .upsert({
+            discipline,
+            discipline_path: null, // Will be set from frontend when available
+            modules: filteredModules,
+            raw_sources: rawSources,
+            source: syllabusSource
+          }, { 
+            onConflict: 'discipline' 
+          });
+
+        if (upsertError) {
+          console.error('[Cache Save] Failed to upsert:', upsertError);
+        } else {
+          console.log('[Cache Save] Successfully cached for future users');
+        }
+      } catch (cacheError) {
+        console.error('[Cache Save] Exception:', cacheError);
+        // Don't fail the request if caching fails
+      }
+    }
+
     return new Response(
-      JSON.stringify({ 
-        discipline,
-        modules: filteredModules,
-        source: syllabusSource,
-        sourceUrl,
-        rawSources,
-        timestamp: new Date().toISOString()
-      }),
+      JSON.stringify(responseData),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
