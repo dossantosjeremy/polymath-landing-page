@@ -28,18 +28,35 @@ serve(async (req) => {
   }
 
   try {
-    const { discipline } = await req.json();
+    const { discipline, selectedSourceUrls } = await req.json();
     console.log('Generating syllabus for:', discipline);
+    if (selectedSourceUrls) {
+      console.log('Using selected sources:', selectedSourceUrls.length);
+    }
 
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
     if (!PERPLEXITY_API_KEY) {
       throw new Error('PERPLEXITY_API_KEY is not configured');
     }
 
-    // Step 0: Discover all available sources first
-    console.log('[Discovery] Finding all available syllabi sources...');
-    const discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY);
-    console.log(`[Discovery] Found ${discoveredSources.length} source(s)`);
+    // Step 0: Discover all available sources first (unless regenerating with selected sources)
+    let discoveredSources: DiscoveredSource[] = [];
+    
+    if (selectedSourceUrls && selectedSourceUrls.length > 0) {
+      // Regenerating with specific sources - create minimal source objects
+      console.log('[Regenerate] Using pre-selected sources');
+      discoveredSources = selectedSourceUrls.map((url: string) => ({
+        url,
+        institution: 'Selected Source',
+        courseName: 'Regenerating from selected sources',
+        type: 'Selected'
+      }));
+    } else {
+      // Initial generation - discover sources
+      console.log('[Discovery] Finding all available syllabi sources...');
+      discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY);
+      console.log(`[Discovery] Found ${discoveredSources.length} source(s)`);
+    }
 
     // Step 0.5: Fetch full content for each discovered source
     console.log('[Content Fetch] Fetching full syllabus content from sources...');

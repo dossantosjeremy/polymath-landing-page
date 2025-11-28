@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Module {
   title: string;
@@ -43,11 +44,12 @@ const Syllabus = () => {
   const [loading, setLoading] = useState(true);
   const [syllabusData, setSyllabusData] = useState<SyllabusData | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
-  const [quickAccessOpen, setQuickAccessOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [expandedSourceContent, setExpandedSourceContent] = useState<Set<number>>(new Set());
   const [saving, setSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [selectedSources, setSelectedSources] = useState<Set<number>>(new Set());
+  const [regenerating, setRegenerating] = useState(false);
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -60,6 +62,13 @@ const Syllabus = () => {
       generateSyllabus();
     }
   }, [discipline, savedId]);
+
+  // Initialize all sources as selected when syllabus data loads
+  useEffect(() => {
+    if (syllabusData?.rawSources) {
+      setSelectedSources(new Set(syllabusData.rawSources.map((_, idx) => idx)));
+    }
+  }, [syllabusData?.rawSources]);
 
   const loadSavedSyllabus = async (id: string) => {
     setLoading(true);
@@ -100,16 +109,32 @@ const Syllabus = () => {
     }
   };
 
-  const generateSyllabus = async () => {
-    setLoading(true);
+  const generateSyllabus = async (selectedSourceUrls?: string[]) => {
+    const isRegenerating = !!selectedSourceUrls;
+    if (isRegenerating) {
+      setRegenerating(true);
+    } else {
+      setLoading(true);
+    }
+    
     try {
       const { data, error } = await supabase.functions.invoke('generate-syllabus', {
-        body: { discipline }
+        body: { 
+          discipline,
+          selectedSourceUrls 
+        }
       });
 
       if (error) throw error;
 
       setSyllabusData(data);
+      
+      if (isRegenerating) {
+        toast({
+          title: "Syllabus Regenerated",
+          description: `Generated from ${selectedSourceUrls?.length || 0} selected source(s).`,
+        });
+      }
     } catch (error) {
       console.error('Error generating syllabus:', error);
       toast({
@@ -118,7 +143,11 @@ const Syllabus = () => {
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      if (isRegenerating) {
+        setRegenerating(false);
+      } else {
+        setLoading(false);
+      }
     }
   };
 
@@ -140,6 +169,43 @@ const Syllabus = () => {
       newExpanded.add(index);
     }
     setExpandedSourceContent(newExpanded);
+  };
+
+  const toggleSourceSelection = (index: number) => {
+    const newSelected = new Set(selectedSources);
+    if (newSelected.has(index)) {
+      newSelected.delete(index);
+    } else {
+      newSelected.add(index);
+    }
+    setSelectedSources(newSelected);
+  };
+
+  const selectAllSources = () => {
+    if (syllabusData?.rawSources) {
+      setSelectedSources(new Set(syllabusData.rawSources.map((_, idx) => idx)));
+    }
+  };
+
+  const deselectAllSources = () => {
+    setSelectedSources(new Set());
+  };
+
+  const regenerateWithSelectedSources = async () => {
+    if (!syllabusData?.rawSources || selectedSources.size === 0) {
+      toast({
+        title: "No Sources Selected",
+        description: "Please select at least one source to regenerate the syllabus.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const selectedUrls = Array.from(selectedSources)
+      .map(idx => syllabusData.rawSources?.[idx]?.url)
+      .filter(Boolean) as string[];
+
+    await generateSyllabus(selectedUrls);
   };
 
   const saveSyllabus = async () => {
@@ -279,65 +345,13 @@ const Syllabus = () => {
                 </div>
               </div>
 
-              {/* Quick Access to Syllabi Section */}
-              {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
-                <Collapsible open={quickAccessOpen} onOpenChange={setQuickAccessOpen}>
-                  <CollapsibleTrigger asChild>
-                    <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <ExternalLink className="h-4 w-4 text-primary" />
-                        <h3 className="font-semibold">Quick Access to Syllabi</h3>
-                        <span className="text-sm text-muted-foreground">
-                          ({syllabusData.rawSources.length})
-                        </span>
-                      </div>
-                      <ChevronDown className={cn(
-                        "h-5 w-5 text-muted-foreground transition-transform",
-                        quickAccessOpen && "rotate-180"
-                      )} />
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="border border-t-0 divide-y">
-                      {syllabusData.rawSources.map((source, idx) => (
-                        <a
-                          key={idx}
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors group"
-                        >
-                          <div className="flex items-center gap-3 flex-1">
-                            <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-                            <span className="text-sm font-medium group-hover:text-primary transition-colors">
-                              {source.institution}: {source.courseName}
-                            </span>
-                          </div>
-                          <span className={cn(
-                            "text-xs px-2 py-1 ml-2 flex-shrink-0 font-medium",
-                            source.type === "University OCW" && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]",
-                            source.type === "Great Books Program" && "bg-red-900/20 text-red-900 dark:text-red-300",
-                            source.type === "MOOC Platform" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
-                            source.type === "Philosophy Syllabi Collection" && "bg-purple-500/20 text-purple-700 dark:text-purple-300",
-                            source.type === "OER Repository" && "bg-green-500/20 text-green-700 dark:text-green-300",
-                            !["University OCW", "Great Books Program", "MOOC Platform", "Philosophy Syllabi Collection", "OER Repository"].includes(source.type) && "bg-muted text-muted-foreground"
-                          )}>
-                            {source.type}
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
-
-              {/* Discovered Sources Section */}
+              {/* Source Syllabi Section */}
               {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
                 <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
                   <CollapsibleTrigger asChild>
                     <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">Discovered Authoritative Sources</h3>
+                        <h3 className="font-semibold">Source Syllabi</h3>
                         <span className="text-sm text-muted-foreground">
                           ({syllabusData.rawSources.length})
                         </span>
@@ -350,14 +364,50 @@ const Syllabus = () => {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="border border-t-0 p-4 bg-muted/20">
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={selectedSources.size === syllabusData.rawSources.length}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                selectAllSources();
+                              } else {
+                                deselectAllSources();
+                              }
+                            }}
+                          />
+                          <span className="text-sm font-medium">
+                            Select All ({selectedSources.size}/{syllabusData.rawSources.length})
+                          </span>
+                        </div>
+                        <Button
+                          onClick={regenerateWithSelectedSources}
+                          disabled={regenerating || selectedSources.size === 0}
+                          size="sm"
+                        >
+                          {regenerating ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Regenerating...
+                            </>
+                          ) : (
+                            'Regenerate with Selected Sources'
+                          )}
+                        </Button>
+                      </div>
                       <p className="text-sm text-muted-foreground mb-4">
-                        These are real syllabi and reading lists found from authoritative academic sources:
+                        Select which sources to include in the syllabus generation:
                       </p>
                       <div className="space-y-3">
                         {syllabusData.rawSources.map((source, idx) => (
                           <div key={idx} className="border bg-background">
                             <div className="p-3">
-                              <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex items-start gap-3">
+                                <Checkbox
+                                  checked={selectedSources.has(idx)}
+                                  onCheckedChange={() => toggleSourceSelection(idx)}
+                                  className="mt-1"
+                                />
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-1">
                                     <span className="font-semibold">{source.institution}</span>
@@ -374,17 +424,17 @@ const Syllabus = () => {
                                     </span>
                                   </div>
                                   <p className="text-sm text-muted-foreground">{source.courseName}</p>
+                                  <a
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-all mt-1"
+                                  >
+                                    <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                    {source.url}
+                                  </a>
                                 </div>
                               </div>
-                              <a
-                                href={source.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-all"
-                              >
-                                <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                                {source.url}
-                              </a>
                             </div>
                             
                             {/* Embedded Content Section */}
