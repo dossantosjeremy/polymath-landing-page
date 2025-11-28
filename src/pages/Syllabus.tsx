@@ -51,12 +51,54 @@ const Syllabus = () => {
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
+  const savedId = searchParams.get("savedId");
 
   useEffect(() => {
-    if (discipline) {
+    if (savedId) {
+      loadSavedSyllabus(savedId);
+    } else if (discipline) {
       generateSyllabus();
     }
-  }, [discipline]);
+  }, [discipline, savedId]);
+
+  const loadSavedSyllabus = async (id: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('saved_syllabi')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      setSyllabusData({
+        discipline: data.discipline,
+        modules: data.modules as any as Module[],
+        source: data.source,
+        rawSources: data.raw_sources as any as DiscoveredSource[],
+        timestamp: data.created_at
+      });
+      
+      // Mark as already saved since it came from database
+      setIsSaved(true);
+      
+      // Update URL to include path for breadcrumbs
+      if (data.discipline_path) {
+        searchParams.set('path', data.discipline_path);
+        navigate(`/syllabus?${searchParams.toString()}`, { replace: true });
+      }
+    } catch (error) {
+      console.error('Error loading saved syllabus:', error);
+      toast({
+        title: "Load Failed",
+        description: "Failed to load saved syllabus.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const generateSyllabus = async () => {
     setLoading(true);
