@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { BookOpen, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoPlayer } from './VideoPlayer';
 import { ReadingCard } from './ReadingCard';
@@ -21,11 +21,32 @@ export const LearningPlayer = ({
   isCapstone = false 
 }: LearningPlayerProps) => {
   const { resources, isLoading, error, fetchResources } = useStepResources();
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  useEffect(() => {
-    // Auto-fetch on mount
-    fetchResources(stepTitle, discipline, syllabusUrls);
-  }, [stepTitle, discipline]);
+  const handleLoadResources = () => {
+    setHasLoaded(true);
+    fetchResources(stepTitle, discipline, syllabusUrls, false);
+  };
+
+  // Show load button initially
+  if (!hasLoaded && !resources) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-4">
+          <BookOpen className="h-12 w-12 mx-auto text-muted-foreground" />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Learning Resources</p>
+            <p className="text-xs text-muted-foreground max-w-md mx-auto">
+              Curated videos, readings, books, and alternative resources for this step
+            </p>
+          </div>
+          <Button onClick={handleLoadResources}>
+            Load Learning Resources
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -42,12 +63,11 @@ export const LearningPlayer = ({
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-3">
-          <AlertCircle className="h-8 w-8 mx-auto text-destructive" />
           <p className="text-sm text-muted-foreground">{error}</p>
           <Button 
             variant="outline" 
             size="sm"
-            onClick={() => fetchResources(stepTitle, discipline, syllabusUrls)}
+            onClick={() => fetchResources(stepTitle, discipline, syllabusUrls, true)}
           >
             Try Again
           </Button>

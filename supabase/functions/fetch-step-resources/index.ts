@@ -1,5 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,9 +60,9 @@ async function callPerplexityAPI(prompt: string): Promise<any> {
       'Authorization': `Bearer ${perplexityApiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model: 'sonar-pro',
-      messages: [
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
         {
           role: 'system',
           content: 'You are a learning resource curator. Return ONLY valid JSON with no markdown formatting or explanation.'
@@ -121,9 +122,36 @@ serve(async (req) => {
   }
 
   try {
-    const { stepTitle, discipline, syllabusUrls = [] } = await req.json();
+    const { stepTitle, discipline, syllabusUrls = [], forceRefresh = false } = await req.json();
     
-    console.log('Fetching resources for:', { stepTitle, discipline, syllabusUrlsCount: syllabusUrls.length });
+    console.log('Fetching resources for:', { stepTitle, discipline, syllabusUrlsCount: syllabusUrls.length, forceRefresh });
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Check cache unless force refresh is requested
+    if (!forceRefresh) {
+      const { data: cached } = await supabase
+        .from('step_resources')
+        .select('*')
+        .eq('step_title', stepTitle)
+        .eq('discipline', discipline)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (cached) {
+        console.log('✓ Using cached resources');
+        return new Response(
+          JSON.stringify(cached.resources),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    
+    console.log('Cache miss or refresh requested, fetching new resources...');
 
     // Build context about authoritative sources
     const sourceContext = syllabusUrls.length > 0 
@@ -197,6 +225,20 @@ IMPORTANT: Return ONLY the JSON object, no markdown formatting, no explanations.
       hasBook: !!resources.book,
       alternativesCount: resources.alternatives?.length || 0
     });
+
+    // Cache the resources for future use
+    try {
+      await supabase.from('step_resources').insert({
+        step_title: stepTitle,
+        discipline: discipline,
+        syllabus_urls: syllabusUrls,
+        resources: resources
+      });
+      console.log('✓ Cached resources to database');
+    } catch (cacheError) {
+      console.error('Failed to cache resources:', cacheError);
+      // Continue even if caching fails
+    }
 
     return new Response(JSON.stringify(resources), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

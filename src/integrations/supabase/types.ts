@@ -119,6 +119,33 @@ export type Database = {
         }
         Relationships: []
       }
+      step_resources: {
+        Row: {
+          created_at: string | null
+          discipline: string
+          id: string
+          resources: Json
+          step_title: string
+          syllabus_urls: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          discipline: string
+          id?: string
+          resources: Json
+          step_title: string
+          syllabus_urls?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          discipline?: string
+          id?: string
+          resources?: Json
+          step_title?: string
+          syllabus_urls?: Json | null
+        }
+        Relationships: []
+      }
       user_progress: {
         Row: {
           discipline_id: string

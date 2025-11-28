@@ -45,13 +45,13 @@ export const useStepResources = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchResources = async (stepTitle: string, discipline: string, syllabusUrls: string[] = []) => {
+  const fetchResources = async (stepTitle: string, discipline: string, syllabusUrls: string[] = [], forceRefresh: boolean = false) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const { data, error: functionError } = await supabase.functions.invoke('fetch-step-resources', {
-        body: { stepTitle, discipline, syllabusUrls }
+        body: { stepTitle, discipline, syllabusUrls, forceRefresh }
       });
 
       if (functionError) {
