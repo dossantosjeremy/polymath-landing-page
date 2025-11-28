@@ -895,13 +895,28 @@ const Syllabus = () => {
                   >
                     {/* Module Header - Collapsible Trigger */}
                     <CollapsibleTrigger asChild>
-                      <button className="w-full bg-muted/50 border-l-4 border-l-primary p-4 flex items-center justify-between hover:bg-muted transition-colors">
-                        <h3 className="font-bold text-lg text-left">{moduleGroup.moduleName}</h3>
-                        <ChevronDown className={cn(
-                          "h-5 w-5 text-muted-foreground transition-transform",
-                          expandedModuleGroups.has(moduleGroup.moduleNumber) && "rotate-180"
-                        )} />
-                      </button>
+                      {(() => {
+                        const isCapstoneModule = moduleGroup.steps.some(s => s.isCapstone || s.tag === "Capstone Integration");
+                        return (
+                          <button className={cn(
+                            "w-full p-4 flex items-center gap-3 justify-between hover:bg-muted transition-colors border-l-4",
+                            isCapstoneModule 
+                              ? "bg-[hsl(var(--gold))]/5 border-l-[hsl(var(--gold))]" 
+                              : "bg-primary/5 border-l-primary"
+                          )}>
+                            {isCapstoneModule ? (
+                              <Award className="h-5 w-5 text-[hsl(var(--gold))] flex-shrink-0" />
+                            ) : (
+                              <BookOpen className="h-5 w-5 text-primary flex-shrink-0" />
+                            )}
+                            <h3 className="font-bold text-lg text-left flex-1">{moduleGroup.moduleName}</h3>
+                            <ChevronDown className={cn(
+                              "h-5 w-5 text-muted-foreground transition-transform flex-shrink-0",
+                              expandedModuleGroups.has(moduleGroup.moduleNumber) && "rotate-180"
+                            )} />
+                          </button>
+                        );
+                      })()}
                     </CollapsibleTrigger>
                     
                     {/* Steps within the module - Collapsible Content */}
