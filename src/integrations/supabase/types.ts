@@ -176,6 +176,30 @@ export type Database = {
         }
         Relationships: []
       }
+      step_summaries: {
+        Row: {
+          created_at: string | null
+          discipline: string
+          id: string
+          step_title: string
+          summary: string
+        }
+        Insert: {
+          created_at?: string | null
+          discipline: string
+          id?: string
+          step_title: string
+          summary: string
+        }
+        Update: {
+          created_at?: string | null
+          discipline?: string
+          id?: string
+          step_title?: string
+          summary?: string
+        }
+        Relationships: []
+      }
       user_progress: {
         Row: {
           discipline_id: string

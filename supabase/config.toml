@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.fetch-step-resources]
 verify_jwt = false
+
+[functions.generate-step-summary]
+verify_jwt = false
