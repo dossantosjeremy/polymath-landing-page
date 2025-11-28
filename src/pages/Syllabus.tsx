@@ -305,10 +305,29 @@ const Syllabus = () => {
     }
     
     try {
+      // Fetch user's source preferences
+      let customSources = [];
+      let enabledSources = [];
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('custom_sources, enabled_sources')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile) {
+          customSources = (profile.custom_sources as any) || [];
+          enabledSources = (profile.enabled_sources as any) || [];
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-syllabus', {
         body: { 
           discipline,
-          selectedSourceUrls 
+          selectedSourceUrls,
+          customSources,
+          enabledSources
         }
       });
 

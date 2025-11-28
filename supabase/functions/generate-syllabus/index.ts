@@ -28,10 +28,16 @@ serve(async (req) => {
   }
 
   try {
-    const { discipline, selectedSourceUrls } = await req.json();
+    const { discipline, selectedSourceUrls, customSources, enabledSources } = await req.json();
     console.log('Generating syllabus for:', discipline);
     if (selectedSourceUrls) {
       console.log('Using selected sources:', selectedSourceUrls.length);
+    }
+    if (customSources) {
+      console.log('Custom sources:', customSources.length);
+    }
+    if (enabledSources) {
+      console.log('Enabled authoritative sources:', enabledSources.length);
     }
 
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
@@ -54,7 +60,7 @@ serve(async (req) => {
     } else {
       // Initial generation - discover sources
       console.log('[Discovery] Finding all available syllabi sources...');
-      discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY);
+      discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY, customSources, enabledSources);
       console.log(`[Discovery] Found ${discoveredSources.length} source(s)`);
     }
 
@@ -188,7 +194,12 @@ serve(async (req) => {
   }
 });
 
-async function discoverSources(discipline: string, apiKey: string): Promise<DiscoveredSource[]> {
+async function discoverSources(
+  discipline: string, 
+  apiKey: string, 
+  customSources?: Array<{name: string, url: string, type: string}>,
+  enabledSources?: string[]
+): Promise<DiscoveredSource[]> {
   try {
     // Check if discipline is philosophy-related for specialized sources
     const isPhilosophy = discipline.toLowerCase().includes('philosophy') || 
@@ -196,6 +207,49 @@ async function discoverSources(discipline: string, apiKey: string): Promise<Disc
                          discipline.toLowerCase().includes('aristotle') ||
                          discipline.toLowerCase().includes('kant') ||
                          discipline.toLowerCase().includes('ethics');
+
+    // Build source list based on enabled sources
+    const allSources = [
+      { id: 'open_syllabus', tier: '1A', name: 'Open Syllabus', url: 'opensyllabus.org' },
+      { id: 'mit_ocw', tier: '1A', name: 'MIT OpenCourseWare', url: 'ocw.mit.edu' },
+      { id: 'yale_oyc', tier: '1A', name: 'Yale Open Courses', url: 'oyc.yale.edu' },
+      { id: 'harvard_extension', tier: '1A', name: 'Harvard Extension', url: 'pll.harvard.edu' },
+      { id: 'cmu_oli', tier: '1A', name: 'Carnegie Mellon OLI', url: 'oli.cmu.edu' },
+      { id: 'hillsdale', tier: '1A', name: 'Hillsdale College', url: 'hillsdale.edu/online-courses' },
+      { id: 'saylor', tier: '1A', name: 'Saylor Academy', url: 'saylor.org' },
+      { id: 'st_johns', tier: '1B', name: "St. John's College", url: 'sjc.edu' },
+      { id: 'uchicago_basic', tier: '1B', name: 'University of Chicago Basic Program', url: 'graham.uchicago.edu' },
+      { id: 'great_books_academy', tier: '1B', name: 'Great Books Academy', url: 'greatbooksacademy.org' },
+      { id: 'sattler', tier: '1B', name: 'Sattler College', url: 'sattler.edu' },
+      { id: 'harvard_classics', tier: '1B', name: 'Harvard Classics', url: 'archive.org/details/Harvard-Classics' },
+      { id: 'daily_idea_philosophy', tier: '1C', name: 'The Daily Idea Philosophy Syllabi', url: 'thedailyidea.org/philosophy-syllabi-collection' },
+      { id: 'stanford_encyclopedia', tier: '1C', name: 'Stanford Encyclopedia of Philosophy', url: 'plato.stanford.edu' },
+      { id: 'coursera', tier: '2', name: 'Coursera', url: 'coursera.org' },
+      { id: 'edx', tier: '2', name: 'edX', url: 'edx.org' },
+      { id: 'khan_academy', tier: '2', name: 'Khan Academy', url: 'khanacademy.org' },
+      { id: 'openlearn', tier: '2', name: 'OpenLearn', url: 'open.edu/openlearn' },
+      { id: 'oer_commons', tier: '2', name: 'OER Commons', url: 'oercommons.org' },
+      { id: 'merlot', tier: '2', name: 'MERLOT', url: 'merlot.org' },
+      { id: 'openstax', tier: '2', name: 'OpenStax', url: 'openstax.org' },
+      { id: 'oer_project', tier: '2', name: 'OER Project', url: 'oerproject.com' },
+      { id: 'project_gutenberg', tier: '3', name: 'Project Gutenberg', url: 'gutenberg.org' },
+      { id: 'archive_org', tier: '3', name: 'Archive.org', url: 'archive.org' },
+    ];
+
+    const activeSources = enabledSources && enabledSources.length > 0
+      ? allSources.filter(s => enabledSources.includes(s.id))
+      : allSources;
+
+    // Build prompt sections
+    const tier1A = activeSources.filter(s => s.tier === '1A');
+    const tier1B = activeSources.filter(s => s.tier === '1B');
+    const tier1C = activeSources.filter(s => s.tier === '1C');
+    const tier2 = activeSources.filter(s => s.tier === '2');
+    const tier3 = activeSources.filter(s => s.tier === '3');
+
+    const customSection = customSources && customSources.length > 0
+      ? `\n**User Custom Sources:**\n${customSources.map(s => `- ${s.name} (${s.url})`).join('\n')}\n`
+      : '';
 
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
@@ -215,40 +269,22 @@ async function discoverSources(discipline: string, apiKey: string): Promise<Disc
             content: `Find ALL available syllabi, reading lists, curriculum guides, or course outlines related to "${discipline}".
 
 Search across these AUTHORITATIVE sources in priority order:
-
+${tier1A.length > 0 ? `
 **Tier 1A - University OpenCourseWare:**
-- Open Syllabus (opensyllabus.org) - Database of millions of real syllabi
-- MIT OpenCourseWare (ocw.mit.edu)
-- Yale Open Courses (oyc.yale.edu)
-- Harvard Extension (pll.harvard.edu)
-- Carnegie Mellon OLI (oli.cmu.edu)
-- Hillsdale College (hillsdale.edu/online-courses)
-- Saylor Academy (saylor.org)
-
+${tier1A.map(s => `- ${s.name} (${s.url})`).join('\n')}
+` : ''}${tier1B.length > 0 ? `
 **Tier 1B - Great Books & Classical Programs:**
-- St. John's College Great Books (sjc.edu)
-- University of Chicago Basic Program (graham.uchicago.edu)
-- Great Books Academy (greatbooksacademy.org)
-- Sattler College (sattler.edu)
-- Harvard Classics (archive.org/details/Harvard-Classics)
-${isPhilosophy ? `
+${tier1B.map(s => `- ${s.name} (${s.url})`).join('\n')}
+` : ''}${tier1C.length > 0 && isPhilosophy ? `
 **Tier 1C - Philosophy-Specific:**
-- The Daily Idea Philosophy Syllabi (thedailyidea.org/philosophy-syllabi-collection)
-- Stanford Encyclopedia of Philosophy reading guides` : ''}
-
+${tier1C.map(s => `- ${s.name} (${s.url})`).join('\n')}
+` : ''}${tier2.length > 0 ? `
 **Tier 2 - Quality MOOCs & OER:**
-- Coursera (coursera.org)
-- edX (edx.org)
-- Khan Academy (khanacademy.org)
-- OpenLearn (open.edu/openlearn)
-- OER Commons (oercommons.org)
-- MERLOT (merlot.org)
-- OER Project (oerproject.com)
-
+${tier2.map(s => `- ${s.name} (${s.url})`).join('\n')}
+` : ''}${tier3.length > 0 ? `
 **Tier 3 - Text Repositories:**
-- Archive.org educational collections
-- Project Gutenberg reading guides
-
+${tier3.map(s => `- ${s.name}`).join('\n')}
+` : ''}${customSection}
 Return ONLY valid JSON with all discovered sources:
 
 {
