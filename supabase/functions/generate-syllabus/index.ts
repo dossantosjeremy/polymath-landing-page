@@ -400,24 +400,34 @@ Syllabus Content:
 ${source.content}
 
 CRITICAL REQUIREMENTS:
-1. ALWAYS use "Module" terminology (NEVER "Week")
-2. Group related topics into logical modules
-3. Each module should contain 3-5 steps
+1. PRESERVE the original progression and order of topics from the source
+2. ALWAYS use "Module" terminology (NEVER "Week")
+3. Group consecutive related topics into logical modules (3-5 steps each)
 4. Use format: "Module X - Step Y: Topic"
+5. DO NOT reorder topics - maintain the syllabus's pedagogical sequence
+
+EXAMPLE TRANSFORMATION (preserving order):
+INPUT: Week 1: Intro, Week 2: Basics, Week 3: Variables, Week 4: Loops, Week 5: Functions
+OUTPUT:
+- Module 1 - Step 1: Intro
+- Module 1 - Step 2: Basics
+- Module 1 - Step 3: Variables
+- Module 1 - Step 4: Loops
+- Module 2 - Step 1: Functions
 
 Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Module 1 - Step 1: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 1 - Step 2: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 1 - Step 3: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 2 - Step 1: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 2 - Step 2: [Topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"}
+    {"title": "Module 1 - Step 1: [First Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 1 - Step 2: [Second Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 1 - Step 3: [Third Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 2 - Step 1: [Fourth Topic]", "tag": "Core Concepts", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Module 2 - Step 2: [Fifth Topic]", "tag": "Core Concepts", "source": "${source.institution}", "sourceUrl": "${source.url}"}
   ]
 }
 
-Include ALL topics organized into modules with multiple steps each. Return ONLY the JSON, no other text.`
+Include ALL topics in their original order, grouped into modules. Return ONLY the JSON, no other text.`
           }
         ],
         temperature: 0.1,
@@ -484,28 +494,31 @@ ${syllabusDescriptions}
 
 REQUIREMENTS:
 1. Include ALL unique topics from all syllabi
-2. Organize logically into modules: Foundations → Core Concepts → Advanced Topics
-3. Remove duplicates but preserve all unique content
-4. Use "Module X - Step Y" format (NEVER "Week")
-5. Group 3-5 related steps within each module
-6. Aim for ${Math.max(...extractions.map(e => e.modules.length))} or more steps
-7. Attribute each step to its source institution
-8. ONLY reference sources from the discovered list (no phantom sources)
+2. PRESERVE the pedagogical progression from source syllabi (don't arbitrarily reorder)
+3. Organize logically into modules: Foundations → Core Concepts → Advanced Topics
+4. Remove duplicates but preserve all unique content
+5. Use "Module X - Step Y" format (NEVER "Week")
+6. Group 3-5 consecutive related steps within each module
+7. Aim for ${Math.max(...extractions.map(e => e.modules.length))} or more steps
+8. Attribute each step to its source institution
+9. ONLY reference sources from the discovered list (no phantom sources)
+
+CRITICAL: Maintain the original learning sequence. Don't jump topics around.
 
 Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Module 1 - Step 1: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
-    {"title": "Module 1 - Step 2: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
-    {"title": "Module 1 - Step 3: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
-    {"title": "Module 2 - Step 1: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
-    {"title": "Module 2 - Step 2: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
-    ...more steps (include ALL unique topics with 3-5 steps per module)
+    {"title": "Module 1 - Step 1: [First Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]"},
+    {"title": "Module 1 - Step 2: [Second Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]"},
+    {"title": "Module 1 - Step 3: [Third Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]"},
+    {"title": "Module 2 - Step 1: [Fourth Topic]", "tag": "Core Concepts", "source": "[Institution]", "sourceUrl": "[URL]"},
+    {"title": "Module 2 - Step 2: [Fifth Topic]", "tag": "Core Concepts", "source": "[Institution]", "sourceUrl": "[URL]"},
+    ...more steps (include ALL unique topics in original order, grouped into modules)
   ]
 }
 
-Return ONLY the JSON with the comprehensive merged syllabus with multiple steps per module.`
+Return ONLY the JSON preserving original progression with multiple steps per module.`
           }
         ],
         temperature: 0.2,
@@ -597,11 +610,12 @@ ${isPhilosophy ? `
 **INSTRUCTIONS:**
 1. Search the authoritative sources listed above
 2. Find an actual syllabus/reading list (NOT hypothetical)
-3. Extract the real structure with specific topics/readings
+3. Extract the real structure with specific topics/readings IN THEIR ORIGINAL ORDER
 4. Include exact URLs to each source
 5. Use "Module X - Step Y" format (NEVER "Week")
-6. Group 3-5 related steps within each module
+6. Group 3-5 consecutive related steps within each module
 7. Return at least 10 steps organized into logical modules
+8. PRESERVE the pedagogical progression from the source
 
 Return ONLY valid JSON:
 
@@ -705,10 +719,11 @@ async function searchTier2Syllabus(discipline: string, apiKey: string) {
 
 **INSTRUCTIONS:**
 1. Find 2-3 real courses from the platforms above
-2. Extract their actual syllabus structures
+2. Extract their actual syllabus structures IN ORIGINAL ORDER
 3. Aggregate into 10+ coherent steps with 3-5 steps per module
 4. Use "Module X - Step Y" format (NEVER "Week")
 5. Include exact URLs to verify each source
+6. PRESERVE the learning progression from source courses
 
 Return ONLY valid JSON:
 
