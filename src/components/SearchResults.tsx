@@ -155,6 +155,13 @@ export const SearchResults = ({ results, query, searching, onBrowseInContext }: 
                             >
                               Generate Fresh
                             </Button>
+                            <Button
+                              onClick={() => onBrowseInContext(discipline)}
+                              variant="outline"
+                              className="flex-1"
+                            >
+                              Browse in Context
+                            </Button>
                           </>
                         ) : (
                           <>
