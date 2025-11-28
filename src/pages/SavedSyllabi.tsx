@@ -95,7 +95,7 @@ const SavedSyllabi = () => {
   };
 
   const viewSyllabus = (syllabus: SavedSyllabus) => {
-    navigate(`/syllabus?discipline=${encodeURIComponent(syllabus.discipline)}&path=${encodeURIComponent(syllabus.discipline_path || '')}`);
+    navigate(`/syllabus?savedId=${syllabus.id}`);
   };
 
   // Convert JSONB to array for display
