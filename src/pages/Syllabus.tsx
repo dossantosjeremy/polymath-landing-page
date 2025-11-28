@@ -16,6 +16,8 @@ interface Module {
   tag: string;
   source: string;
   sourceUrl?: string;
+  sourceUrls?: string[];
+  description?: string;
   isCapstone?: boolean;
 }
 
@@ -125,62 +127,16 @@ const Syllabus = () => {
   }
 
   const parseModuleGroups = (modules: Module[]): ModuleGroup[] => {
-    // First, check if data follows "Module X - Step Y: Topic" format
-    const hasModuleStepFormat = modules.some(m => 
-      /Module\s+\d+\s*-?\s*Step\s+\d+/i.test(m.title)
-    );
-    
-    if (hasModuleStepFormat) {
-      // Use existing parsing for "Module X - Step Y" format
-      const groups = new Map<number, ModuleGroup>();
-      
-      modules.forEach((module, originalIndex) => {
-        const match = module.title.match(/Module\s+(\d+)\s*-?\s*Step\s+(\d+):\s*(.+)/i);
-        
-        if (match) {
-          const moduleNumber = parseInt(match[1]);
-          const stepNumber = parseInt(match[2]);
-          const stepTitle = match[3];
-          
-          if (!groups.has(moduleNumber)) {
-            groups.set(moduleNumber, {
-              moduleNumber,
-              moduleName: `Module ${moduleNumber}`,
-              steps: []
-            });
-          }
-          
-          groups.get(moduleNumber)!.steps.push({
-            ...module,
-            stepNumber,
-            stepTitle,
-            originalIndex
-          });
-        }
-      });
-      
-      return Array.from(groups.values()).sort((a, b) => a.moduleNumber - b.moduleNumber);
-    }
-    
-    // Fallback: Intelligent grouping by tag while PRESERVING ORDER
-    console.log('[Parse] Using intelligent tag-based grouping');
-    
-    // Separate capstones from theory/content
-    const capstones = modules.filter(m => m.isCapstone);
-    const nonCapstones = modules.filter(m => !m.isCapstone);
-    
+    // Process ALL modules in their original order, keeping capstones distributed
     const groups: ModuleGroup[] = [];
     let currentGroup: Array<Module & { originalIndex: number }> = [];
     let currentTag = '';
     let moduleNumber = 1;
     
-    // Group consecutive modules with same tag
-    nonCapstones.forEach((module, idx) => {
-      const tag = module.tag || 'General';
-      const cleanTitle = module.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '');
-      
-      if (tag !== currentTag) {
-        // Tag changed - finalize current group
+    modules.forEach((module, idx) => {
+      // If it's a capstone, finalize current group and add capstone as its own module
+      if (module.isCapstone) {
+        // Finalize current group first
         if (currentGroup.length > 0) {
           // Split large groups into modules of 3-5 steps
           for (let i = 0; i < currentGroup.length; i += 4) {
@@ -188,7 +144,51 @@ const Syllabus = () => {
             const chunkIndex = Math.floor(i / 4) + 1;
             const totalChunks = Math.ceil(currentGroup.length / 4);
             
-            // Generate descriptive module name
+            let moduleName = currentTag;
+            if (totalChunks > 1) {
+              moduleName = `${currentTag} ${chunkIndex}`;
+            }
+            
+            groups.push({
+              moduleNumber: moduleNumber++,
+              moduleName,
+              steps: chunk.map((item, stepIdx) => ({
+                ...item,
+                stepNumber: stepIdx + 1,
+                stepTitle: item.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '')
+              }))
+            });
+          }
+          currentGroup = [];
+        }
+        
+        // Add capstone as single-step module
+        groups.push({
+          moduleNumber: moduleNumber++,
+          moduleName: 'Capstone Checkpoint',
+          steps: [{ 
+            ...module, 
+            stepNumber: 1, 
+            stepTitle: module.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, ''),
+            tag: 'Capstone Integration',
+            originalIndex: idx
+          }]
+        });
+        return;
+      }
+      
+      // Regular module processing
+      const tag = module.tag || 'General';
+      const cleanTitle = module.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '');
+      
+      if (tag !== currentTag && currentTag !== '') {
+        // Tag changed - finalize current group
+        if (currentGroup.length > 0) {
+          for (let i = 0; i < currentGroup.length; i += 4) {
+            const chunk = currentGroup.slice(i, Math.min(i + 5, currentGroup.length));
+            const chunkIndex = Math.floor(i / 4) + 1;
+            const totalChunks = Math.ceil(currentGroup.length / 4);
+            
             let moduleName = currentTag;
             if (totalChunks > 1) {
               moduleName = `${currentTag} ${chunkIndex}`;
@@ -205,17 +205,15 @@ const Syllabus = () => {
             });
           }
         }
-        
-        // Start new group
-        currentGroup = [{ ...module, title: cleanTitle, originalIndex: idx }];
-        currentTag = tag;
-      } else {
-        // Same tag - add to current group
-        currentGroup.push({ ...module, title: cleanTitle, originalIndex: idx });
+        currentGroup = [];
       }
       
-      // Handle last group
-      if (idx === nonCapstones.length - 1 && currentGroup.length > 0) {
+      // Add to current group
+      currentGroup.push({ ...module, title: cleanTitle, originalIndex: idx });
+      currentTag = tag;
+      
+      // Handle last module
+      if (idx === modules.length - 1 && currentGroup.length > 0) {
         for (let i = 0; i < currentGroup.length; i += 4) {
           const chunk = currentGroup.slice(i, Math.min(i + 5, currentGroup.length));
           const chunkIndex = Math.floor(i / 4) + 1;
@@ -238,21 +236,6 @@ const Syllabus = () => {
         }
       }
     });
-    
-    // Add capstones as separate module(s) if present
-    if (capstones.length > 0) {
-      groups.push({
-        moduleNumber: moduleNumber++,
-        moduleName: 'Capstone',
-        steps: capstones.map((item, idx) => ({
-          ...item,
-          stepNumber: idx + 1,
-          stepTitle: item.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, ''),
-          tag: 'Capstone Integration', // Ensure only capstone tag
-          originalIndex: nonCapstones.length + idx
-        }))
-      });
-    }
     
     return groups;
   };
@@ -541,18 +524,30 @@ const Syllabus = () => {
             </div>
           ) : syllabusData ? (
             <div className="space-y-6">
-              {/* Source Pills Banner */}
+              {/* Source Pills Banner - Only show sources actually used in syllabus */}
               {(() => {
                 const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                // Create unique domain pills
-                const domainMap = new Map<string, DiscoveredSource>();
-                sourcesToDisplay.forEach(source => {
-                  const domain = getDomainShortName(source.url);
-                  if (!domainMap.has(domain)) {
-                    domainMap.set(domain, source);
-                  }
+                
+                // Compute sources actually used in the syllabus
+                const usedSourceUrls = new Set<string>();
+                syllabusData.modules.forEach(m => {
+                  if (m.sourceUrl) usedSourceUrls.add(m.sourceUrl);
+                  if (m.sourceUrls) m.sourceUrls.forEach(url => usedSourceUrls.add(url));
                 });
+                
+                // Filter to only used sources and create unique domain pills
+                const domainMap = new Map<string, DiscoveredSource>();
+                sourcesToDisplay
+                  .filter(source => usedSourceUrls.has(source.url))
+                  .forEach(source => {
+                    const domain = getDomainShortName(source.url);
+                    if (!domainMap.has(domain)) {
+                      domainMap.set(domain, source);
+                    }
+                  });
                 const uniqueDomainSources = Array.from(domainMap.values());
+                
+                if (uniqueDomainSources.length === 0) return null;
                 
                 return (
                   <div className="bg-accent/30 border border-accent p-4 flex items-start gap-4">
@@ -808,20 +803,16 @@ const Syllabus = () => {
                     
                     {/* Steps within the module - Collapsible Content */}
                     <CollapsibleContent>
-                      <div className="space-y-2 ml-4 mt-2">
-                        {moduleGroup.steps.map((step) => {
-                          const sourceType = originalSources.find(s => s.url === step.sourceUrl)?.type || 
-                                           syllabusData.rawSources?.find(s => s.url === step.sourceUrl)?.type || '';
-                          const domainName = step.sourceUrl ? getDomainShortName(step.sourceUrl) : step.source;
-                          
-                          return (
-                            <div
-                              key={step.originalIndex}
-                              className={cn(
-                                "border overflow-hidden transition-all",
-                                step.isCapstone && "bg-accent/10 border-accent"
-                              )}
-                            >
+                       <div className="space-y-2 ml-4 mt-2">
+                         {moduleGroup.steps.map((step) => {
+                           return (
+                             <div
+                               key={step.originalIndex}
+                               className={cn(
+                                 "border overflow-hidden transition-all",
+                                 step.isCapstone && "bg-accent/10 border-accent"
+                               )}
+                             >
                               <button
                                 onClick={() => toggleModule(step.originalIndex)}
                                 className={cn(
@@ -829,43 +820,56 @@ const Syllabus = () => {
                                   step.tag === "Capstone Integration" && "border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
                                 )}
                               >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-1">
-                                    {step.tag === "Capstone Integration" && (
-                                      <span className="text-xl">🏛️</span>
-                                    )}
-                                    <h4 className="font-semibold">{step.stepNumber}. {step.stepTitle}</h4>
-                                    <span className={cn(
-                                      "text-xs px-2 py-1",
-                                      step.tag === "Capstone Integration" 
-                                        ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
-                                        : "bg-muted text-muted-foreground"
-                                    )}>
-                                      {step.tag}
-                                    </span>
-                                    {/* Source badge with color matching pills */}
-                                    <span className={cn(
-                                      "text-xs px-2 py-1 inline-flex items-center gap-1",
-                                      getSourceColor(sourceType)
-                                    )}>
-                                      {domainName}
-                                    </span>
-                                  </div>
-                                  {step.sourceUrl && (
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                      <a
-                                        href={step.sourceUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-primary hover:underline inline-flex items-center gap-1"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        View Source
-                                        <ExternalLink className="h-3 w-3" />
-                                      </a>
-                                    </div>
-                                  )}
-                                </div>
+                                 <div className="flex-1">
+                                   <div className="flex items-center gap-3 mb-1">
+                                     {step.tag === "Capstone Integration" && (
+                                       <span className="text-xl">🏛️</span>
+                                     )}
+                                     <h4 className="font-semibold">{step.stepNumber}. {step.stepTitle}</h4>
+                                     <span className={cn(
+                                       "text-xs px-2 py-1",
+                                       step.tag === "Capstone Integration" 
+                                         ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
+                                         : "bg-muted text-muted-foreground"
+                                     )}>
+                                       {step.tag}
+                                     </span>
+                                   </div>
+                                   
+                                   {/* Step description from original syllabi */}
+                                   {step.description && (
+                                     <p className="text-sm text-muted-foreground mb-2">{step.description}</p>
+                                   )}
+                                   
+                                   {/* Multiple source badges with color matching pills */}
+                                   <div className="flex flex-wrap items-center gap-2">
+                                     {(() => {
+                                       const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
+                                       return urls.filter(Boolean).map((url, idx) => {
+                                         const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
+                                         const sourceType = rawSources.find(s => s.url === url)?.type || '';
+                                         const domainName = getDomainShortName(url);
+                                         
+                                         return (
+                                           <a
+                                             key={idx}
+                                             href={url}
+                                             target="_blank"
+                                             rel="noopener noreferrer"
+                                             className={cn(
+                                               "text-xs px-2 py-1 inline-flex items-center gap-1 hover:opacity-80 transition-opacity",
+                                               getSourceColor(sourceType)
+                                             )}
+                                             onClick={(e) => e.stopPropagation()}
+                                           >
+                                             {domainName}
+                                             <ExternalLink className="h-3 w-3" />
+                                           </a>
+                                         );
+                                       });
+                                     })()}
+                                   </div>
+                                 </div>
                                 <ChevronRight className={cn(
                                   "h-5 w-5 text-muted-foreground transition-transform",
                                   expandedModules.has(step.originalIndex) && "rotate-90"
