@@ -101,6 +101,15 @@ async function callPerplexityAPI(prompt: string): Promise<any> {
   return data;
 }
 
+function transformToReadingsUrl(url: string): string {
+  // MIT OCW: /pages/syllabus/ → /pages/readings/
+  if (url.includes('ocw.mit.edu') && url.includes('/pages/syllabus')) {
+    return url.replace('/pages/syllabus', '/pages/readings');
+  }
+  // Could add similar patterns for other OCW platforms
+  return url;
+}
+
 function extractJSON(text: string): any {
   // Remove markdown code blocks if present
   let cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -153,9 +162,12 @@ serve(async (req) => {
     
     console.log('Cache miss or refresh requested, fetching new resources...');
 
+    // Transform MIT OCW URLs to readings pages
+    const transformedUrls = syllabusUrls.map(transformToReadingsUrl);
+    
     // Build context about authoritative sources
-    const sourceContext = syllabusUrls.length > 0 
-      ? `\n\nPrioritize resources from these authoritative syllabi sources:\n${syllabusUrls.slice(0, 10).join('\n')}`
+    const sourceContext = transformedUrls.length > 0 
+      ? `\n\nPrioritize resources from these authoritative syllabi sources:\n${transformedUrls.slice(0, 10).join('\n')}`
       : '';
 
     const prompt = `Find the best learning resources for "${stepTitle}" in the context of "${discipline}".${sourceContext}
@@ -177,11 +189,11 @@ Return a JSON object with these fields:
   },
   
   "deepReading": {
-    "url": "Article/PDF URL (prefer stanford.edu, plato.stanford.edu, mit.edu, academic sources)",
-    "domain": "stanford.edu",
-    "title": "Article title",
-    "snippet": "2-3 sentence summary",
-    "focusHighlight": "Specific reading recommendation (e.g., 'Read Section 2 on...')",
+    "url": "Article/PDF URL or readings page URL (prefer /pages/readings/ for MIT OCW)",
+    "domain": "mit.edu",
+    "title": "Course/Article title",
+    "snippet": "Specific reading citation (e.g., 'Rosenzweig chapters 14-15, Gazzaniga chapter 8')",
+    "focusHighlight": "Exact reading assignment (book, chapter, article, page ranges)",
     "favicon": "Optional favicon URL"
   },
   
@@ -206,7 +218,13 @@ Return a JSON object with these fields:
   ]
 }
 
-IMPORTANT: Return ONLY the JSON object, no markdown formatting, no explanations.`;
+IMPORTANT INSTRUCTIONS:
+- For MIT OCW sources: ALWAYS use /pages/readings/ URLs (not /pages/syllabus/)
+- Extract SPECIFIC reading assignments from the readings page (author, book title, chapters, page ranges)
+- Format citations properly (e.g., "Rosenzweig chapters 14-15" or "Mackay, Donald M. The Bankruptcy of Determinism. New Scientist 2 (1970): 24-26")
+- For deepReading snippet and focusHighlight: include exact citations, not generic summaries
+
+Return ONLY the JSON object, no markdown formatting, no explanations.`;
 
     const data = await callPerplexityAPI(prompt);
     const content = data.choices[0]?.message?.content;
