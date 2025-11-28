@@ -19,6 +19,11 @@ export interface StepResources {
     snippet: string;
     focusHighlight: string;
     favicon?: string;
+    specificReadings?: Array<{
+      citation: string;
+      url: string;
+      type: 'pdf' | 'article' | 'chapter' | 'external';
+    }>;
   } | null;
   
   book: {
