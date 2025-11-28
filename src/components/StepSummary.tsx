@@ -59,6 +59,15 @@ export const StepSummary = ({
               >
                 Generate
               </Button>
+              <Button
+                onClick={() => handleGenerate(true)}
+                size="sm"
+                variant="ghost"
+                className="gap-1"
+                title="Force fresh generation (bypass cache)"
+              >
+                <RefreshCw className="h-3 w-3" />
+              </Button>
             </div>
           )}
           
