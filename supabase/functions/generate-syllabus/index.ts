@@ -266,7 +266,7 @@ async function discoverSources(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-pro',
+        model: 'sonar',
         messages: [
           {
             role: 'system',
@@ -309,7 +309,7 @@ Find as many real, authoritative syllabi as possible. Include exact URLs. Return
           }
         ],
         temperature: 0.1,
-        max_tokens: 8000, // Increased for comprehensive syllabi
+        max_tokens: 3000,
         return_citations: true,
       }),
     });
@@ -347,7 +347,7 @@ async function fetchSyllabusContent(url: string, discipline: string, apiKey: str
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-pro',
+        model: 'sonar',
         messages: [
           {
             role: 'system',
@@ -369,7 +369,7 @@ Return the full syllabus text exactly as it appears on the source page. Include 
           }
         ],
         temperature: 0.1,
-        max_tokens: 8000, // Increased to capture full syllabi
+        max_tokens: 4000,
       }),
     });
 
@@ -431,7 +431,7 @@ async function extractFullSyllabus(source: DiscoveredSource, discipline: string,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'sonar-pro',
+        model: 'sonar',
         messages: [
           {
             role: 'system',
@@ -482,7 +482,7 @@ Include ALL topics in their original order, grouped into modules. Return ONLY th
           }
         ],
         temperature: 0.1,
-        max_tokens: 8000,
+        max_tokens: 3000,
       }),
     });
 
@@ -580,7 +580,7 @@ Return ONLY the JSON preserving original progression with multiple steps per mod
           }
         ],
         temperature: 0.2,
-        max_tokens: 10000, // Very high limit for comprehensive merging
+        max_tokens: 4000,
       }),
     });
 
