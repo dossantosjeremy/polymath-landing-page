@@ -125,38 +125,22 @@ const Syllabus = () => {
   }
 
   const parseModuleGroups = (modules: Module[]): ModuleGroup[] => {
-    const groups = new Map<number, ModuleGroup>();
+    // First, check if data follows "Module X - Step Y: Topic" format
+    const hasModuleStepFormat = modules.some(m => 
+      /Module\s+\d+\s*-?\s*Step\s+\d+/i.test(m.title)
+    );
     
-    modules.forEach((module, originalIndex) => {
-      // Try parsing "Module X - Step Y: Topic" format (new format)
-      let match = module.title.match(/Module\s+(\d+)\s*-?\s*Step\s+(\d+):\s*(.+)/i);
+    if (hasModuleStepFormat) {
+      // Use existing parsing for "Module X - Step Y" format
+      const groups = new Map<number, ModuleGroup>();
       
-      if (match) {
-        const moduleNumber = parseInt(match[1]);
-        const stepNumber = parseInt(match[2]);
-        const stepTitle = match[3];
+      modules.forEach((module, originalIndex) => {
+        const match = module.title.match(/Module\s+(\d+)\s*-?\s*Step\s+(\d+):\s*(.+)/i);
         
-        if (!groups.has(moduleNumber)) {
-          groups.set(moduleNumber, {
-            moduleNumber,
-            moduleName: `Module ${moduleNumber}`,
-            steps: []
-          });
-        }
-        
-        groups.get(moduleNumber)!.steps.push({
-          ...module,
-          stepNumber,
-          stepTitle,
-          originalIndex
-        });
-      } else {
-        // Try parsing old "Week X: Topic" or "Step X: Week Y: Topic" format
-        const weekMatch = module.title.match(/(?:Step\s+\d+:\s*)?Week\s+(\d+):\s*(.+)/i);
-        
-        if (weekMatch) {
-          const moduleNumber = parseInt(weekMatch[1]);
-          const stepTitle = weekMatch[2];
+        if (match) {
+          const moduleNumber = parseInt(match[1]);
+          const stepNumber = parseInt(match[2]);
+          const stepTitle = match[3];
           
           if (!groups.has(moduleNumber)) {
             groups.set(moduleNumber, {
@@ -166,33 +150,111 @@ const Syllabus = () => {
             });
           }
           
-          const existingSteps = groups.get(moduleNumber)!.steps;
-          const stepNumber = existingSteps.length + 1;
-          
           groups.get(moduleNumber)!.steps.push({
             ...module,
             stepNumber,
             stepTitle,
             originalIndex
           });
-        } else {
-          // Fallback: treat as standalone module
-          const moduleNumber = groups.size + 1;
-          groups.set(moduleNumber, {
-            moduleNumber,
-            moduleName: module.title,
-            steps: [{
-              ...module,
-              stepNumber: 1,
-              stepTitle: module.title,
-              originalIndex
-            }]
+        }
+      });
+      
+      return Array.from(groups.values()).sort((a, b) => a.moduleNumber - b.moduleNumber);
+    }
+    
+    // Fallback: Intelligent grouping by tag while PRESERVING ORDER
+    console.log('[Parse] Using intelligent tag-based grouping');
+    
+    // Separate capstones from theory/content
+    const capstones = modules.filter(m => m.isCapstone);
+    const nonCapstones = modules.filter(m => !m.isCapstone);
+    
+    const groups: ModuleGroup[] = [];
+    let currentGroup: Array<Module & { originalIndex: number }> = [];
+    let currentTag = '';
+    let moduleNumber = 1;
+    
+    // Group consecutive modules with same tag
+    nonCapstones.forEach((module, idx) => {
+      const tag = module.tag || 'General';
+      const cleanTitle = module.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '');
+      
+      if (tag !== currentTag) {
+        // Tag changed - finalize current group
+        if (currentGroup.length > 0) {
+          // Split large groups into modules of 3-5 steps
+          for (let i = 0; i < currentGroup.length; i += 4) {
+            const chunk = currentGroup.slice(i, Math.min(i + 5, currentGroup.length));
+            const chunkIndex = Math.floor(i / 4) + 1;
+            const totalChunks = Math.ceil(currentGroup.length / 4);
+            
+            // Generate descriptive module name
+            let moduleName = currentTag;
+            if (totalChunks > 1) {
+              moduleName = `${currentTag} ${chunkIndex}`;
+            }
+            
+            groups.push({
+              moduleNumber: moduleNumber++,
+              moduleName,
+              steps: chunk.map((item, stepIdx) => ({
+                ...item,
+                stepNumber: stepIdx + 1,
+                stepTitle: item.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '')
+              }))
+            });
+          }
+        }
+        
+        // Start new group
+        currentGroup = [{ ...module, title: cleanTitle, originalIndex: idx }];
+        currentTag = tag;
+      } else {
+        // Same tag - add to current group
+        currentGroup.push({ ...module, title: cleanTitle, originalIndex: idx });
+      }
+      
+      // Handle last group
+      if (idx === nonCapstones.length - 1 && currentGroup.length > 0) {
+        for (let i = 0; i < currentGroup.length; i += 4) {
+          const chunk = currentGroup.slice(i, Math.min(i + 5, currentGroup.length));
+          const chunkIndex = Math.floor(i / 4) + 1;
+          const totalChunks = Math.ceil(currentGroup.length / 4);
+          
+          let moduleName = currentTag;
+          if (totalChunks > 1) {
+            moduleName = `${currentTag} ${chunkIndex}`;
+          }
+          
+          groups.push({
+            moduleNumber: moduleNumber++,
+            moduleName,
+            steps: chunk.map((item, stepIdx) => ({
+              ...item,
+              stepNumber: stepIdx + 1,
+              stepTitle: item.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, '')
+            }))
           });
         }
       }
     });
     
-    return Array.from(groups.values()).sort((a, b) => a.moduleNumber - b.moduleNumber);
+    // Add capstones as separate module(s) if present
+    if (capstones.length > 0) {
+      groups.push({
+        moduleNumber: moduleNumber++,
+        moduleName: 'Capstone',
+        steps: capstones.map((item, idx) => ({
+          ...item,
+          stepNumber: idx + 1,
+          stepTitle: item.title.replace(/^(?:Step\s+\d+:\s*)?Week\s+\d+:\s*/i, ''),
+          tag: 'Capstone Integration', // Ensure only capstone tag
+          originalIndex: nonCapstones.length + idx
+        }))
+      });
+    }
+    
+    return groups;
   };
 
   const loadSavedSyllabus = async (id: string) => {
