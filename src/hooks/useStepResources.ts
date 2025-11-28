@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface StepResources {
+  stepDetails?: {
+    description: string;
+    sourceUrls: string[];
+    difficulty: string;
+  };
+  
   primaryVideo: {
     url: string;
     title: string;
