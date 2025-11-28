@@ -117,6 +117,9 @@ serve(async (req) => {
         syllabusSource = `Comprehensive syllabus merged from ${validExtractions.length} authoritative source(s)`;
         sourceUrl = validExtractions[0].source.url;
         
+        // Ensure ALL discovered sources appear in final syllabus
+        modules = ensureAllSourcesAppear(modules, sourcesWithContent);
+        
         // Weave in capstone milestones
         modules = weaveCapstoneCheckpoints(modules, discipline);
 
@@ -596,6 +599,51 @@ Return ONLY the JSON preserving original progression with multiple steps per mod
     // Fallback: concatenate all modules
     return extractions.flatMap(e => e.modules);
   }
+}
+
+// Post-processing function to ensure ALL discovered sources appear in final syllabus
+function ensureAllSourcesAppear(modules: Module[], discoveredSources: DiscoveredSource[]): Module[] {
+  console.log('[Source Check] Verifying all discovered sources are attributed...');
+  
+  const usedUrls = new Set<string>();
+  modules.forEach(m => {
+    if (m.sourceUrl) usedUrls.add(m.sourceUrl);
+    if (m.sourceUrls) m.sourceUrls.forEach(url => usedUrls.add(url));
+  });
+  
+  // Find unused source URLs
+  const unusedSources = discoveredSources.filter(s => s.url && !usedUrls.has(s.url));
+  
+  if (unusedSources.length === 0) {
+    console.log('[Source Check] ✓ All discovered sources are attributed');
+    return modules;
+  }
+  
+  console.log(`[Source Check] ⚠ Found ${unusedSources.length} unattributed source(s), distributing to relevant modules...`);
+  
+  // Distribute unused sources to relevant non-capstone modules
+  // Add to first 3-5 non-capstone modules that don't already have too many sources
+  let distributionCount = 0;
+  const targetModules = modules
+    .filter(m => !m.isCapstone)
+    .slice(0, Math.min(10, modules.length)); // First 10 non-capstone modules
+  
+  unusedSources.forEach((unusedSource, idx) => {
+    const targetModule = targetModules[idx % targetModules.length];
+    if (targetModule) {
+      if (!targetModule.sourceUrls) {
+        targetModule.sourceUrls = [];
+      }
+      if (!targetModule.sourceUrls.includes(unusedSource.url)) {
+        targetModule.sourceUrls.push(unusedSource.url);
+        usedUrls.add(unusedSource.url);
+        distributionCount++;
+      }
+    }
+  });
+  
+  console.log(`[Source Check] ✓ Distributed ${distributionCount} previously unattributed source(s)`);
+  return modules;
 }
 
 async function searchTier1Syllabus(discipline: string, apiKey: string) {

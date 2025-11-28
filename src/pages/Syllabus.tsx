@@ -78,6 +78,20 @@ const Syllabus = () => {
     }
   }, [syllabusData?.rawSources]);
 
+  // Color palette for distinguishing sources (10 colors)
+  const SOURCE_COLORS = [
+    "bg-blue-500/20 text-blue-700 border-blue-300",
+    "bg-amber-500/20 text-amber-700 border-amber-300",
+    "bg-emerald-500/20 text-emerald-700 border-emerald-300",
+    "bg-purple-500/20 text-purple-700 border-purple-300",
+    "bg-rose-500/20 text-rose-700 border-rose-300",
+    "bg-cyan-500/20 text-cyan-700 border-cyan-300",
+    "bg-orange-500/20 text-orange-700 border-orange-300",
+    "bg-indigo-500/20 text-indigo-700 border-indigo-300",
+    "bg-teal-500/20 text-teal-700 border-teal-300",
+    "bg-pink-500/20 text-pink-700 border-pink-300",
+  ];
+
   // Helper function to extract domain short name from URL
   const getDomainShortName = (url: string): string => {
     try {
@@ -101,7 +115,9 @@ const Syllabus = () => {
         'open.edu': 'OpenLearn',
         'oercommons.org': 'OER Commons',
         'merlot.org': 'MERLOT',
-        'openstax.org': 'OpenStax'
+        'openstax.org': 'OpenStax',
+        'ischool.utexas.edu': 'iSchool',
+        'opencw.org': 'OPENCW'
       };
       return domainMap[hostname] || hostname.split('.')[0].toUpperCase();
     } catch {
@@ -109,7 +125,42 @@ const Syllabus = () => {
     }
   };
 
-  // Helper function to get color for source type
+  // Helper function to extract course code or distinguishing identifier
+  const extractCourseCode = (url: string, courseName: string = ''): string => {
+    // Try to extract course code from URL (e.g., "24-120", "24.120")
+    const codeMatch = url.match(/(\d{2,3}[-._]?\d{3})/);
+    if (codeMatch) return codeMatch[1].replace(/[-_]/g, '.');
+    
+    // Try to extract from course name
+    if (courseName) {
+      const nameMatch = courseName.match(/^(\d+\.\d+|\d+[-_]\d+)/);
+      if (nameMatch) return nameMatch[1];
+      
+      // Try to extract descriptive suffix (e.g., "Readings", "Lecture Notes")
+      if (courseName.includes(' - ')) {
+        const suffix = courseName.split(' - ').pop();
+        if (suffix && suffix.length < 20) return suffix;
+      }
+      
+      // Try to get a short identifier from the course name itself
+      const words = courseName.split(' ');
+      if (words.length > 1 && words[words.length - 1].length < 15) {
+        return words[words.length - 1];
+      }
+    }
+    
+    return '';
+  };
+
+  // Get color by source URL index in discovered sources (for visual consistency)
+  const getSourceColorByUrl = (url: string): string => {
+    const rawSources = originalSources.length > 0 ? originalSources : syllabusData?.rawSources || [];
+    const index = rawSources.findIndex(s => s.url === url);
+    if (index === -1) return "bg-muted/50 text-muted-foreground border-muted";
+    return SOURCE_COLORS[index % SOURCE_COLORS.length];
+  };
+
+  // Helper function to get color for source type (legacy, kept for compatibility)
   const getSourceColor = (type: string): string => {
     if (type === "University OCW") return "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]";
     if (type === "Great Books Program") return "bg-red-900/20 text-red-900 dark:text-red-300";
@@ -548,7 +599,7 @@ const Syllabus = () => {
             </div>
           ) : syllabusData ? (
             <div className="space-y-6">
-              {/* Source Pills Banner - Only show sources actually used in syllabus */}
+              {/* Source Pills Banner - Show ALL sources actually used in syllabus with distinguishing labels */}
               {(() => {
                 const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
                 
@@ -559,19 +610,24 @@ const Syllabus = () => {
                   if (m.sourceUrls) m.sourceUrls.forEach(url => usedSourceUrls.add(url));
                 });
                 
-                // Filter to only used sources and create unique domain pills
-                const domainMap = new Map<string, DiscoveredSource>();
-                sourcesToDisplay
-                  .filter(source => usedSourceUrls.has(source.url))
-                  .forEach(source => {
-                    const domain = getDomainShortName(source.url);
-                    if (!domainMap.has(domain)) {
-                      domainMap.set(domain, source);
-                    }
-                  });
-                const uniqueDomainSources = Array.from(domainMap.values());
+                // Show ALL used sources (not deduplicated by domain)
+                const usedSources = sourcesToDisplay.filter(source => usedSourceUrls.has(source.url));
                 
-                if (uniqueDomainSources.length === 0) return null;
+                if (usedSources.length === 0) return null;
+                
+                // Create distinguishing labels for same-domain sources
+                const labelCounts = new Map<string, number>();
+                const sourcesWithLabels = usedSources.map(source => {
+                  const baseName = getDomainShortName(source.url);
+                  const existingCount = labelCounts.get(baseName) || 0;
+                  labelCounts.set(baseName, existingCount + 1);
+                  
+                  // If we've seen this domain before, add course identifier
+                  const courseSuffix = existingCount > 0 ? extractCourseCode(source.url, source.courseName) : '';
+                  const label = courseSuffix ? `${baseName} (${courseSuffix})` : baseName;
+                  
+                  return { ...source, label };
+                });
                 
                 return (
                   <div className="bg-accent/30 border border-accent p-4 flex items-start gap-4">
@@ -585,8 +641,7 @@ const Syllabus = () => {
                     <div className="flex-1">
                       <h3 className="font-semibold mb-2">Curriculum Sources</h3>
                       <div className="flex flex-wrap gap-2">
-                        {uniqueDomainSources.map((source, idx) => {
-                          const domainName = getDomainShortName(source.url);
+                        {sourcesWithLabels.map((source, idx) => {
                           return (
                             <a
                               key={idx}
@@ -594,11 +649,11 @@ const Syllabus = () => {
                               target="_blank"
                               rel="noopener noreferrer"
                               className={cn(
-                                "inline-flex items-center gap-1 px-3 py-1 text-sm font-medium transition-colors hover:opacity-80",
-                                getSourceColor(source.type)
+                                "inline-flex items-center gap-1 px-3 py-1 text-sm font-medium border transition-colors hover:opacity-80",
+                                getSourceColorByUrl(source.url)
                               )}
                             >
-                              {domainName}
+                              {source.label}
                               <ExternalLink className="h-3 w-3" />
                             </a>
                           );
@@ -865,34 +920,37 @@ const Syllabus = () => {
                                      <p className="text-sm text-muted-foreground mb-2">{step.description}</p>
                                    )}
                                    
-                                   {/* Multiple source badges with color matching pills */}
-                                   <div className="flex flex-wrap items-center gap-2">
-                                     {(() => {
-                                       const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
-                                       return urls.filter(Boolean).map((url, idx) => {
-                                         const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                                         const sourceType = rawSources.find(s => s.url === url)?.type || '';
-                                         const domainName = getDomainShortName(url);
-                                         
-                                         return (
-                                           <a
-                                             key={idx}
-                                             href={url}
-                                             target="_blank"
-                                             rel="noopener noreferrer"
-                                             className={cn(
-                                               "text-xs px-2 py-1 inline-flex items-center gap-1 hover:opacity-80 transition-opacity",
-                                               getSourceColor(sourceType)
-                                             )}
-                                             onClick={(e) => e.stopPropagation()}
-                                           >
-                                             {domainName}
-                                             <ExternalLink className="h-3 w-3" />
-                                           </a>
-                                         );
-                                       });
-                                     })()}
-                                   </div>
+                                    {/* Multiple source badges with color matching pills */}
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      {(() => {
+                                        const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
+                                        const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
+                                        
+                                        return urls.filter(Boolean).map((url, idx) => {
+                                          const source = rawSources.find(s => s.url === url);
+                                          const baseName = getDomainShortName(url);
+                                          const courseSuffix = extractCourseCode(url, source?.courseName || '');
+                                          const label = courseSuffix ? `${baseName} (${courseSuffix})` : baseName;
+                                          
+                                          return (
+                                            <a
+                                              key={idx}
+                                              href={url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className={cn(
+                                                "text-xs px-2 py-1 border inline-flex items-center gap-1 hover:opacity-80 transition-opacity",
+                                                getSourceColorByUrl(url)
+                                              )}
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              {label}
+                                              <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          );
+                                        });
+                                      })()}
+                                    </div>
                                  </div>
                                 <ChevronRight className={cn(
                                   "h-5 w-5 text-muted-foreground transition-transform",
