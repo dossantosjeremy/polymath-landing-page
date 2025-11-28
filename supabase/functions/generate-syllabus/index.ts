@@ -10,6 +10,8 @@ interface Module {
   tag: string;
   source: string;
   sourceUrl?: string;
+  sourceUrls?: string[];
+  description?: string;
   isCapstone?: boolean;
 }
 
@@ -441,6 +443,7 @@ CRITICAL REQUIREMENTS:
 3. Group consecutive related topics into logical modules (3-5 steps each)
 4. Use format: "Module X - Step Y: Topic"
 5. DO NOT reorder topics - maintain the syllabus's pedagogical sequence
+6. Include a one-sentence "description" summarizing each topic from the original syllabus
 
 EXAMPLE TRANSFORMATION (preserving order):
 INPUT: Week 1: Intro, Week 2: Basics, Week 3: Variables, Week 4: Loops, Week 5: Functions
@@ -455,11 +458,11 @@ Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Module 1 - Step 1: [First Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 1 - Step 2: [Second Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 1 - Step 3: [Third Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 2 - Step 1: [Fourth Topic]", "tag": "Core Concepts", "source": "${source.institution}", "sourceUrl": "${source.url}"},
-    {"title": "Module 2 - Step 2: [Fifth Topic]", "tag": "Core Concepts", "source": "${source.institution}", "sourceUrl": "${source.url}"}
+    {"title": "Module 1 - Step 1: [First Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}", "description": "One sentence summary of this topic from the syllabus"},
+    {"title": "Module 1 - Step 2: [Second Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}", "description": "One sentence summary of this topic from the syllabus"},
+    {"title": "Module 1 - Step 3: [Third Topic]", "tag": "Foundations", "source": "${source.institution}", "sourceUrl": "${source.url}", "description": "One sentence summary of this topic from the syllabus"},
+    {"title": "Module 2 - Step 1: [Fourth Topic]", "tag": "Core Concepts", "source": "${source.institution}", "sourceUrl": "${source.url}", "description": "One sentence summary of this topic from the syllabus"},
+    {"title": "Module 2 - Step 2: [Fifth Topic]", "tag": "Core Concepts", "source": "${source.institution}", "sourceUrl": "${source.url}", "description": "One sentence summary of this topic from the syllabus"}
   ]
 }
 
@@ -536,8 +539,10 @@ REQUIREMENTS:
 5. Use "Module X - Step Y" format (NEVER "Week")
 6. Group 3-5 consecutive related steps within each module
 7. Aim for ${Math.max(...extractions.map(e => e.modules.length))} or more steps
-8. Attribute each step to its source institution
+8. Attribute each step to its source institution(s)
 9. ONLY reference sources from the discovered list (no phantom sources)
+10. Include a one-sentence "description" for each step
+11. If a step draws from multiple sources, list all in "sourceUrls" array
 
 CRITICAL: Maintain the original learning sequence. Don't jump topics around.
 
@@ -545,11 +550,11 @@ Return ONLY valid JSON:
 
 {
   "modules": [
-    {"title": "Module 1 - Step 1: [First Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]"},
-    {"title": "Module 1 - Step 2: [Second Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]"},
-    {"title": "Module 1 - Step 3: [Third Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]"},
-    {"title": "Module 2 - Step 1: [Fourth Topic]", "tag": "Core Concepts", "source": "[Institution]", "sourceUrl": "[URL]"},
-    {"title": "Module 2 - Step 2: [Fifth Topic]", "tag": "Core Concepts", "source": "[Institution]", "sourceUrl": "[URL]"},
+    {"title": "Module 1 - Step 1: [First Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]", "sourceUrls": ["[URL1]", "[URL2]"], "description": "One sentence summary of this topic"},
+    {"title": "Module 1 - Step 2: [Second Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]", "sourceUrls": ["[URL]"], "description": "One sentence summary of this topic"},
+    {"title": "Module 1 - Step 3: [Third Topic]", "tag": "Foundations", "source": "[Institution]", "sourceUrl": "[URL]", "sourceUrls": ["[URL]"], "description": "One sentence summary of this topic"},
+    {"title": "Module 2 - Step 1: [Fourth Topic]", "tag": "Core Concepts", "source": "[Institution]", "sourceUrl": "[URL]", "sourceUrls": ["[URL]"], "description": "One sentence summary of this topic"},
+    {"title": "Module 2 - Step 2: [Fifth Topic]", "tag": "Core Concepts", "source": "[Institution]", "sourceUrl": "[URL]", "sourceUrls": ["[URL]"], "description": "One sentence summary of this topic"},
     ...more steps (include ALL unique topics in original order, grouped into modules)
   ]
 }
@@ -977,7 +982,7 @@ function weaveCapstoneCheckpoints(modules: Module[], discipline: string): Module
     }
   }
 
-  // Add final capstone
+  // ALWAYS add final capstone (guarantees at least one capstone)
   result.push({
     title: `Final Capstone: ${discipline} Project Presentation`,
     tag: 'Capstone Integration',
