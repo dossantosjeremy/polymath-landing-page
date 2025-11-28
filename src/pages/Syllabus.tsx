@@ -3,11 +3,12 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown } from "lucide-react";
+import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Module {
   title: string;
@@ -22,6 +23,8 @@ interface DiscoveredSource {
   courseName: string;
   url: string;
   type: string;
+  content?: string; // Full original syllabus text
+  moduleCount?: number;
 }
 
 interface SyllabusData {
@@ -36,11 +39,15 @@ const Syllabus = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [syllabusData, setSyllabusData] = useState<SyllabusData | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
   const [quickAccessOpen, setQuickAccessOpen] = useState(false);
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [expandedSourceContent, setExpandedSourceContent] = useState<Set<number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -83,6 +90,60 @@ const Syllabus = () => {
     setExpandedModules(newExpanded);
   };
 
+  const toggleSourceContent = (index: number) => {
+    const newExpanded = new Set(expandedSourceContent);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedSourceContent(newExpanded);
+  };
+
+  const saveSyllabus = async () => {
+    if (!user) {
+      toast({
+        title: "Login Required",
+        description: "Please login to save syllabi for later.",
+        variant: "destructive"
+      });
+      navigate('/auth');
+      return;
+    }
+
+    if (!syllabusData) return;
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('saved_syllabi').insert({
+        user_id: user.id,
+        discipline: syllabusData.discipline,
+        discipline_path: path,
+        modules: syllabusData.modules as any,
+        source: syllabusData.source,
+        source_url: syllabusData.modules[0]?.sourceUrl || null,
+        raw_sources: (syllabusData.rawSources || []) as any
+      });
+
+      if (error) throw error;
+
+      setIsSaved(true);
+      toast({
+        title: "Syllabus Saved",
+        description: "You can access this syllabus anytime from your saved syllabi.",
+      });
+    } catch (error) {
+      console.error('Error saving syllabus:', error);
+      toast({
+        title: "Save Failed",
+        description: "Failed to save syllabus. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const pathArray = path ? path.split(' > ') : [];
 
   return (
@@ -116,9 +177,28 @@ const Syllabus = () => {
           </nav>
 
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-serif font-bold mb-2">{discipline}</h1>
-            <p className="text-lg text-muted-foreground">Course Syllabus Blueprint</p>
+          <div className="mb-8 flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-4xl font-serif font-bold mb-2">{discipline}</h1>
+              <p className="text-lg text-muted-foreground">Course Syllabus Blueprint</p>
+            </div>
+            {!loading && syllabusData && (
+              <Button
+                onClick={saveSyllabus}
+                disabled={saving || isSaved}
+                variant="outline"
+                className="flex-shrink-0"
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : isSaved ? (
+                  <BookmarkCheck className="h-4 w-4 mr-2" />
+                ) : (
+                  <Bookmark className="h-4 w-4 mr-2" />
+                )}
+                {isSaved ? 'Saved' : 'Save for Later'}
+              </Button>
+            )}
           </div>
 
           {loading ? (
@@ -233,35 +313,64 @@ const Syllabus = () => {
                       </p>
                       <div className="space-y-3">
                         {syllabusData.rawSources.map((source, idx) => (
-                          <div key={idx} className="border bg-background p-3">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-semibold">{source.institution}</span>
-                                  <span className={cn(
-                                    "text-xs px-2 py-0.5 font-medium",
-                                    source.type === "University OCW" && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]",
-                                    source.type === "Great Books Program" && "bg-red-900/20 text-red-900 dark:text-red-300",
-                                    source.type === "MOOC Platform" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
-                                    source.type === "Philosophy Syllabi Collection" && "bg-purple-500/20 text-purple-700 dark:text-purple-300",
-                                    source.type === "OER Repository" && "bg-green-500/20 text-green-700 dark:text-green-300",
-                                    !["University OCW", "Great Books Program", "MOOC Platform", "Philosophy Syllabi Collection", "OER Repository"].includes(source.type) && "bg-muted text-muted-foreground"
-                                  )}>
-                                    {source.type}
-                                  </span>
+                          <div key={idx} className="border bg-background">
+                            <div className="p-3">
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="font-semibold">{source.institution}</span>
+                                    <span className={cn(
+                                      "text-xs px-2 py-0.5 font-medium",
+                                      source.type === "University OCW" && "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]",
+                                      source.type === "Great Books Program" && "bg-red-900/20 text-red-900 dark:text-red-300",
+                                      source.type === "MOOC Platform" && "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+                                      source.type === "Philosophy Syllabi Collection" && "bg-purple-500/20 text-purple-700 dark:text-purple-300",
+                                      source.type === "OER Repository" && "bg-green-500/20 text-green-700 dark:text-green-300",
+                                      !["University OCW", "Great Books Program", "MOOC Platform", "Philosophy Syllabi Collection", "OER Repository"].includes(source.type) && "bg-muted text-muted-foreground"
+                                    )}>
+                                      {source.type}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-muted-foreground">{source.courseName}</p>
                                 </div>
-                                <p className="text-sm text-muted-foreground">{source.courseName}</p>
                               </div>
+                              <a
+                                href={source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-all"
+                              >
+                                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                                {source.url}
+                              </a>
                             </div>
-                            <a
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm text-primary hover:underline inline-flex items-center gap-1 break-all"
-                            >
-                              <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                              {source.url}
-                            </a>
+                            
+                            {/* Embedded Content Section */}
+                            {source.content && (
+                              <Collapsible 
+                                open={expandedSourceContent.has(idx)} 
+                                onOpenChange={() => toggleSourceContent(idx)}
+                              >
+                                <CollapsibleTrigger asChild>
+                                  <button className="w-full border-t p-3 flex items-center justify-between hover:bg-muted/30 transition-colors text-sm">
+                                    <span className="font-medium">View Original Syllabus Content</span>
+                                    <ChevronDown className={cn(
+                                      "h-4 w-4 text-muted-foreground transition-transform",
+                                      expandedSourceContent.has(idx) && "rotate-180"
+                                    )} />
+                                  </button>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="border-t p-4 bg-muted/10 max-h-96 overflow-y-auto">
+                                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                                      <pre className="whitespace-pre-wrap text-xs leading-relaxed font-mono">
+                                        {source.content}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            )}
                           </div>
                         ))}
                       </div>

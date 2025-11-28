@@ -1,4 +1,4 @@
-import { GraduationCap, LogOut } from "lucide-react";
+import { GraduationCap, LogOut, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,6 +41,14 @@ export const Navigation = () => {
         <div className="flex items-center gap-3">
           {user ? (
             <>
+              <Button
+                variant="ghost"
+                className="rounded-full px-4 font-medium gap-2"
+                onClick={() => navigate("/saved")}
+              >
+                <Bookmark className="h-4 w-4" />
+                <span className="hidden sm:inline">Saved</span>
+              </Button>
               <span className="text-sm text-muted-foreground hidden md:block">
                 {user.email}
               </span>
@@ -50,7 +58,7 @@ export const Navigation = () => {
                 onClick={handleSignOut}
               >
                 <LogOut className="h-4 w-4" />
-                Sign Out
+                <span className="hidden sm:inline">Sign Out</span>
               </Button>
             </>
           ) : (
