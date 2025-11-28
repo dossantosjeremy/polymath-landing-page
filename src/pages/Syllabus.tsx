@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck } from "lucide-react";
+import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -910,34 +910,38 @@ const Syllabus = () => {
                          {moduleGroup.steps.map((step) => {
                            return (
                              <div
-                               key={step.originalIndex}
-                               className={cn(
-                                 "border overflow-hidden transition-all",
-                                 step.isCapstone && "bg-accent/10 border-accent"
-                               )}
-                             >
-                              <button
-                                onClick={() => toggleModule(step.originalIndex)}
+                                key={step.originalIndex}
                                 className={cn(
-                                  "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left",
-                                  step.tag === "Capstone Integration" && "border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5"
+                                  "border overflow-hidden transition-all",
+                                  step.isCapstone ? "bg-[hsl(var(--gold))]/5 border-accent" : "bg-primary/5"
                                 )}
                               >
-                                 <div className="flex-1">
-                                   <div className="flex items-center gap-3 mb-1">
-                                     {step.tag === "Capstone Integration" && (
-                                       <span className="text-xl">🏛️</span>
-                                     )}
-                                     <h4 className="font-semibold">{step.stepNumber}. {step.stepTitle}</h4>
-                                     <span className={cn(
-                                       "text-xs px-2 py-1",
-                                       step.tag === "Capstone Integration" 
-                                         ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
-                                         : "bg-muted text-muted-foreground"
-                                     )}>
-                                       {step.tag}
-                                     </span>
-                                   </div>
+                               <button
+                                 onClick={() => toggleModule(step.originalIndex)}
+                                 className={cn(
+                                   "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left border-l-4",
+                                   step.tag === "Capstone Integration" 
+                                     ? "border-l-[hsl(var(--gold))]" 
+                                     : "border-l-primary"
+                                 )}
+                               >
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-1">
+                                      {step.tag === "Capstone Integration" ? (
+                                        <Award className="h-5 w-5 text-[hsl(var(--gold))]" />
+                                      ) : (
+                                        <BookOpen className="h-5 w-5 text-primary" />
+                                      )}
+                                      <h4 className="font-semibold">{step.stepNumber}. {step.stepTitle}</h4>
+                                      <span className={cn(
+                                        "text-xs px-2 py-1",
+                                        step.tag === "Capstone Integration" 
+                                          ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
+                                          : "bg-primary/10 text-primary"
+                                      )}>
+                                        {step.tag}
+                                      </span>
+                                    </div>
                                    
                                    {/* Step description from original syllabi */}
                                    {step.description && (
