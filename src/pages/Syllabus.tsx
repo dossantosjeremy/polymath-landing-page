@@ -59,14 +59,58 @@ const Syllabus = () => {
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
   const savedId = searchParams.get("savedId");
+  const useCache = searchParams.get("useCache") === "true";
 
   useEffect(() => {
     if (savedId) {
       loadSavedSyllabus(savedId);
+    } else if (useCache && discipline) {
+      loadCachedSyllabus();
     } else if (discipline) {
       generateSyllabus();
     }
-  }, [discipline, savedId]);
+  }, [discipline, savedId, useCache]);
+
+  const loadCachedSyllabus = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('community_syllabi')
+        .select('*')
+        .eq('discipline', discipline)
+        .maybeSingle();
+
+      if (error) throw error;
+      
+      if (!data) {
+        // No cache found, fall back to generation
+        console.log('No cached syllabus found, generating fresh...');
+        await generateSyllabus();
+        return;
+      }
+
+      setSyllabusData({
+        discipline: data.discipline,
+        modules: data.modules as any as Module[],
+        source: data.source,
+        rawSources: data.raw_sources as any as DiscoveredSource[],
+        timestamp: data.created_at
+      });
+      
+      // Mark as not saved to user's personal collection
+      setIsSaved(false);
+    } catch (error) {
+      console.error('Error loading cached syllabus:', error);
+      toast({
+        title: "Load Failed",
+        description: "Failed to load cached syllabus. Generating fresh...",
+        variant: "destructive"
+      });
+      await generateSyllabus();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Initialize all sources as selected when syllabus data loads and store original sources
   useEffect(() => {
@@ -386,7 +430,8 @@ const Syllabus = () => {
           discipline,
           selectedSourceUrls,
           customSources,
-          enabledSources
+          enabledSources,
+          forceRefresh: isRegenerating // Force refresh when regenerating
         }
       });
 
