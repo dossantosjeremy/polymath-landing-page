@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { BookOpen, Loader2 } from 'lucide-react';
+import { BookOpen, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoPlayer } from './VideoPlayer';
 import { ReadingCard } from './ReadingCard';
 import { BookCard } from './BookCard';
 import { AlternativeResources } from './AlternativeResources';
 import { useStepResources } from '@/hooks/useStepResources';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface LearningPlayerProps {
   stepTitle: string;
@@ -22,6 +23,7 @@ export const LearningPlayer = ({
 }: LearningPlayerProps) => {
   const { resources, isLoading, error, fetchResources } = useStepResources();
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
 
   const handleLoadResources = () => {
     setHasLoaded(true);
@@ -90,43 +92,87 @@ export const LearningPlayer = ({
     );
   }
 
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      if (next.has(section)) {
+        next.delete(section);
+      } else {
+        next.add(section);
+      }
+      return next;
+    });
+  };
+
+  // Separate alternatives by type
+  const podcasts = resources.alternatives?.filter(alt => alt.type === 'podcast') || [];
+  const otherAlternatives = resources.alternatives?.filter(alt => alt.type !== 'podcast') || [];
+
   return (
-    <div className="space-y-6 py-6">
+    <div className="space-y-3 py-6">
       {/* Primary Video */}
       {resources.primaryVideo && (
-        <div>
-          <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
-            <span>📺 Primary Video</span>
-          </h3>
-          <VideoPlayer {...resources.primaryVideo} isCapstone={isCapstone} />
-        </div>
+        <Collapsible open={openSections.has('video')} onOpenChange={() => toggleSection('video')}>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
+            {openSections.has('video') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-semibold text-sm">📺 Primary Video (1)</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <VideoPlayer {...resources.primaryVideo} isCapstone={isCapstone} />
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Deep Reading */}
       {resources.deepReading && (
-        <div>
-          <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
-            <span>📖 Deep Reading</span>
-          </h3>
-          <ReadingCard {...resources.deepReading} isCapstone={isCapstone} />
-        </div>
+        <Collapsible open={openSections.has('reading')} onOpenChange={() => toggleSection('reading')}>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
+            {openSections.has('reading') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-semibold text-sm">📖 Deep Reading (1)</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <ReadingCard {...resources.deepReading} isCapstone={isCapstone} />
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {/* Book Resource */}
       {resources.book && (
-        <div>
-          <h3 className="font-semibold text-sm mb-4 flex items-center gap-2">
-            <span>📚 Recommended Book</span>
-          </h3>
-          <BookCard {...resources.book} isCapstone={isCapstone} />
-        </div>
+        <Collapsible open={openSections.has('book')} onOpenChange={() => toggleSection('book')}>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
+            {openSections.has('book') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-semibold text-sm">📚 Recommended Book (1)</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <BookCard {...resources.book} isCapstone={isCapstone} />
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
-      {/* Alternative Resources */}
-      {resources.alternatives && resources.alternatives.length > 0 && (
-        <div>
-          <AlternativeResources alternatives={resources.alternatives} isCapstone={isCapstone} />
-        </div>
+      {/* Podcasts */}
+      {podcasts.length > 0 && (
+        <Collapsible open={openSections.has('podcasts')} onOpenChange={() => toggleSection('podcasts')}>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
+            {openSections.has('podcasts') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-semibold text-sm">🎧 Podcasts ({podcasts.length})</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <AlternativeResources alternatives={podcasts} isCapstone={isCapstone} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* Additional Resources */}
+      {otherAlternatives.length > 0 && (
+        <Collapsible open={openSections.has('additional')} onOpenChange={() => toggleSection('additional')}>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
+            {openSections.has('additional') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-semibold text-sm">🎓 Additional Resources ({otherAlternatives.length})</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <AlternativeResources alternatives={otherAlternatives} isCapstone={isCapstone} />
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </div>
   );

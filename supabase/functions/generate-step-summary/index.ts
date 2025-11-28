@@ -12,9 +12,9 @@ serve(async (req) => {
   }
 
   try {
-    const { stepTitle, discipline, stepDescription, sourceContent, resources, forceRefresh } = await req.json();
+    const { stepTitle, discipline, stepDescription, sourceContent, resources, referenceLength = 'standard', forceRefresh } = await req.json();
 
-    console.log('Generating step summary for:', { stepTitle, discipline, forceRefresh });
+    console.log('Generating step summary for:', { stepTitle, discipline, referenceLength, forceRefresh });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -27,6 +27,7 @@ serve(async (req) => {
         .select('*')
         .eq('step_title', stepTitle)
         .eq('discipline', discipline)
+        .eq('length', referenceLength)
         .maybeSingle();
 
       if (cached) {
@@ -85,26 +86,44 @@ serve(async (req) => {
 
     const fullContext = contextParts.join('\n');
 
-    const systemPrompt = `You are an expert educator creating comprehensive teaching references for self-directed learners. Your role is to synthesize all available information about a learning step into an exhaustive, accurate, and pedagogically sound reference document.
+    // Adjust prompts and tokens based on reference length
+    const lengthConfig = {
+      brief: {
+        maxTokens: 1500,
+        instruction: 'Create a concise overview focusing on the essential concepts and key takeaways only. Keep it brief and actionable.'
+      },
+      standard: {
+        maxTokens: 3000,
+        instruction: 'Create a balanced teaching reference covering key concepts, essential details, and practical guidance.'
+      },
+      comprehensive: {
+        maxTokens: 6000,
+        instruction: 'Create an exhaustive, comprehensive teaching reference including all concepts, historical context, related theories, detailed examples, and extensive guidance.'
+      }
+    };
+
+    const config = lengthConfig[referenceLength as keyof typeof lengthConfig] || lengthConfig.standard;
+
+    const systemPrompt = `You are an expert educator creating teaching references for self-directed learners. Your role is to synthesize all available information about a learning step into an accurate and pedagogically sound reference document.
+
+LEVEL: ${referenceLength.toUpperCase()}
+${config.instruction}
 
 CRITICAL REQUIREMENTS:
-1. Be comprehensive and exhaustive - this is a reference document, not a summary
-2. Write as if speaking directly to a student (use "you" and conversational but authoritative tone)
-3. Include ALL key concepts, theories, and details from the source material
-4. Quote or paraphrase verbatim from source syllabi when explaining core concepts
-5. Include clickable links to all sources mentioned (format as: [Source Name](URL))
-6. Organize content logically with clear sections
-7. Prioritize accuracy and completeness over brevity
-8. If source material mentions specific readings, thinkers, theories, or frameworks, include them all
+1. Write as if speaking directly to a student (use "you" and conversational but authoritative tone)
+2. Include key concepts, theories, and details from the source material
+3. Quote or paraphrase verbatim from source syllabi when explaining core concepts
+4. Include clickable links to all sources mentioned (format as: [Source Name](URL))
+5. Organize content logically with clear sections using markdown headers
+6. Prioritize accuracy and relevance
+7. If source material mentions specific readings, thinkers, theories, or frameworks, include the most important ones
 
 OUTPUT FORMAT:
-- Start with a brief pedagogical introduction addressing the student
-- Present key concepts in depth with citations
-- Include all relevant details from source syllabi
-- Link to recommended resources with explanations of why they're valuable
-- End with guidance on how to approach the material
-
-Remember: This is a comprehensive teaching reference, not a brief overview. Be generous, thorough, and accurate.`;
+- Use markdown formatting (headers, lists, bold, links)
+- Start with a brief introduction
+- Present key concepts with citations
+- Link to recommended resources with explanations
+- End with guidance on how to approach the material`;
 
     const userPrompt = `Create a comprehensive teaching reference for this learning step:
 
@@ -125,7 +144,7 @@ Generate a thorough reference document that explains everything a student needs 
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 4000, // Generous token limit for comprehensive output
+        max_tokens: config.maxTokens,
         temperature: 0.7,
       }),
     });
@@ -151,9 +170,10 @@ Generate a thorough reference document that explains everything a student needs 
       .upsert({
         step_title: stepTitle,
         discipline: discipline,
+        length: referenceLength,
         summary: summary,
       }, {
-        onConflict: 'step_title,discipline',
+        onConflict: 'step_title,discipline,length',
       });
 
     if (upsertError) {
