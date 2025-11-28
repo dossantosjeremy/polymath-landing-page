@@ -314,9 +314,15 @@ Find as many real, authoritative syllabi as possible. Include exact URLs. Return
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Discovery] API Error:', response.status, errorText.substring(0, 200));
+      return [];
+    }
+
     const data = await response.json();
     
-    if (!response.ok || !data.choices?.[0]?.message?.content) {
+    if (!data.choices?.[0]?.message?.content) {
       console.error('[Discovery] Failed to find sources');
       return [];
     }
@@ -487,7 +493,8 @@ Include ALL topics in their original order, grouped into modules. Return ONLY th
     });
 
     if (!response.ok) {
-      console.error(`[Extract] API Error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('[Extract] API Error:', response.status, errorText.substring(0, 200));
       return [];
     }
 
@@ -585,7 +592,8 @@ Return ONLY the JSON preserving original progression with multiple steps per mod
     });
 
     if (!response.ok) {
-      console.error(`[Merge] API Error: ${response.status}`);
+      const errorText = await response.text();
+      console.error('[Merge] API Error:', response.status, errorText.substring(0, 200));
       // Fallback: concatenate all modules
       return extractions.flatMap(e => e.modules);
     }
@@ -785,13 +793,14 @@ Return ONLY the JSON with 3-5 steps per module. The source MUST be from the auth
       }),
     });
 
-    const data = await response.json();
-    console.log('[Tier 1] API Status:', response.status);
-    
     if (!response.ok) {
-      console.error('[Tier 1] API Error:', response.status, data);
+      const errorText = await response.text();
+      console.error('[Tier 1] API Error:', response.status, errorText.substring(0, 200));
       return null;
     }
+
+    const data = await response.json();
+    console.log('[Tier 1] API Status:', response.status);
 
     if (!data.choices?.[0]?.message?.content) {
       console.error('[Tier 1] No content in response:', JSON.stringify(data, null, 2));
@@ -893,13 +902,14 @@ Find real courses with actual content. Group 3-5 steps per module. Return ONLY t
       }),
     });
 
-    const data = await response.json();
-    console.log('[Tier 2] API Status:', response.status);
-
     if (!response.ok) {
-      console.error('[Tier 2] API Error:', response.status, data);
+      const errorText = await response.text();
+      console.error('[Tier 2] API Error:', response.status, errorText.substring(0, 200));
       return null;
     }
+
+    const data = await response.json();
+    console.log('[Tier 2] API Status:', response.status);
 
     if (!data.choices?.[0]?.message?.content) {
       console.error('[Tier 2] No content in response');
@@ -978,13 +988,14 @@ Return ONLY the JSON, no other text.`
       }),
     });
 
-    const data = await response.json();
-    console.log('[Tier 3] API Status:', response.status);
-
     if (!response.ok) {
-      console.error('[Tier 3] API Error:', response.status, data);
+      const errorText = await response.text();
+      console.error('[Tier 3] API Error:', response.status, errorText.substring(0, 200));
       return getFallbackSyllabus(discipline);
     }
+
+    const data = await response.json();
+    console.log('[Tier 3] API Status:', response.status);
 
     if (!data.choices?.[0]?.message?.content) {
       console.error('[Tier 3] No content in response, using fallback');
