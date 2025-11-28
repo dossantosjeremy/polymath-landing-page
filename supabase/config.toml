@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-syllabus]
 verify_jwt = false
+
+[functions.fetch-step-resources]
+verify_jwt = false

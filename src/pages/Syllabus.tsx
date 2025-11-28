@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
+import { LearningPlayer } from "@/components/LearningPlayer";
 
 interface Module {
   title: string;
@@ -1002,14 +1003,13 @@ const Syllabus = () => {
                               </button>
                               
                               {expandedModules.has(step.originalIndex) && (
-                                <div className="px-4 pb-4 border-t bg-muted/20">
-                                  <div className="pt-4 text-sm text-muted-foreground">
-                                    {step.isCapstone ? (
-                                      <p>This is a project milestone where you'll apply what you've learned to your capstone project.</p>
-                                    ) : (
-                                      <p>Click "Generate Resources" above to populate this step with curated learning materials.</p>
-                                    )}
-                                  </div>
+                                <div className="px-4 border-t">
+                                  <LearningPlayer 
+                                    stepTitle={step.stepTitle}
+                                    discipline={discipline || ""}
+                                    syllabusUrls={syllabusData?.rawSources?.map(s => s.url) || []}
+                                    isCapstone={step.isCapstone}
+                                  />
                                 </div>
                               )}
                             </div>
