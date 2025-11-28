@@ -18,6 +18,8 @@ interface DiscoveredSource {
   courseName: string;
   url: string;
   type: string; // "University Course", "Great Books Program", "MOOC", etc.
+  content?: string; // NEW: Full original syllabus text
+  moduleCount?: number; // NEW: Number of modules in the syllabus
 }
 
 serve(async (req) => {
@@ -39,13 +41,76 @@ serve(async (req) => {
     const discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY);
     console.log(`[Discovery] Found ${discoveredSources.length} source(s)`);
 
-    // Tier 1: Search for direct syllabus from authoritative academic sources
-    const tier1Result = await searchTier1Syllabus(discipline, PERPLEXITY_API_KEY);
-    
+    // Step 0.5: Fetch full content for each discovered source
+    console.log('[Content Fetch] Fetching full syllabus content from sources...');
+    const sourcesWithContent = await Promise.all(
+      discoveredSources.map(async (source) => {
+        try {
+          const content = await fetchSyllabusContent(source.url, discipline, PERPLEXITY_API_KEY);
+          return { ...source, content };
+        } catch (error) {
+          console.error(`[Content Fetch] Failed for ${source.url}:`, error);
+          return source; // Return without content if fetch fails
+        }
+      })
+    );
+    console.log(`[Content Fetch] Fetched content for ${sourcesWithContent.filter(s => s.content).length} source(s)`);
+
+    // Initialize variables
     let modules: Module[] = [];
     let syllabusSource = '';
     let sourceUrl = '';
-    let rawSources: DiscoveredSource[] = discoveredSources;
+    let rawSources: DiscoveredSource[] = sourcesWithContent;
+
+    // Step 0.75: Extract full module lists from each source
+    console.log('[Module Extraction] Extracting complete module lists from each source...');
+    const extractedSyllabi = await Promise.all(
+      sourcesWithContent
+        .filter(s => s.content) // Only process sources with content
+        .slice(0, 5) // Limit to top 5 sources to avoid rate limits
+        .map(async (source) => {
+          try {
+            const modules = await extractFullSyllabus(source, discipline, PERPLEXITY_API_KEY);
+            return { source, modules };
+          } catch (error) {
+            console.error(`[Module Extraction] Failed for ${source.institution}:`, error);
+            return { source, modules: [] };
+          }
+        })
+    );
+    
+    const validExtractions = extractedSyllabi.filter(e => e.modules.length > 0);
+    console.log(`[Module Extraction] Successfully extracted from ${validExtractions.length} source(s)`);
+
+    // If we have multiple extracted syllabi, merge them into a comprehensive syllabus
+    if (validExtractions.length > 0) {
+      console.log('[Merge] Merging extracted syllabi into comprehensive structure...');
+      const mergedModules = await mergeSyllabi(validExtractions, discipline, PERPLEXITY_API_KEY);
+      
+      if (mergedModules.length >= 4) {
+        modules = mergedModules;
+        syllabusSource = `Comprehensive syllabus merged from ${validExtractions.length} authoritative source(s)`;
+        sourceUrl = validExtractions[0].source.url;
+        
+        // Weave in capstone milestones
+        modules = weaveCapstoneCheckpoints(modules, discipline);
+
+        return new Response(
+          JSON.stringify({ 
+            discipline,
+            modules,
+            source: syllabusSource,
+            sourceUrl,
+            rawSources,
+            timestamp: new Date().toISOString()
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Tier 1: Search for direct syllabus from authoritative academic sources
+    const tier1Result = await searchTier1Syllabus(discipline, PERPLEXITY_API_KEY);
 
     if (tier1Result && tier1Result.modules.length >= 4) {
       console.log('✓ Tier 1 successful: Found syllabus from', tier1Result.source);
@@ -173,7 +238,7 @@ Find as many real, authoritative syllabi as possible. Include exact URLs. Return
           }
         ],
         temperature: 0.1,
-        max_tokens: 4000,
+        max_tokens: 8000, // Increased for comprehensive syllabi
         return_citations: true,
       }),
     });
@@ -197,6 +262,213 @@ Find as many real, authoritative syllabi as possible. Include exact URLs. Return
   } catch (error) {
     console.error('[Discovery] Exception:', error);
     return [];
+  }
+}
+
+async function fetchSyllabusContent(url: string, discipline: string, apiKey: string): Promise<string> {
+  try {
+    console.log(`[Content Fetch] Fetching content from ${url}...`);
+    
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a syllabus content extractor. Extract the complete, verbatim syllabus content from the given URL. Return the full text of the syllabus including all weeks, modules, readings, and topics exactly as they appear.'
+          },
+          {
+            role: 'user',
+            content: `Extract the COMPLETE syllabus content from this URL: ${url}
+
+Topic: ${discipline}
+
+Extract and return:
+- All week/module titles and topics
+- All readings and assignments
+- Course descriptions and objectives
+- Any additional syllabus content
+
+Return the full syllabus text exactly as it appears on the source page. Include ALL content from the syllabus, not a summary.`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 8000, // Increased to capture full syllabi
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[Content Fetch] API Error: ${response.status}`);
+      return '';
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    
+    if (content) {
+      console.log(`[Content Fetch] ✓ Fetched ${content.length} characters from ${url}`);
+    }
+    
+    return content;
+  } catch (error) {
+    console.error(`[Content Fetch] Exception for ${url}:`, error);
+    return '';
+  }
+}
+
+async function extractFullSyllabus(source: DiscoveredSource, discipline: string, apiKey: string): Promise<Module[]> {
+  try {
+    console.log(`[Extract] Extracting modules from ${source.institution}...`);
+    
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a syllabus parser. Extract ALL modules, weeks, units, and topics from a syllabus. Return complete JSON only.'
+          },
+          {
+            role: 'user',
+            content: `Extract EVERY module, week, unit, and topic from this syllabus content.
+
+Source: ${source.institution} - ${source.courseName}
+URL: ${source.url}
+Topic: ${discipline}
+
+Syllabus Content:
+${source.content}
+
+Extract ALL modules/weeks/units. Do not skip any. Return ONLY valid JSON:
+
+{
+  "modules": [
+    {"title": "Week/Unit 1: [Exact topic from syllabus]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"},
+    {"title": "Week/Unit 2: [Exact topic]", "tag": "Theory", "source": "${source.institution}", "sourceUrl": "${source.url}"}
+  ]
+}
+
+Include EVERY module from the syllabus. Return ONLY the JSON, no other text.`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 8000, // High limit to capture all modules
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[Extract] API Error: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const parsed = extractJSON(content);
+    
+    if (parsed?.modules && Array.isArray(parsed.modules)) {
+      console.log(`[Extract] ✓ Extracted ${parsed.modules.length} modules from ${source.institution}`);
+      return parsed.modules;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error(`[Extract] Exception for ${source.institution}:`, error);
+    return [];
+  }
+}
+
+async function mergeSyllabi(
+  extractions: Array<{ source: DiscoveredSource; modules: Module[] }>,
+  discipline: string,
+  apiKey: string
+): Promise<Module[]> {
+  try {
+    console.log(`[Merge] Merging ${extractions.length} syllabi...`);
+    
+    // Prepare summary of each syllabus
+    const syllabusDescriptions = extractions.map((ext, idx) => {
+      return `\n=== Syllabus ${idx + 1}: ${ext.source.institution} - ${ext.source.courseName} ===
+URL: ${ext.source.url}
+Modules (${ext.modules.length}):
+${ext.modules.map(m => `- ${m.title}`).join('\n')}`;
+    }).join('\n\n');
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar-pro',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a curriculum designer. Merge multiple syllabi into one comprehensive syllabus that preserves ALL unique topics while organizing them logically.'
+          },
+          {
+            role: 'user',
+            content: `Merge these syllabi into ONE comprehensive syllabus for "${discipline}".
+
+SYLLABI TO MERGE:
+${syllabusDescriptions}
+
+REQUIREMENTS:
+1. Include ALL unique topics from all syllabi
+2. Organize logically: Foundations → Core Concepts → Advanced Topics
+3. Remove duplicates but preserve all unique content
+4. Aim for ${Math.max(...extractions.map(e => e.modules.length))} or more modules
+5. Attribute each module to its source institution
+
+Return ONLY valid JSON:
+
+{
+  "modules": [
+    {"title": "Week 1: [Topic]", "tag": "Theory", "source": "[Institution]", "sourceUrl": "[URL]"},
+    ...more modules (include ALL unique topics)
+  ]
+}
+
+Return ONLY the JSON with the comprehensive merged syllabus. Include as many modules as possible.`
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 10000, // Very high limit for comprehensive merging
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[Merge] API Error: ${response.status}`);
+      // Fallback: concatenate all modules
+      return extractions.flatMap(e => e.modules);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const parsed = extractJSON(content);
+    
+    if (parsed?.modules && Array.isArray(parsed.modules)) {
+      console.log(`[Merge] ✓ Merged into ${parsed.modules.length} modules`);
+      return parsed.modules;
+    }
+    
+    // Fallback: concatenate all modules
+    console.log('[Merge] ✗ Failed to parse, concatenating all modules');
+    return extractions.flatMap(e => e.modules);
+  } catch (error) {
+    console.error(`[Merge] Exception:`, error);
+    // Fallback: concatenate all modules
+    return extractions.flatMap(e => e.modules);
   }
 }
 
@@ -277,7 +549,7 @@ Return ONLY the JSON, no other text. The source MUST be from the authoritative l
           }
         ],
         temperature: 0.1,
-        max_tokens: 4000,
+        max_tokens: 8000, // Increased for comprehensive syllabi
         return_citations: true,
       }),
     });
@@ -468,7 +740,7 @@ Return ONLY the JSON, no other text.`
           }
         ],
         temperature: 0.3,
-        max_tokens: 3000,
+        max_tokens: 6000, // Increased for comprehensive syllabi
       }),
     });
 
