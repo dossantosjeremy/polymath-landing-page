@@ -72,26 +72,24 @@ export function ScheduleCalendar({ schedules, onDateSelect, selectedDate }: Sche
             hasEvents: "font-bold relative",
           }}
           components={{
-            Day: ({ date, displayMonth }) => {
+            DayContent: ({ date }) => {
               const dateKey = date.toISOString().split("T")[0];
               const events = dateEventMap.get(dateKey);
 
               return (
-                <div className="relative">
-                  <div className="relative">
-                    {date.getDate()}
-                    {events && events.length > 0 && (
-                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-0.5">
-                        {events.slice(0, 3).map((event, idx) => (
-                          <div
-                            key={idx}
-                            className="w-1 h-1 rounded-full"
-                            style={{ backgroundColor: event.color }}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                <div className="relative w-full h-full flex items-center justify-center">
+                  {date.getDate()}
+                  {events && events.length > 0 && (
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex gap-0.5">
+                      {events.slice(0, 3).map((event, idx) => (
+                        <div
+                          key={idx}
+                          className="w-1 h-1 rounded-full"
+                          style={{ backgroundColor: event.color }}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             },
