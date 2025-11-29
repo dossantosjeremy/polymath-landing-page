@@ -68,6 +68,7 @@ const Syllabus = () => {
     skillLevel: 'beginner'
   });
   const [applyingConstraints, setApplyingConstraints] = useState(false);
+  const [pruningStats, setPruningStats] = useState<PruningStats | undefined>();
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -412,8 +413,12 @@ const Syllabus = () => {
     }
   };
 
-  const generateSyllabus = async (selectedSourceUrls?: string[]) => {
-    const isRegenerating = !!selectedSourceUrls;
+  const generateSyllabus = async (
+    selectedSourceUrls?: string[], 
+    constraintsOverride?: LearningPathConstraints,
+    forceRefresh?: boolean
+  ) => {
+    const isRegenerating = !!selectedSourceUrls || !!constraintsOverride;
     if (isRegenerating) {
       setRegenerating(true);
     } else {
@@ -444,8 +449,8 @@ const Syllabus = () => {
           selectedSourceUrls,
           customSources,
           enabledSources,
-          forceRefresh: isRegenerating, // Force refresh when regenerating
-          learningConstraints: learningSettings
+          forceRefresh: forceRefresh || isRegenerating,
+          learningConstraints: constraintsOverride || learningSettings
         }
       });
 
@@ -457,11 +462,23 @@ const Syllabus = () => {
         rawSources: originalSources.length > 0 ? originalSources : data.rawSources
       });
       
+      // Update pruning stats if provided
+      if (data.pruningStats) {
+        setPruningStats(data.pruningStats);
+      }
+      
       if (isRegenerating) {
-        toast({
-          title: "Syllabus Regenerated",
-          description: `Generated from ${selectedSourceUrls?.length || 0} selected source(s).`,
-        });
+        if (constraintsOverride) {
+          toast({
+            title: "Syllabus Adjusted",
+            description: "Learning path updated with your time constraints.",
+          });
+        } else {
+          toast({
+            title: "Syllabus Regenerated",
+            description: `Generated from ${selectedSourceUrls?.length || 0} selected source(s).`,
+          });
+        }
       }
     } catch (error) {
       console.error('Error generating syllabus:', error);
@@ -552,7 +569,7 @@ const Syllabus = () => {
     setLearningSettings(constraints);
     setApplyingConstraints(true);
     try {
-      await generateSyllabus();
+      await generateSyllabus(undefined, constraints, true);
     } finally {
       setApplyingConstraints(false);
     }
@@ -663,7 +680,7 @@ const Syllabus = () => {
           {!loading && syllabusData && (
             <LearningPathSettings
               onApply={handleApplyConstraints}
-              pruningStats={syllabusData.pruningStats}
+              pruningStats={pruningStats || syllabusData.pruningStats}
               isApplying={applyingConstraints}
             />
           )}
