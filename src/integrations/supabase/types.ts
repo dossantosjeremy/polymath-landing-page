@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      capstone_assignments: {
+        Row: {
+          assignment_name: string
+          audience: string | null
+          created_at: string
+          deliverable_format: string | null
+          discipline: string
+          estimated_time: string | null
+          id: string
+          instructions: Json
+          resource_attachments: Json | null
+          role: string | null
+          scenario: string
+          source_label: string | null
+          source_tier: string
+          source_url: string | null
+          step_title: string
+        }
+        Insert: {
+          assignment_name: string
+          audience?: string | null
+          created_at?: string
+          deliverable_format?: string | null
+          discipline: string
+          estimated_time?: string | null
+          id?: string
+          instructions: Json
+          resource_attachments?: Json | null
+          role?: string | null
+          scenario: string
+          source_label?: string | null
+          source_tier: string
+          source_url?: string | null
+          step_title: string
+        }
+        Update: {
+          assignment_name?: string
+          audience?: string | null
+          created_at?: string
+          deliverable_format?: string | null
+          discipline?: string
+          estimated_time?: string | null
+          id?: string
+          instructions?: Json
+          resource_attachments?: Json | null
+          role?: string | null
+          scenario?: string
+          source_label?: string | null
+          source_tier?: string
+          source_url?: string | null
+          step_title?: string
+        }
+        Relationships: []
+      }
       community_syllabi: {
         Row: {
           created_at: string | null
