@@ -89,16 +89,16 @@ serve(async (req) => {
     // Adjust prompts and tokens based on reference length
     const lengthConfig = {
       brief: {
-        maxTokens: 1500,
-        instruction: 'Provide a concise explanation of the core ideas, key arguments, and essential concepts only. Focus on clarity and brevity.'
+        maxTokens: 3000,
+        instruction: 'Provide a concise explanation of the core ideas, key arguments, and essential concepts only. Focus on clarity and brevity. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
       },
       standard: {
-        maxTokens: 3000,
-        instruction: 'Provide a thorough explanation of the subject matter, including key concepts, important thinkers, main arguments, and relevant historical context.'
+        maxTokens: 6000,
+        instruction: 'Provide a thorough explanation of the subject matter, including key concepts, important thinkers, main arguments, and relevant historical context. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
       },
       comprehensive: {
-        maxTokens: 6000,
-        instruction: 'Provide an exhaustive exploration of the subject matter, including detailed explanations of concepts, extensive historical and intellectual context, related debates, counterarguments, and concrete examples.'
+        maxTokens: 12000,
+        instruction: 'Provide an exhaustive exploration of the subject matter, including detailed explanations of concepts, extensive historical and intellectual context, related debates, counterarguments, and concrete examples. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
       }
     };
 
