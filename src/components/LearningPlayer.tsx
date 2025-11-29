@@ -5,6 +5,7 @@ import { VideoPlayer } from './VideoPlayer';
 import { ReadingCard } from './ReadingCard';
 import { BookCard } from './BookCard';
 import { AlternativeResources } from './AlternativeResources';
+import { CapstoneAssignment } from './CapstoneAssignment';
 import { useStepResources } from '@/hooks/useStepResources';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -35,6 +36,19 @@ export const LearningPlayer = ({
     setHasLoaded(true);
     fetchResources(stepTitle, discipline, syllabusUrls, false);
   };
+
+  // For capstone steps, show the assignment interface
+  if (isCapstone) {
+    return (
+      <div className="space-y-6">
+        <CapstoneAssignment
+          stepTitle={stepTitle}
+          discipline={discipline}
+          syllabusUrls={syllabusUrls}
+        />
+      </div>
+    );
+  }
 
   // Show load button initially
   if (!hasLoaded && !resources) {
