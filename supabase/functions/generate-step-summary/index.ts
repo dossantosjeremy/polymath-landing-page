@@ -115,7 +115,8 @@ CRITICAL REQUIREMENTS - CONTENT:
 3. Identify key thinkers and their specific contributions, theories, or positions
 4. Provide historical and intellectual context that illuminates the ideas
 5. Use concrete examples to illustrate abstract concepts
-6. Include clickable links to sources when referencing specific ideas: [Source Name](URL)
+6. Include clickable links inline as HTML: <a href="URL">Source Name</a>
+7. Italicize key terms and concepts using <em> tags
 
 CRITICAL REQUIREMENTS - EXCLUDE:
 1. NO course logistics (reading assignments, page counts, schedules, participation)
@@ -124,30 +125,33 @@ CRITICAL REQUIREMENTS - EXCLUDE:
 4. NO references to "this course" or "this class"
 5. NO casual greetings or conversational language ("Alright everyone", "Today we're diving into")
 
-REQUIRED FORMAT - Academic Outline Structure:
-Use formal academic outlining with proper hierarchical numbering:
+REQUIRED OUTPUT FORMAT - HTML with Academic Outline Structure:
+Return ONLY valid HTML (no markdown). Use this exact structure:
 
-# [Main Topic Title]
+<h1>[Main Topic Title]</h1>
 
-## I. [First Major Section]
-   A. [First Subsection]
-      1. [First Point]
-         a. [Supporting Detail]
-            i. [Sub-detail if needed]
-   B. [Second Subsection]
+<h2>I. [First Major Section Title]</h2>
+<p>A. [Subsection] 1. [Point] a. [Detail] i. [Sub-detail] [Continue text naturally with proper formatting]</p>
 
-## II. [Second Major Section]
-   A. [First Subsection]
-      1. [First Point]
-      2. [Second Point]
-   
-Use this structure consistently throughout. Each level should have clear headers, concise content, and proper indentation. Use bullet points for lists within sections.`;
+<p>B. [Next Subsection] 1. [Point] a. [Detail]</p>
 
-    const userPrompt = `Generate formal academic reference notes for: ${stepTitle}
+<h2>II. [Second Major Section Title]</h2>
+<p>A. [Subsection] 1. [Point] 2. [Point] 3. [Point]</p>
+
+FORMATTING RULES:
+- Use <h1> for main title
+- Use <h2> for major sections (I., II., III.)
+- Use <p> tags for all text content - include outline markers (A., 1., a., i.) inline within paragraphs
+- Use <em> for emphasis on key terms, foreign words, technical concepts
+- Use <a href="url"> for citations
+- Do NOT use <ul> or <li> - keep everything as continuous prose with outline markers
+- Flow naturally - don't force line breaks between outline levels`;
+
+    const userPrompt = `Generate formal academic reference notes in HTML format for: ${stepTitle}
 
 ${fullContext}
 
-Write structured academic content explaining the subject matter. Use the formal outline format (I., A., 1., a., i.) with clear headers and hierarchical organization. Focus exclusively on explaining the ideas, theories, key thinkers, their arguments, and historical/intellectual context. No course logistics, no casual language.`;
+Return ONLY valid HTML. Use <h1> for title, <h2> for major sections (I., II., III.), and <p> tags with inline outline markers (A., 1., a., i.) for content. Use <em> for key terms and <a> for citations. Write continuous prose with embedded outline structure - NOT bullet lists. Focus exclusively on explaining the ideas, theories, key thinkers, their arguments, and historical/intellectual context.`;
 
     console.log('Calling Lovable AI...');
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
