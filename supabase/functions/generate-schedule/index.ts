@@ -30,12 +30,13 @@ function generateCalendarMapping(
       ? Math.round(module.estimatedHours * 60) 
       : 45; // Default 45 min if no estimatedHours
 
-    // Find next available slot that fits this module
+    // Find next available slot (schedule even if module exceeds daily availability)
     while (true) {
       const dayName = dayNames[currentDate.getDay()];
       const availableMinutes = availability[dayName] || 0;
 
-      if (availableMinutes >= estimatedMinutes) {
+      // Schedule on any day with availability (even if less than estimated time)
+      if (availableMinutes > 0) {
         // This day works - schedule it here
         events.push({
           module_index: moduleIndex,
