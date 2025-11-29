@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { ScheduleConfigurator } from "@/components/ScheduleConfigurator";
 import { ScheduleTimeline } from "@/components/ScheduleTimeline";
 import { ScheduleRecovery } from "@/components/ScheduleRecovery";
+import { ScheduleCalendar } from "@/components/ScheduleCalendar";
+import { ScheduleDayAgenda } from "@/components/ScheduleDayAgenda";
 
 interface ScheduleEvent {
   id: string;
@@ -43,6 +45,7 @@ export default function Schedule() {
   const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set());
   const [configuringScheduleId, setConfiguringScheduleId] = useState<string | null>(null);
   const [viewingTimelineId, setViewingTimelineId] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   useEffect(() => {
     if (user) {
@@ -247,6 +250,24 @@ export default function Schedule() {
             </CardContent>
           </Card>
         )}
+
+        {/* Calendar and Agenda Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-1">
+            <ScheduleCalendar
+              schedules={schedules}
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+            />
+          </div>
+          <div className="lg:col-span-2">
+            <ScheduleDayAgenda
+              selectedDate={selectedDate}
+              schedules={schedules}
+              onEventComplete={markEventComplete}
+            />
+          </div>
+        </div>
 
         <Card>
           <CardHeader>

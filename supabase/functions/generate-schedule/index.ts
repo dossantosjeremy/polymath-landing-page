@@ -23,38 +23,35 @@ function generateCalendarMapping(
 
   const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
-  let moduleIndex = 0;
-  modules.forEach((module) => {
-    if (module.steps && Array.isArray(module.steps)) {
-      module.steps.forEach((step: any) => {
-        const estimatedMinutes = 45; // Default 45 min per step
+  // Handle flat module structure (each module IS a step)
+  modules.forEach((module: any, moduleIndex: number) => {
+    const stepTitle = module.title || `Module ${moduleIndex + 1}`;
+    const estimatedMinutes = module.estimatedHours 
+      ? Math.round(module.estimatedHours * 60) 
+      : 45; // Default 45 min if no estimatedHours
 
-        // Find next available slot that fits this module
-        while (true) {
-          const dayName = dayNames[currentDate.getDay()];
-          const availableMinutes = availability[dayName] || 0;
+    // Find next available slot that fits this module
+    while (true) {
+      const dayName = dayNames[currentDate.getDay()];
+      const availableMinutes = availability[dayName] || 0;
 
-          if (availableMinutes >= estimatedMinutes) {
-            // This day works - schedule it here
-            events.push({
-              module_index: moduleIndex,
-              step_title: step.title || "Untitled Step",
-              estimated_minutes: estimatedMinutes,
-              scheduled_date: currentDate.toISOString().split("T")[0],
-              is_done: false,
-            });
+      if (availableMinutes >= estimatedMinutes) {
+        // This day works - schedule it here
+        events.push({
+          module_index: moduleIndex,
+          step_title: stepTitle,
+          estimated_minutes: estimatedMinutes,
+          scheduled_date: currentDate.toISOString().split("T")[0],
+          is_done: false,
+        });
 
-            // Move to next day for next module
-            currentDate.setDate(currentDate.getDate() + 1);
-            break;
-          }
+        // Move to next day for next module
+        currentDate.setDate(currentDate.getDate() + 1);
+        break;
+      }
 
-          // Day doesn't work, try next day
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-
-        moduleIndex++;
-      });
+      // Day doesn't work, try next day
+      currentDate.setDate(currentDate.getDate() + 1);
     }
   });
 
