@@ -1,5 +1,6 @@
-import { CheckCircle2, Circle, Award, Lock } from "lucide-react";
+import { CheckCircle2, Circle, Award, Lock, SkipForward, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 interface ScheduleEvent {
   id: string;
@@ -7,15 +8,19 @@ interface ScheduleEvent {
   scheduled_date: string;
   is_done: boolean;
   estimated_minutes: number;
+  schedule_id: string;
 }
 
 interface ScheduleTimelineProps {
   events: ScheduleEvent[];
   discipline: string;
+  savedSyllabusId: string;
   onEventComplete: (eventId: string, isDone: boolean) => void;
+  onPushToNextDay: (eventId: string, scheduleId: string) => void;
 }
 
-export function ScheduleTimeline({ events, discipline, onEventComplete }: ScheduleTimelineProps) {
+export function ScheduleTimeline({ events, discipline, savedSyllabusId, onEventComplete, onPushToNextDay }: ScheduleTimelineProps) {
+  const navigate = useNavigate();
   const today = new Date().toISOString().split("T")[0];
 
   const getEventStatus = (event: ScheduleEvent) => {
@@ -123,21 +128,40 @@ export function ScheduleTimeline({ events, discipline, onEventComplete }: Schedu
                     </div>
 
                     {/* Action Buttons */}
-                    {status === "today" && !event.is_done && (
-                      <Button size="sm" onClick={() => onEventComplete(event.id, true)}>
-                        Complete
-                      </Button>
-                    )}
-
-                    {status === "done" && (
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => onEventComplete(event.id, false)}
+                        variant="ghost"
+                        onClick={() => navigate(`/syllabus?savedId=${savedSyllabusId}&step=${encodeURIComponent(event.step_title)}`)}
                       >
-                        Undo
+                        <ExternalLink className="h-4 w-4" />
                       </Button>
-                    )}
+                      
+                      {(status === "today" || status === "overdue") && !event.is_done && (
+                        <>
+                          <Button size="sm" onClick={() => onEventComplete(event.id, true)}>
+                            Complete
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => onPushToNextDay(event.id, event.schedule_id)}
+                          >
+                            <SkipForward className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+
+                      {status === "done" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onEventComplete(event.id, false)}
+                        >
+                          Undo
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
