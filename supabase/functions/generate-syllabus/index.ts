@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { analyzeTopicComposition } from "./analyzeTopicComposition.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -68,8 +69,11 @@ serve(async (req) => {
   }
 
   try {
-    const { discipline, selectedSourceUrls, customSources, enabledSources, forceRefresh, learningConstraints } = await req.json();
+    const { discipline, selectedSourceUrls, customSources, enabledSources, forceRefresh, learningConstraints, isAdHoc, searchTerm } = await req.json();
     console.log('Generating syllabus for:', discipline);
+    if (isAdHoc) {
+      console.log('[Ad-Hoc] Generating custom syllabus for web-sourced topic');
+    }
     if (selectedSourceUrls) {
       console.log('Using selected sources:', selectedSourceUrls.length);
     }
@@ -91,11 +95,28 @@ serve(async (req) => {
       throw new Error('PERPLEXITY_API_KEY is not configured');
     }
 
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+
     // Initialize Supabase client for caching
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.86.0');
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Analyze topic composition for ad-hoc requests
+    let compositionType: 'single' | 'composite_program' | 'vocational' = 'single';
+    let derivedFrom: string[] = [];
+    
+    if (isAdHoc) {
+      console.log('[Topic Analysis] Analyzing topic composition...');
+      const compositionAnalysis = await analyzeTopicComposition(discipline, LOVABLE_API_KEY);
+      compositionType = compositionAnalysis.compositionType;
+      derivedFrom = compositionAnalysis.constituentDisciplines || [];
+      console.log(`[Topic Analysis] Type: ${compositionType}, Derived from: ${derivedFrom.join(', ')}`);
+    }
 
     // Check community cache first (unless regenerating with selected sources or force refresh)
     if (!selectedSourceUrls && !forceRefresh) {
@@ -313,7 +334,11 @@ serve(async (req) => {
       fromCache: false,
       timestamp: new Date().toISOString(),
       pruningStats,
-      learningPathSettings: learningConstraints
+      learningPathSettings: learningConstraints,
+      isAdHoc,
+      compositionType,
+      derivedFrom,
+      searchTerm: searchTerm || discipline
     };
 
     // Cache the result in community_syllabi (unless regenerating with selected sources)
@@ -327,7 +352,11 @@ serve(async (req) => {
             discipline_path: null, // Will be set from frontend when available
             modules: filteredModules,
             raw_sources: rawSources,
-            source: syllabusSource
+            source: syllabusSource,
+            is_ad_hoc: isAdHoc || false,
+            composition_type: compositionType,
+            derived_from: derivedFrom,
+            search_term: searchTerm || discipline
           }, { 
             onConflict: 'discipline' 
           });
