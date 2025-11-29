@@ -169,6 +169,26 @@ All colors MUST be HSL.
     @apply text-lg font-serif font-semibold mt-6 mb-3 text-foreground;
   }
 
+  .academic-reference-content h3 {
+    @apply text-base font-semibold mt-5 mb-2 text-foreground;
+  }
+
+  .academic-reference-content .intro {
+    @apply mb-3 text-muted-foreground leading-relaxed;
+  }
+
+  .academic-reference-content .point {
+    @apply mb-3 leading-relaxed text-foreground pl-6 ml-0 border-l-2 border-primary/20;
+  }
+
+  .academic-reference-content .detail {
+    @apply mb-2 leading-relaxed text-foreground pl-12 ml-0 text-[0.95rem];
+  }
+
+  .academic-reference-content .sub-detail {
+    @apply mb-2 leading-relaxed text-muted-foreground pl-[4.5rem] ml-0 text-[0.9rem];
+  }
+
   .academic-reference-content p {
     @apply mb-4 leading-relaxed text-foreground;
   }
