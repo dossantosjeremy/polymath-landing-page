@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LearningPlayer } from "@/components/LearningPlayer";
 import { StepSummary } from "@/components/StepSummary";
+import { CapstoneAssignment } from "@/components/CapstoneAssignment";
 import { LearningPathSettings, LearningPathConstraints, PruningStats } from "@/components/LearningPathSettings";
 
 interface Module {
@@ -307,18 +308,20 @@ const Syllabus = () => {
           currentGroup = [];
         }
         
-        // Add capstone as single-step module
+        // Add capstone as single-step module with step title as module name
+        const capstoneTitle = module.title
+          .replace(/^Module\s+\d+\s*-?\s*Step\s+\d+:\s*/i, '')
+          .replace(/^Step\s+\d+:\s*/i, '')
+          .replace(/^Week\s+\d+:\s*/i, '')
+          .trim();
+        
         groups.push({
           moduleNumber: moduleNumber++,
-          moduleName: 'Capstone Checkpoint',
+          moduleName: `${moduleNumber - 1}. ${capstoneTitle}`,
           steps: [{ 
             ...module, 
             stepNumber: 1, 
-            stepTitle: module.title
-              .replace(/^Module\s+\d+\s*-?\s*Step\s+\d+:\s*/i, '')
-              .replace(/^Step\s+\d+:\s*/i, '')
-              .replace(/^Week\s+\d+:\s*/i, '')
-              .trim(),
+            stepTitle: capstoneTitle,
             tag: 'Capstone Integration',
             originalIndex: idx
           }]
@@ -1119,85 +1122,149 @@ const Syllabus = () => {
                     
                     {/* Steps within the module - Collapsible Content */}
                     <CollapsibleContent>
-                       <div className="space-y-2 ml-4 mt-2">
-                         {moduleGroup.steps.map((step) => {
+                       {(() => {
+                         const isCapstoneModule = moduleGroup.steps.some(s => s.isCapstone || s.tag === "Capstone Integration");
+                         const isSingleStepCapstone = isCapstoneModule && moduleGroup.steps.length === 1;
+                         
+                         // For single-step capstone modules, render content directly without nested collapsible
+                         if (isSingleStepCapstone) {
+                           const step = moduleGroup.steps[0];
                            return (
-                             <div
-                                key={step.originalIndex}
-                                className={cn(
-                                  "border overflow-hidden transition-all",
-                                  step.isCapstone ? "bg-[hsl(var(--gold))]/5 border-accent" : "bg-primary/5"
-                                )}
-                              >
-                               <button
-                                 onClick={() => toggleModule(step.originalIndex)}
-                                 className={cn(
-                                   "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left border-l-4",
-                                   step.tag === "Capstone Integration" 
-                                     ? "border-l-[hsl(var(--gold))]" 
-                                     : "border-l-primary"
-                                 )}
-                               >
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-1">
-                                      {step.tag === "Capstone Integration" ? (
-                                        <Award className="h-5 w-5 text-[hsl(var(--gold))]" />
-                                      ) : (
-                                        <BookOpen className="h-5 w-5 text-primary" />
-                                      )}
-                                      <h4 className="font-semibold">{step.stepNumber}. {step.stepTitle}</h4>
-                                      <span className={cn(
-                                        "text-xs px-2 py-1",
-                                        step.tag === "Capstone Integration" 
-                                          ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
-                                          : "bg-primary/10 text-primary"
-                                      )}>
-                                        {step.tag}
-                                      </span>
-                                    </div>
-                                   
-                                   {/* Step description from original syllabi */}
+                             <div className="ml-4 mt-2">
+                               <div className={cn(
+                                 "border overflow-hidden",
+                                 "bg-[hsl(var(--gold))]/5 border-accent"
+                               )}>
+                                 <div className="p-4">
                                    {step.description && (
-                                     <p className="text-sm text-muted-foreground mb-2">{step.description}</p>
+                                     <p className="text-sm text-muted-foreground mb-3">{step.description}</p>
                                    )}
                                    
-                                    {/* Multiple source badges with color matching pills */}
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      {(() => {
-                                        const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
-                                        const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                                        
-                                        return urls.filter(Boolean).map((url, idx) => {
-                                          const source = rawSources.find(s => s.url === url);
-                                          const baseName = getDomainShortName(url);
-                                          const courseSuffix = extractCourseCode(url, source?.courseName || '');
-                                          const label = courseSuffix ? `${baseName} (${courseSuffix})` : baseName;
-                                          
-                                          return (
-                                            <a
-                                              key={idx}
-                                              href={url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className={cn(
-                                                "text-xs px-2 py-1 border inline-flex items-center gap-1 hover:opacity-80 transition-opacity",
-                                                getSourceColorByUrl(url)
-                                              )}
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              {label}
-                                              <ExternalLink className="h-3 w-3" />
-                                            </a>
-                                          );
-                                        });
-                                      })()}
-                                    </div>
+                                   {/* Multiple source badges with color matching pills */}
+                                   <div className="flex flex-wrap items-center gap-2 mb-4">
+                                     {(() => {
+                                       const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
+                                       const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
+                                       
+                                       return urls.filter(Boolean).map((url, idx) => {
+                                         const source = rawSources.find(s => s.url === url);
+                                         const baseName = getDomainShortName(url);
+                                         const courseSuffix = extractCourseCode(url, source?.courseName || '');
+                                         const label = courseSuffix ? `${baseName} (${courseSuffix})` : baseName;
+                                         
+                                         return (
+                                           <a
+                                             key={idx}
+                                             href={url}
+                                             target="_blank"
+                                             rel="noopener noreferrer"
+                                             className={cn(
+                                               "text-xs px-2 py-1 border inline-flex items-center gap-1 hover:opacity-80 transition-opacity",
+                                               getSourceColorByUrl(url)
+                                             )}
+                                           >
+                                             {label}
+                                             <ExternalLink className="h-3 w-3" />
+                                           </a>
+                                         );
+                                       });
+                                     })()}
+                                   </div>
+                                   
+                                   <CapstoneAssignment
+                                     stepTitle={step.stepTitle}
+                                     discipline={syllabusData.discipline}
+                                     syllabusUrls={originalSources.length > 0 
+                                       ? originalSources.map(s => s.url) 
+                                       : syllabusData.rawSources?.map(s => s.url) || []}
+                                   />
                                  </div>
-                                <ChevronRight className={cn(
-                                  "h-5 w-5 text-muted-foreground transition-transform",
-                                  expandedModules.has(step.originalIndex) && "rotate-90"
-                                )} />
-                              </button>
+                               </div>
+                             </div>
+                           );
+                         }
+                         
+                         // For regular modules with multiple steps, render as before
+                         return (
+                           <div className="space-y-2 ml-4 mt-2">
+                             {moduleGroup.steps.map((step) => {
+                               return (
+                                 <div
+                                    key={step.originalIndex}
+                                    className={cn(
+                                      "border overflow-hidden transition-all",
+                                      step.isCapstone ? "bg-[hsl(var(--gold))]/5 border-accent" : "bg-primary/5"
+                                    )}
+                                  >
+                                   <button
+                                     onClick={() => toggleModule(step.originalIndex)}
+                                     className={cn(
+                                       "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left border-l-4",
+                                       step.tag === "Capstone Integration" 
+                                         ? "border-l-[hsl(var(--gold))]" 
+                                         : "border-l-primary"
+                                     )}
+                                   >
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-1">
+                                          {step.tag === "Capstone Integration" ? (
+                                            <Award className="h-5 w-5 text-[hsl(var(--gold))]" />
+                                          ) : (
+                                            <BookOpen className="h-5 w-5 text-primary" />
+                                          )}
+                                          <h4 className="font-semibold">{step.stepNumber}. {step.stepTitle}</h4>
+                                          <span className={cn(
+                                            "text-xs px-2 py-1",
+                                            step.tag === "Capstone Integration" 
+                                              ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
+                                              : "bg-primary/10 text-primary"
+                                          )}>
+                                            {step.tag}
+                                          </span>
+                                        </div>
+                                       
+                                       {/* Step description from original syllabi */}
+                                       {step.description && (
+                                         <p className="text-sm text-muted-foreground mb-2">{step.description}</p>
+                                       )}
+                                       
+                                        {/* Multiple source badges with color matching pills */}
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          {(() => {
+                                            const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
+                                            const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
+                                            
+                                            return urls.filter(Boolean).map((url, idx) => {
+                                              const source = rawSources.find(s => s.url === url);
+                                              const baseName = getDomainShortName(url);
+                                              const courseSuffix = extractCourseCode(url, source?.courseName || '');
+                                              const label = courseSuffix ? `${baseName} (${courseSuffix})` : baseName;
+                                              
+                                              return (
+                                                <a
+                                                  key={idx}
+                                                  href={url}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  className={cn(
+                                                    "text-xs px-2 py-1 border inline-flex items-center gap-1 hover:opacity-80 transition-opacity",
+                                                    getSourceColorByUrl(url)
+                                                  )}
+                                                  onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  {label}
+                                                  <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                              );
+                                            });
+                                          })()}
+                                        </div>
+                                     </div>
+                                     <ChevronRight className={cn(
+                                      "h-5 w-5 text-muted-foreground transition-transform",
+                                      expandedModules.has(step.originalIndex) && "rotate-90"
+                                    )} />
+                                  </button>
                               
                               {expandedModules.has(step.originalIndex) && (
                                 <div className="px-4 pb-4 border-t">
@@ -1230,6 +1297,8 @@ const Syllabus = () => {
                           );
                         })}
                       </div>
+                    );
+                  })()}
                     </CollapsibleContent>
                    </Collapsible>
                 ))}
