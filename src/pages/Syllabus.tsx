@@ -234,6 +234,7 @@ const Syllabus = () => {
   interface ModuleGroup {
     moduleNumber: number;
     moduleName: string;
+    moduleSubtitle?: string;
     steps: Array<Module & { stepNumber: number; stepTitle: string; originalIndex: number }>;
   }
 
@@ -243,6 +244,7 @@ const Syllabus = () => {
     let currentGroup: Array<Module & { originalIndex: number }> = [];
     let currentTag = '';
     let moduleNumber = 1;
+    const tagCounts: Record<string, number> = {}; // Track continuous numbering per tag type
     
     modules.forEach((module, idx) => {
       // Only treat as isolated capstone if explicitly marked as capstone
@@ -252,17 +254,25 @@ const Syllabus = () => {
           // Split large groups into modules of 3-5 steps
           for (let i = 0; i < currentGroup.length; i += 4) {
             const chunk = currentGroup.slice(i, Math.min(i + 5, currentGroup.length));
-            const chunkIndex = Math.floor(i / 4) + 1;
             const totalChunks = Math.ceil(currentGroup.length / 4);
+            
+            // Increment tag count for continuous numbering
+            tagCounts[currentTag] = (tagCounts[currentTag] || 0) + 1;
+            
+            // Generate subtitle with first 3 step titles
+            const stepTitles = chunk.map(item => item.title).slice(0, 3);
+            const hasMore = chunk.length > 3;
+            const moduleSubtitle = stepTitles.join(', ') + (hasMore ? '...' : '');
             
             let moduleName = currentTag;
             if (totalChunks > 1) {
-              moduleName = `${currentTag} ${chunkIndex}`;
+              moduleName = `${currentTag} ${tagCounts[currentTag]}`;
             }
             
             groups.push({
               moduleNumber: moduleNumber++,
               moduleName,
+              moduleSubtitle,
               steps: chunk.map((item, stepIdx) => ({
                 ...item,
                 stepNumber: stepIdx + 1,
@@ -313,17 +323,25 @@ const Syllabus = () => {
         if (currentGroup.length > 0) {
           for (let i = 0; i < currentGroup.length; i += 4) {
             const chunk = currentGroup.slice(i, Math.min(i + 5, currentGroup.length));
-            const chunkIndex = Math.floor(i / 4) + 1;
             const totalChunks = Math.ceil(currentGroup.length / 4);
+            
+            // Increment tag count for continuous numbering
+            tagCounts[currentTag] = (tagCounts[currentTag] || 0) + 1;
+            
+            // Generate subtitle with first 3 step titles
+            const stepTitles = chunk.map(item => item.title).slice(0, 3);
+            const hasMore = chunk.length > 3;
+            const moduleSubtitle = stepTitles.join(', ') + (hasMore ? '...' : '');
             
             let moduleName = currentTag;
             if (totalChunks > 1) {
-              moduleName = `${currentTag} ${chunkIndex}`;
+              moduleName = `${currentTag} ${tagCounts[currentTag]}`;
             }
             
             groups.push({
               moduleNumber: moduleNumber++,
               moduleName,
+              moduleSubtitle,
               steps: chunk.map((item, stepIdx) => ({
                 ...item,
                 stepNumber: stepIdx + 1,
@@ -347,17 +365,25 @@ const Syllabus = () => {
       if (idx === modules.length - 1 && currentGroup.length > 0) {
         for (let i = 0; i < currentGroup.length; i += 4) {
           const chunk = currentGroup.slice(i, Math.min(i + 5, currentGroup.length));
-          const chunkIndex = Math.floor(i / 4) + 1;
           const totalChunks = Math.ceil(currentGroup.length / 4);
+          
+          // Increment tag count for continuous numbering
+          tagCounts[currentTag] = (tagCounts[currentTag] || 0) + 1;
+          
+          // Generate subtitle with first 3 step titles
+          const stepTitles = chunk.map(item => item.title).slice(0, 3);
+          const hasMore = chunk.length > 3;
+          const moduleSubtitle = stepTitles.join(', ') + (hasMore ? '...' : '');
           
           let moduleName = currentTag;
           if (totalChunks > 1) {
-            moduleName = `${currentTag} ${chunkIndex}`;
+            moduleName = `${currentTag} ${tagCounts[currentTag]}`;
           }
           
           groups.push({
             moduleNumber: moduleNumber++,
             moduleName,
+            moduleSubtitle,
             steps: chunk.map((item, stepIdx) => ({
               ...item,
               stepNumber: stepIdx + 1,
@@ -1006,7 +1032,14 @@ const Syllabus = () => {
                             ) : (
                               <BookOpen className="h-5 w-5 text-primary flex-shrink-0" />
                             )}
-                            <h3 className="font-bold text-lg text-left flex-1">{moduleGroup.moduleName}</h3>
+                            <div className="flex-1 text-left">
+                              <h3 className="font-bold text-lg">{moduleGroup.moduleName}</h3>
+                              {moduleGroup.moduleSubtitle && (
+                                <p className="text-sm text-muted-foreground font-normal mt-0.5">
+                                  {moduleGroup.moduleSubtitle}
+                                </p>
+                              )}
+                            </div>
                             <ChevronDown className={cn(
                               "h-5 w-5 text-muted-foreground transition-transform flex-shrink-0",
                               expandedModuleGroups.has(moduleGroup.moduleNumber) && "rotate-180"
