@@ -639,6 +639,18 @@ const Syllabus = () => {
       return;
     }
 
+    // Validate session before attempting save
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      toast({
+        title: "Session Expired",
+        description: "Your session has expired. Please log in again.",
+        variant: "destructive"
+      });
+      navigate('/auth');
+      return;
+    }
+
     if (!syllabusData) return;
 
     setSaving(true);
