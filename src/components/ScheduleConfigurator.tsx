@@ -60,11 +60,8 @@ export function ScheduleConfigurator({
 
       setDiscipline(data.discipline);
       const modules = JSON.parse(JSON.stringify(data.modules));
-      let stepCount = 0;
-      modules.forEach((module: any) => {
-        stepCount += module.steps?.length || 0;
-      });
-      setTotalSteps(stepCount);
+      // Handle flat module structure - each module IS a step
+      setTotalSteps(modules.length);
     } catch (error) {
       console.error("Error loading syllabus:", error);
       toast.error("Failed to load course information");
@@ -89,11 +86,8 @@ export function ScheduleConfigurator({
 
       setDiscipline(schedule.saved_syllabi.discipline);
       const modules = JSON.parse(JSON.stringify(schedule.saved_syllabi.modules));
-      let stepCount = 0;
-      modules.forEach((module: any) => {
-        stepCount += module.steps?.length || 0;
-      });
-      setTotalSteps(stepCount);
+      // Handle flat module structure - each module IS a step
+      setTotalSteps(modules.length);
 
       const availability = schedule.availability as Record<string, number>;
       const activeDays = Object.keys(availability).filter((day) => availability[day] > 0);

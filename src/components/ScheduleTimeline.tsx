@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Award, Navigation } from "lucide-react";
+import { CheckCircle2, Circle, Award, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ScheduleEvent {
@@ -35,89 +35,115 @@ export function ScheduleTimeline({ events, discipline, onEventComplete }: Schedu
   };
 
   return (
-    <div className="mt-4 border rounded-lg p-4 bg-accent/5">
-      <h3 className="font-semibold mb-4 flex items-center gap-2">
-        <Navigation className="h-5 w-5" />
-        {discipline} Timeline
+    <div className="mt-4 border rounded-lg p-6 bg-card">
+      <h3 className="font-semibold mb-6 text-lg">
+        {discipline} Metro Map
       </h3>
 
-      <div className="space-y-4">
-        {events.map((event, index) => {
-          const status = getEventStatus(event);
-          const isMilestone = isCapstone(event.step_title);
+      {/* Metro Map Container with continuous line */}
+      <div className="relative pl-8">
+        {/* Continuous vertical metro line */}
+        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
 
-          return (
-            <div
-              key={event.id}
-              className={`flex items-start gap-4 ${
-                index !== events.length - 1 ? "border-l-2 border-border ml-4 pb-4" : ""
-              }`}
-            >
-              <div className="relative -ml-[17px]">
-                {status === "done" ? (
-                  <CheckCircle2 className="h-8 w-8 text-green-500 bg-background" />
-                ) : status === "today" ? (
-                  <div className="h-8 w-8 rounded-full bg-primary animate-pulse flex items-center justify-center">
-                    <Circle className="h-5 w-5 text-primary-foreground" />
-                  </div>
-                ) : isMilestone ? (
-                  <Award className="h-8 w-8 text-[hsl(var(--gold))] bg-background" />
-                ) : (
-                  <Circle className={`h-8 w-8 ${status === "overdue" ? "text-destructive" : "text-muted"} bg-background`} />
-                )}
-              </div>
+        <div className="space-y-6">
+          {events.map((event, index) => {
+            const status = getEventStatus(event);
+            const isMilestone = isCapstone(event.step_title);
 
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-1">
-                  <span
-                    className={`text-sm font-medium ${
-                      status === "done" ? "text-muted-foreground line-through" : ""
-                    }`}
-                  >
-                    {formatDate(event.scheduled_date)}
-                  </span>
-                  {status === "today" && (
-                    <span className="text-xs font-medium text-primary px-2 py-1 rounded-full bg-primary/10">
-                      TODAY
-                    </span>
-                  )}
-                  {status === "overdue" && !event.is_done && (
-                    <span className="text-xs font-medium text-destructive px-2 py-1 rounded-full bg-destructive/10">
-                      OVERDUE
-                    </span>
-                  )}
-                  {status === "future" && (
-                    <span className="text-xs text-muted-foreground">Projected</span>
+            return (
+              <div key={event.id} className="relative">
+                {/* Station Node */}
+                <div className="absolute -left-8 top-2 z-10">
+                  {status === "done" ? (
+                    <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
+                      <CheckCircle2 className="h-5 w-5 text-white" />
+                    </div>
+                  ) : status === "today" ? (
+                    <div className="w-8 h-8 rounded-full bg-primary animate-pulse flex items-center justify-center shadow-lg ring-4 ring-primary/20">
+                      <Circle className="h-5 w-5 text-primary-foreground fill-current" />
+                    </div>
+                  ) : isMilestone ? (
+                    <div className="w-8 h-8 rounded-full bg-[hsl(var(--gold))] flex items-center justify-center shadow-lg">
+                      <Award className="h-5 w-5 text-white" />
+                    </div>
+                  ) : status === "overdue" ? (
+                    <div className="w-8 h-8 rounded-full bg-destructive flex items-center justify-center shadow-lg">
+                      <Circle className="h-5 w-5 text-destructive-foreground" />
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-muted border-2 border-border flex items-center justify-center shadow">
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    </div>
                   )}
                 </div>
 
+                {/* Station Card */}
                 <div
-                  className={`font-medium mb-2 ${
-                    status === "done" ? "text-muted-foreground line-through" : ""
+                  className={`ml-4 p-4 rounded-lg border-2 transition-all ${
+                    status === "done"
+                      ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900"
+                      : status === "today"
+                      ? "bg-primary/5 border-primary shadow-lg"
+                      : status === "overdue"
+                      ? "bg-destructive/5 border-destructive/50"
+                      : "bg-muted/50 border-border"
                   }`}
                 >
-                  {event.step_title}
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {status === "today" && (
+                          <span className="text-xs font-bold text-primary px-2 py-0.5 rounded-full bg-primary/10">
+                            NOW
+                          </span>
+                        )}
+                        {status === "overdue" && !event.is_done && (
+                          <span className="text-xs font-bold text-destructive px-2 py-0.5 rounded-full bg-destructive/10">
+                            OVERDUE
+                          </span>
+                        )}
+                        {status === "future" && (
+                          <span className="text-xs text-muted-foreground font-medium">
+                            Due: {formatDate(event.scheduled_date)}
+                          </span>
+                        )}
+                      </div>
+
+                      <h4
+                        className={`font-semibold mb-1 ${
+                          status === "done" ? "text-muted-foreground line-through" : ""
+                        }`}
+                      >
+                        {event.step_title}
+                      </h4>
+
+                      <p className="text-sm text-muted-foreground">
+                        {formatDate(event.scheduled_date)} • {event.estimated_minutes} min
+                      </p>
+                    </div>
+
+                    {/* Action Buttons */}
+                    {status === "today" && !event.is_done && (
+                      <Button size="sm" onClick={() => onEventComplete(event.id, true)}>
+                        Complete
+                      </Button>
+                    )}
+
+                    {status === "done" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onEventComplete(event.id, false)}
+                      >
+                        Undo
+                      </Button>
+                    )}
+                  </div>
                 </div>
-
-                {status === "today" && !event.is_done && (
-                  <Button size="sm" onClick={() => onEventComplete(event.id, true)}>
-                    Mark Complete
-                  </Button>
-                )}
-
-                {status === "done" && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onEventComplete(event.id, false)}
-                  >
-                    Mark Incomplete
-                  </Button>
-                )}
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
