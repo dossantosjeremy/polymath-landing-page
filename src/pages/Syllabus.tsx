@@ -75,6 +75,19 @@ const Syllabus = () => {
   const path = searchParams.get("path") || "";
   const savedId = searchParams.get("savedId");
   const useCache = searchParams.get("useCache") === "true";
+  
+  // Parse pre-generation constraints from URL
+  const urlDepth = searchParams.get("depth") as 'overview' | 'standard' | 'detailed' | null;
+  const urlHoursPerWeek = searchParams.get("hoursPerWeek");
+  const urlGoalDate = searchParams.get("goalDate");
+  const urlSkillLevel = searchParams.get("skillLevel") as 'beginner' | 'intermediate' | 'advanced' | null;
+  
+  const preGenerationConstraints: LearningPathConstraints | undefined = urlDepth ? {
+    depth: urlDepth,
+    hoursPerWeek: urlHoursPerWeek ? parseInt(urlHoursPerWeek) : 5,
+    goalDate: urlGoalDate ? new Date(urlGoalDate) : undefined,
+    skillLevel: urlSkillLevel || 'beginner'
+  } : undefined;
 
   useEffect(() => {
     if (savedId) {
@@ -82,7 +95,8 @@ const Syllabus = () => {
     } else if (useCache && discipline) {
       loadCachedSyllabus();
     } else if (discipline) {
-      generateSyllabus();
+      // Pass pre-generation constraints if provided in URL
+      generateSyllabus(undefined, preGenerationConstraints);
     }
   }, [discipline, savedId, useCache]);
 
