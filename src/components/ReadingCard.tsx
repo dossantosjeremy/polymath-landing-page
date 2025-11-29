@@ -1,5 +1,6 @@
-import { ExternalLink, BookOpen, FileText } from 'lucide-react';
+import { ExternalLink, BookOpen, FileText, AlertTriangle, Archive, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 interface ReadingCardProps {
   url: string;
@@ -13,7 +14,12 @@ interface ReadingCardProps {
     citation: string;
     url: string;
     type: 'pdf' | 'article' | 'chapter' | 'external';
+    verified?: boolean;
+    archivedUrl?: string;
   }>;
+  verified?: boolean;
+  archivedUrl?: string;
+  directPdfUrl?: string;
 }
 
 export const ReadingCard = ({
@@ -24,10 +30,15 @@ export const ReadingCard = ({
   focusHighlight,
   favicon,
   isCapstone = false,
-  specificReadings
+  specificReadings,
+  verified = true,
+  archivedUrl,
+  directPdfUrl
 }: ReadingCardProps) => {
   const accentColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
   const bgColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
+  const displayUrl = directPdfUrl || url;
+  const showWarning = verified === false;
 
   return (
     <div 
@@ -39,14 +50,34 @@ export const ReadingCard = ({
       }}
     >
       {/* Header */}
-      <div className="flex items-center gap-2">
-        {favicon ? (
-          <img src={favicon} alt="" className="h-4 w-4" />
-        ) : (
-          <BookOpen className="h-4 w-4" style={{ color: accentColor }} />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {favicon ? (
+            <img src={favicon} alt="" className="h-4 w-4" />
+          ) : (
+            <BookOpen className="h-4 w-4" style={{ color: accentColor }} />
+          )}
+          <span className="text-sm font-medium" style={{ color: accentColor }}>{domain}</span>
+        </div>
+        
+        {directPdfUrl && (
+          <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
+            📄 Direct PDF
+          </Badge>
         )}
-        <span className="text-sm font-medium" style={{ color: accentColor }}>{domain}</span>
       </div>
+
+      {showWarning && (
+        <div className="flex items-center gap-2 text-amber-600 text-xs">
+          <AlertTriangle className="h-3 w-3" />
+          <span>Link may be outdated</span>
+          {archivedUrl && (
+            <a href={archivedUrl} className="underline hover:no-underline" target="_blank" rel="noopener noreferrer">
+              (view archived)
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Title */}
       <h4 className="font-semibold text-lg">{title}</h4>
@@ -95,21 +126,43 @@ export const ReadingCard = ({
         <p className="text-sm font-medium">📌 Focus: {focusHighlight}</p>
       </div>
 
-      {/* CTA Button */}
-      <Button
-        variant="outline"
-        className="w-full"
-        asChild
-        style={{
-          borderColor: accentColor,
-          color: accentColor
-        }}
-      >
-        <a href={url} target="_blank" rel="noopener noreferrer">
-          {specificReadings && specificReadings.length > 0 ? 'View All Readings' : 'Read Full Source'} 
-          <ExternalLink className="ml-2 h-4 w-4" />
-        </a>
-      </Button>
+      {/* CTA Buttons */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          className="flex-1"
+          asChild
+          style={{
+            borderColor: accentColor,
+            color: accentColor
+          }}
+        >
+          <a href={displayUrl} target="_blank" rel="noopener noreferrer">
+            {directPdfUrl ? 'Open PDF' : specificReadings && specificReadings.length > 0 ? 'View All Readings' : 'Read Full Source'} 
+            <ExternalLink className="ml-2 h-4 w-4" />
+          </a>
+        </Button>
+        
+        {showWarning && (
+          <Button variant="ghost" size="icon" asChild title="Search for this resource">
+            <a 
+              href={`https://scholar.google.com/scholar?q=${encodeURIComponent(title)}`}
+              target="_blank" 
+              rel="noopener noreferrer"
+            >
+              <Search className="h-4 w-4" />
+            </a>
+          </Button>
+        )}
+        
+        {archivedUrl && !showWarning && (
+          <Button variant="ghost" size="icon" asChild title="View archived version">
+            <a href={archivedUrl} target="_blank" rel="noopener noreferrer">
+              <Archive className="h-4 w-4" />
+            </a>
+          </Button>
+        )}
+      </div>
     </div>
   );
 };

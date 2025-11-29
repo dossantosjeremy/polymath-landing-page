@@ -10,6 +10,8 @@ export interface StepResources {
     duration: string;
     whyThisVideo: string;
     keyMoments?: { time: string; label: string }[];
+    verified?: boolean;
+    archivedUrl?: string;
   } | null;
   
   deepReading: {
@@ -23,7 +25,12 @@ export interface StepResources {
       citation: string;
       url: string;
       type: 'pdf' | 'article' | 'chapter' | 'external';
+      verified?: boolean;
+      archivedUrl?: string;
     }>;
+    verified?: boolean;
+    archivedUrl?: string;
+    directPdfUrl?: string;
   } | null;
   
   book: {
@@ -33,6 +40,8 @@ export interface StepResources {
     source: string;
     chapterRecommendation?: string;
     why: string;
+    verified?: boolean;
+    archivedUrl?: string;
   } | null;
   
   alternatives: Array<{
@@ -42,6 +51,8 @@ export interface StepResources {
     source: string;
     duration?: string;
     author?: string;
+    verified?: boolean;
+    archivedUrl?: string;
   }>;
 }
 

@@ -1,4 +1,4 @@
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, AlertTriangle, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface VideoPlayerProps {
@@ -10,6 +10,8 @@ interface VideoPlayerProps {
   whyThisVideo: string;
   keyMoments?: { time: string; label: string }[];
   isCapstone?: boolean;
+  verified?: boolean;
+  archivedUrl?: string;
 }
 
 export const VideoPlayer = ({
@@ -20,7 +22,9 @@ export const VideoPlayer = ({
   duration,
   whyThisVideo,
   keyMoments,
-  isCapstone = false
+  isCapstone = false,
+  verified = true,
+  archivedUrl
 }: VideoPlayerProps) => {
   // Extract YouTube video ID
   const getYouTubeId = (url: string) => {
@@ -40,9 +44,30 @@ export const VideoPlayer = ({
   };
 
   const accentColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
+  const showWarning = verified === false;
 
   return (
     <div className="space-y-4">
+      {showWarning && (
+        <div className="flex items-center gap-2 text-amber-600 text-sm p-3 border border-amber-200 bg-amber-50/50">
+          <AlertTriangle className="h-4 w-4" />
+          <span>This video may not be available.</span>
+          {archivedUrl && (
+            <a href={archivedUrl} className="underline hover:no-underline ml-1" target="_blank" rel="noopener noreferrer">
+              View archived
+            </a>
+          )}
+          <a 
+            href={`https://www.youtube.com/results?search_query=${encodeURIComponent(title + ' ' + author)}`}
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="ml-auto flex items-center gap-1 underline hover:no-underline"
+          >
+            <Search className="h-3 w-3" /> Search YouTube
+          </a>
+        </div>
+      )}
+      
       {/* Video Embed */}
       {embedUrl ? (
         <div className="relative w-full aspect-video bg-black">

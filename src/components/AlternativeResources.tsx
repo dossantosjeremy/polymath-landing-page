@@ -1,4 +1,4 @@
-import { ExternalLink, Mic, GraduationCap, Video, FileText, BookOpen } from 'lucide-react';
+import { ExternalLink, Mic, GraduationCap, Video, FileText, BookOpen, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 interface AlternativeResource {
@@ -8,6 +8,8 @@ interface AlternativeResource {
   source: string;
   duration?: string;
   author?: string;
+  verified?: boolean;
+  archivedUrl?: string;
 }
 
 interface AlternativeResourcesProps {
@@ -66,7 +68,14 @@ export const AlternativeResources = ({ alternatives, isCapstone = false }: Alter
                   {getTypeLabel(resource.type)}
                 </span>
               </div>
-              <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              <div className="flex items-center gap-1">
+                {resource.verified === false && (
+                  <span title="Link may be outdated">
+                    <AlertTriangle className="h-3 w-3 text-amber-600" />
+                  </span>
+                )}
+                <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+              </div>
             </div>
 
             {/* Title */}
