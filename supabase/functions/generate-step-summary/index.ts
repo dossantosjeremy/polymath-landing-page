@@ -152,17 +152,22 @@ Example structure:
 
 ELEMENT GUIDE:
 - <h1>: Main title only
-- <h2>: Roman numeral sections (I., II., III., IV.)
-- <h3>: Letter subsections (A., B., C., D.) - each on its own line
+- <h2>: Roman numeral sections (I., II., III., IV.) - ONLY if there are 2+ sections at this level
+- <h3>: Letter subsections (A., B., C., D.) - ONLY if there are 2+ subsections at this level
 - <p class="intro">: Optional brief introduction to subsection
-- <p class="point">: Numbered points (1., 2., 3.) - each gets its own paragraph
-- <p class="detail">: Letter details (a., b., c.) - each gets its own paragraph
-- <p class="sub-detail">: Roman numeral sub-details (i., ii., iii.) - each gets its own paragraph
+- <p class="point">: Numbered points (1., 2., 3.) - ONLY if there are 2+ points at this level
+- <p class="detail">: Letter details (a., b., c.) - ONLY if there are 2+ details at this level
+- <p class="sub-detail">: Roman numeral sub-details (i., ii., iii.) - ONLY if there are 2+ sub-details at this level
 - Use <strong> to bold outline markers and key names
 - Use <em> for emphasis on key terms, foreign words, technical concepts
 - Use <a href="url"> for inline citations
 
-CRITICAL: Each numbered point (1., 2., 3.) must be in its own <p class="point"> tag. Each detail (a., b., c.) must be in its own <p class="detail"> tag. Do NOT combine multiple outline items in one paragraph.`;
+CRITICAL OUTLINE NUMBERING RULE: Only use outline markers (I., A., 1., a., i.) when there are at least 2 items at that level. If there is only one item, present it as regular paragraphs without the outline marker. For example:
+- If you have only one Roman section, don't use "I." - just use <h2> with the title
+- If you have only one numbered point under a subsection, don't use "1." - just use <p> without the marker
+- This applies to ALL outline levels
+
+Each outline item must be in its own element for proper visual hierarchy. Do NOT combine multiple outline items in one paragraph.`;
 
     const userPrompt = `Generate formal academic reference notes in HTML format for: ${stepTitle}
 
