@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.generate-step-summary]
 verify_jwt = false
+
+[functions.report-replace-resource]
+verify_jwt = false

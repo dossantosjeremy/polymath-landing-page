@@ -1,5 +1,7 @@
-import { ExternalLink, AlertTriangle, Search } from 'lucide-react';
+import { ExternalLink, AlertTriangle, Search, Archive, Flag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useReportResource } from '@/hooks/useReportResource';
 
 interface VideoPlayerProps {
   url: string;
@@ -12,6 +14,9 @@ interface VideoPlayerProps {
   isCapstone?: boolean;
   verified?: boolean;
   archivedUrl?: string;
+  stepTitle: string;
+  discipline: string;
+  onReplace?: (newVideo: any) => void;
 }
 
 export const VideoPlayer = ({
@@ -24,8 +29,12 @@ export const VideoPlayer = ({
   keyMoments,
   isCapstone = false,
   verified = true,
-  archivedUrl
+  archivedUrl,
+  stepTitle,
+  discipline,
+  onReplace
 }: VideoPlayerProps) => {
+  const { reportAndReplace, isReporting } = useReportResource();
   // Extract YouTube video ID
   const getYouTubeId = (url: string) => {
     const match = url.match(/(?:youtu\.be\/|youtube\.com(?:\/embed\/|\/v\/|\/watch\?v=|\/watch\?.+&v=))([\w-]{11})/);
@@ -45,6 +54,20 @@ export const VideoPlayer = ({
 
   const accentColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
   const showWarning = verified === false;
+
+  const handleReport = async () => {
+    const replacement = await reportAndReplace({
+      brokenUrl: url,
+      resourceType: 'video',
+      stepTitle,
+      discipline,
+      reportReason: 'Video not accessible'
+    });
+
+    if (replacement && onReplace) {
+      onReplace(replacement);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -92,14 +115,32 @@ export const VideoPlayer = ({
             <h4 className="font-semibold text-lg">{title}</h4>
             <p className="text-sm text-muted-foreground">by {author} • {duration}</p>
           </div>
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-shrink-0"
-          >
-            <ExternalLink className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
-          </a>
+          <div className="flex items-center gap-1">
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-shrink-0"
+            >
+              <ExternalLink className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
+            </a>
+            {archivedUrl && !showWarning && (
+              <Button variant="ghost" size="icon" asChild title="View archived version">
+                <a href={archivedUrl} target="_blank" rel="noopener noreferrer">
+                  <Archive className="h-4 w-4" />
+                </a>
+              </Button>
+            )}
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleReport}
+              disabled={isReporting}
+              title="Report broken link & find replacement"
+            >
+              <Flag className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
         <Badge 

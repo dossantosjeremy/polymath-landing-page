@@ -1,6 +1,7 @@
-import { ExternalLink, BookOpen, FileText, AlertTriangle, Archive, Search } from 'lucide-react';
+import { ExternalLink, BookOpen, FileText, AlertTriangle, Archive, Search, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useReportResource } from '@/hooks/useReportResource';
 
 interface ReadingCardProps {
   url: string;
@@ -20,6 +21,9 @@ interface ReadingCardProps {
   verified?: boolean;
   archivedUrl?: string;
   directPdfUrl?: string;
+  stepTitle: string;
+  discipline: string;
+  onReplace?: (newReading: any) => void;
 }
 
 export const ReadingCard = ({
@@ -33,12 +37,30 @@ export const ReadingCard = ({
   specificReadings,
   verified = true,
   archivedUrl,
-  directPdfUrl
+  directPdfUrl,
+  stepTitle,
+  discipline,
+  onReplace
 }: ReadingCardProps) => {
+  const { reportAndReplace, isReporting } = useReportResource();
   const accentColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
   const bgColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
   const displayUrl = directPdfUrl || url;
   const showWarning = verified === false;
+
+  const handleReport = async () => {
+    const replacement = await reportAndReplace({
+      brokenUrl: url,
+      resourceType: 'reading',
+      stepTitle,
+      discipline,
+      reportReason: 'Reading not accessible'
+    });
+
+    if (replacement && onReplace) {
+      onReplace(replacement);
+    }
+  };
 
   return (
     <div 
@@ -162,6 +184,16 @@ export const ReadingCard = ({
             </a>
           </Button>
         )}
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={handleReport}
+          disabled={isReporting}
+          title="Report broken link & find replacement"
+        >
+          <Flag className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

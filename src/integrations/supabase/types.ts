@@ -110,6 +110,53 @@ export type Database = {
         }
         Relationships: []
       }
+      reported_links: {
+        Row: {
+          created_at: string
+          discipline: string | null
+          id: string
+          report_count: number
+          report_reason: string | null
+          reported_by: string | null
+          resource_type: string
+          step_title: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          discipline?: string | null
+          id?: string
+          report_count?: number
+          report_reason?: string | null
+          reported_by?: string | null
+          resource_type: string
+          step_title?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          discipline?: string | null
+          id?: string
+          report_count?: number
+          report_reason?: string | null
+          reported_by?: string | null
+          resource_type?: string
+          step_title?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reported_links_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_syllabi: {
         Row: {
           created_at: string | null

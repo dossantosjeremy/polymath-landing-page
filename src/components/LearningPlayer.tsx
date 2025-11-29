@@ -24,6 +24,12 @@ export const LearningPlayer = ({
   const { resources, isLoading, error, fetchResources } = useStepResources();
   const [hasLoaded, setHasLoaded] = useState(false);
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+  const [currentResources, setCurrentResources] = useState<any>(null);
+
+  // Sync currentResources with fetched resources
+  if (resources && !currentResources) {
+    setCurrentResources(resources);
+  }
 
   const handleLoadResources = () => {
     setHasLoaded(true);
@@ -82,7 +88,8 @@ export const LearningPlayer = ({
     return null;
   }
 
-  const hasAnyContent = resources.primaryVideo || resources.deepReading || resources.book || (resources.alternatives && resources.alternatives.length > 0);
+  const displayResources = currentResources || resources;
+  const hasAnyContent = displayResources.primaryVideo || displayResources.deepReading || displayResources.book || (displayResources.alternatives && displayResources.alternatives.length > 0);
 
   if (!hasAnyContent) {
     return (
@@ -105,46 +112,88 @@ export const LearningPlayer = ({
   };
 
   // Separate alternatives by type
-  const podcasts = resources.alternatives?.filter(alt => alt.type === 'podcast') || [];
-  const otherAlternatives = resources.alternatives?.filter(alt => alt.type !== 'podcast') || [];
+  const podcasts = displayResources.alternatives?.filter(alt => alt.type === 'podcast') || [];
+  const otherAlternatives = displayResources.alternatives?.filter(alt => alt.type !== 'podcast') || [];
+
+  const handleVideoReplace = (newVideo: any) => {
+    setCurrentResources({ ...displayResources, primaryVideo: newVideo });
+  };
+
+  const handleReadingReplace = (newReading: any) => {
+    setCurrentResources({ ...displayResources, deepReading: newReading });
+  };
+
+  const handleBookReplace = (newBook: any) => {
+    setCurrentResources({ ...displayResources, book: newBook });
+  };
+
+  const handleAlternativeReplace = (index: number, newResource: any, isPodcast: boolean) => {
+    const updatedAlternatives = [...(displayResources.alternatives || [])];
+    const actualIndex = isPodcast 
+      ? displayResources.alternatives?.findIndex((alt, i) => alt.type === 'podcast' && podcasts.indexOf(alt) === index)
+      : displayResources.alternatives?.findIndex((alt, i) => alt.type !== 'podcast' && otherAlternatives.indexOf(alt) === index);
+    
+    if (actualIndex !== undefined && actualIndex !== -1) {
+      updatedAlternatives[actualIndex] = newResource;
+      setCurrentResources({ ...displayResources, alternatives: updatedAlternatives });
+    }
+  };
 
   return (
     <div className="space-y-3 py-6">
       {/* Primary Video */}
-      {resources.primaryVideo && (
+      {displayResources.primaryVideo && (
         <Collapsible open={openSections.has('video')} onOpenChange={() => toggleSection('video')}>
           <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
             {openSections.has('video') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="font-semibold text-sm">📺 Primary Video (1)</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <VideoPlayer {...resources.primaryVideo} isCapstone={isCapstone} />
+            <VideoPlayer 
+              {...displayResources.primaryVideo} 
+              isCapstone={isCapstone}
+              stepTitle={stepTitle}
+              discipline={discipline}
+              onReplace={handleVideoReplace}
+            />
           </CollapsibleContent>
         </Collapsible>
       )}
 
       {/* Deep Reading */}
-      {resources.deepReading && (
+      {displayResources.deepReading && (
         <Collapsible open={openSections.has('reading')} onOpenChange={() => toggleSection('reading')}>
           <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
             {openSections.has('reading') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="font-semibold text-sm">📖 Deep Reading (1)</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <ReadingCard {...resources.deepReading} isCapstone={isCapstone} />
+            <ReadingCard 
+              {...displayResources.deepReading} 
+              isCapstone={isCapstone}
+              stepTitle={stepTitle}
+              discipline={discipline}
+              onReplace={handleReadingReplace}
+            />
           </CollapsibleContent>
         </Collapsible>
       )}
 
       {/* Book Resource */}
-      {resources.book && (
+      {displayResources.book && (
         <Collapsible open={openSections.has('book')} onOpenChange={() => toggleSection('book')}>
           <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
             {openSections.has('book') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="font-semibold text-sm">📚 Recommended Book (1)</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <BookCard {...resources.book} isCapstone={isCapstone} />
+            <BookCard 
+              {...displayResources.book} 
+              isCapstone={isCapstone}
+              stepTitle={stepTitle}
+              discipline={discipline}
+              onReplace={handleBookReplace}
+            />
           </CollapsibleContent>
         </Collapsible>
       )}
@@ -157,7 +206,13 @@ export const LearningPlayer = ({
             <span className="font-semibold text-sm">🎧 Podcasts ({podcasts.length})</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <AlternativeResources alternatives={podcasts} isCapstone={isCapstone} />
+            <AlternativeResources 
+              alternatives={podcasts} 
+              isCapstone={isCapstone}
+              stepTitle={stepTitle}
+              discipline={discipline}
+              onReplace={(index, newRes) => handleAlternativeReplace(index, newRes, true)}
+            />
           </CollapsibleContent>
         </Collapsible>
       )}
@@ -170,7 +225,13 @@ export const LearningPlayer = ({
             <span className="font-semibold text-sm">🎓 Additional Resources ({otherAlternatives.length})</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <AlternativeResources alternatives={otherAlternatives} isCapstone={isCapstone} />
+            <AlternativeResources 
+              alternatives={otherAlternatives} 
+              isCapstone={isCapstone}
+              stepTitle={stepTitle}
+              discipline={discipline}
+              onReplace={(index, newRes) => handleAlternativeReplace(index, newRes, false)}
+            />
           </CollapsibleContent>
         </Collapsible>
       )}
