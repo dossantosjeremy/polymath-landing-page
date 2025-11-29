@@ -13,6 +13,9 @@ interface Module {
   sourceUrls?: string[];
   description?: string;
   isCapstone?: boolean;
+  estimatedHours?: number;
+  priority?: 'core' | 'important' | 'nice-to-have';
+  isHiddenForTime?: boolean;
 }
 
 interface DiscoveredSource {
@@ -24,13 +27,28 @@ interface DiscoveredSource {
   moduleCount?: number; // NEW: Number of modules in the syllabus
 }
 
+interface LearningPathConstraints {
+  depth: 'overview' | 'standard' | 'detailed';
+  hoursPerWeek: number;
+  goalDate?: string;
+  skillLevel: 'beginner' | 'intermediate' | 'advanced';
+}
+
+interface PruningStats {
+  totalSteps: number;
+  visibleSteps: number;
+  percentPruned: number;
+  estimatedHours: number;
+  budgetHours: number;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { discipline, selectedSourceUrls, customSources, enabledSources, forceRefresh } = await req.json();
+    const { discipline, selectedSourceUrls, customSources, enabledSources, forceRefresh, learningConstraints } = await req.json();
     console.log('Generating syllabus for:', discipline);
     if (selectedSourceUrls) {
       console.log('Using selected sources:', selectedSourceUrls.length);
@@ -43,6 +61,9 @@ serve(async (req) => {
     }
     if (forceRefresh) {
       console.log('Force refresh: bypassing cache');
+    }
+    if (learningConstraints) {
+      console.log('Learning constraints:', learningConstraints);
     }
 
     const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
@@ -160,6 +181,15 @@ serve(async (req) => {
         // Weave in capstone milestones
         modules = weaveCapstoneCheckpoints(modules, discipline);
 
+        // Apply time constraints if provided
+        let pruningStats: PruningStats | undefined;
+        if (learningConstraints) {
+          const pruneResult = pruneToFitTime(modules, learningConstraints);
+          modules = pruneResult.modules;
+          pruningStats = pruneResult.stats;
+          console.log(`[Pruning] ${pruningStats.percentPruned}% pruned to fit time budget`);
+        }
+
         // Cache the result in community_syllabi (unless regenerating with selected sources)
         if (!selectedSourceUrls) {
           try {
@@ -195,7 +225,9 @@ serve(async (req) => {
             sourceUrl,
             rawSources,
             fromCache: false,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            pruningStats,
+            learningPathSettings: learningConstraints
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -233,6 +265,15 @@ serve(async (req) => {
     // Weave in capstone milestones
     modules = weaveCapstoneCheckpoints(modules, discipline);
 
+    // Apply time constraints if provided
+    let pruningStats: PruningStats | undefined;
+    if (learningConstraints) {
+      const pruneResult = pruneToFitTime(modules, learningConstraints);
+      modules = pruneResult.modules;
+      pruningStats = pruneResult.stats;
+      console.log(`[Pruning] ${pruningStats.percentPruned}% pruned to fit time budget`);
+    }
+
     // Filter out modules with invalid sourceUrls (not in rawSources)
     const validSourceUrls = new Set(rawSources.map(s => s.url));
     const filteredModules = modules.filter(m => 
@@ -250,7 +291,9 @@ serve(async (req) => {
       sourceUrl,
       rawSources,
       fromCache: false,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      pruningStats,
+      learningPathSettings: learningConstraints
     };
 
     // Cache the result in community_syllabi (unless regenerating with selected sources)
@@ -787,6 +830,127 @@ function ensureAllSourcesAppear(modules: Module[], discoveredSources: Discovered
   
   console.log(`[Source Check] ✓ Distributed ${distributionCount} previously unattributed source(s)`);
   return modules;
+}
+
+// Helper function to estimate time for each step based on constraints
+function estimateStepTime(module: Module, skillLevel: string, depth: string): number {
+  const baseTime = module.isCapstone ? 4 : 2; // hours
+  const skillMultiplier: Record<string, number> = { 
+    beginner: 1.5, 
+    intermediate: 1.0, 
+    advanced: 0.7 
+  };
+  const depthMultiplier: Record<string, number> = { 
+    overview: 0.5, 
+    standard: 1.0, 
+    detailed: 1.5 
+  };
+  
+  return baseTime * (skillMultiplier[skillLevel] || 1.0) * (depthMultiplier[depth] || 1.0);
+}
+
+// Helper function to classify module priority
+function classifyPriority(module: Module): 'core' | 'important' | 'nice-to-have' {
+  // Core: foundational topics, prerequisites, final capstone
+  if (module.isCapstone) return 'core';
+  if (module.tag === 'Foundations' || module.tag === 'Introduction') return 'core';
+  
+  // Nice-to-have: historical context, advanced tangents, extra examples
+  if (module.tag === 'Historical Context' || 
+      module.tag === 'Advanced Theory' ||
+      module.tag === 'Deep Dive' ||
+      module.description?.toLowerCase().includes('optional') ||
+      module.description?.toLowerCase().includes('supplement')) {
+    return 'nice-to-have';
+  }
+  
+  // Everything else is important
+  return 'important';
+}
+
+// Main pruning function
+function pruneToFitTime(
+  modules: Module[], 
+  constraints: LearningPathConstraints
+): { modules: Module[]; stats: PruningStats } {
+  // Calculate total hours available
+  const weeksAvailable = constraints.goalDate 
+    ? Math.ceil((new Date(constraints.goalDate).getTime() - new Date().getTime()) / (7 * 24 * 60 * 60 * 1000))
+    : null;
+  const totalHoursAvailable = weeksAvailable 
+    ? weeksAvailable * constraints.hoursPerWeek
+    : null;
+
+  // Add estimated hours and priority to each module
+  const modulesWithMeta = modules.map(m => ({
+    ...m,
+    estimatedHours: estimateStepTime(m, constraints.skillLevel, constraints.depth),
+    priority: classifyPriority(m)
+  }));
+
+  // Calculate total estimated hours
+  const totalEstimatedHours = modulesWithMeta.reduce((sum, m) => sum + (m.estimatedHours || 0), 0);
+
+  // If no time constraint or within budget, return all modules
+  if (!totalHoursAvailable || totalEstimatedHours <= totalHoursAvailable) {
+    return {
+      modules: modulesWithMeta,
+      stats: {
+        totalSteps: modules.length,
+        visibleSteps: modules.length,
+        percentPruned: 0,
+        estimatedHours: totalEstimatedHours,
+        budgetHours: totalHoursAvailable || totalEstimatedHours
+      }
+    };
+  }
+
+  // Need to prune - iteratively remove lowest priority items
+  console.log(`[Pruning] Budget: ${totalHoursAvailable}h, Estimated: ${totalEstimatedHours}h`);
+  
+  let visibleModules = [...modulesWithMeta];
+  let currentHours = totalEstimatedHours;
+
+  // Sort by priority (nice-to-have first, then important, core last)
+  const priorityOrder = { 'nice-to-have': 0, 'important': 1, 'core': 2 };
+  const sortedForRemoval = visibleModules
+    .map((m, idx) => ({ module: m, originalIndex: idx }))
+    .sort((a, b) => {
+      const priorityDiff = priorityOrder[a.module.priority!] - priorityOrder[b.module.priority!];
+      if (priorityDiff !== 0) return priorityDiff;
+      // Within same priority, prefer removing later items
+      return b.originalIndex - a.originalIndex;
+    });
+
+  // Remove items until we fit the budget
+  const hiddenIndices = new Set<number>();
+  for (const item of sortedForRemoval) {
+    if (currentHours <= totalHoursAvailable) break;
+    if (item.module.priority === 'core') continue; // Never remove core items
+    
+    hiddenIndices.add(item.originalIndex);
+    currentHours -= item.module.estimatedHours || 0;
+  }
+
+  // Mark hidden modules
+  const finalModules = modulesWithMeta.map((m, idx) => ({
+    ...m,
+    isHiddenForTime: hiddenIndices.has(idx)
+  }));
+
+  const visibleCount = finalModules.filter(m => !m.isHiddenForTime).length;
+  const percentPruned = Math.round(((modules.length - visibleCount) / modules.length) * 100);
+
+  return {
+    modules: finalModules,
+    stats: {
+      totalSteps: modules.length,
+      visibleSteps: visibleCount,
+      percentPruned,
+      estimatedHours: currentHours,
+      budgetHours: totalHoursAvailable
+    }
+  };
 }
 
 async function searchTier1Syllabus(discipline: string, apiKey: string) {
