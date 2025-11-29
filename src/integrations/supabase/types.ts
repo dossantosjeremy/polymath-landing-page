@@ -70,30 +70,42 @@ export type Database = {
       }
       community_syllabi: {
         Row: {
+          composition_type: string | null
           created_at: string | null
+          derived_from: string[] | null
           discipline: string
           discipline_path: string | null
           id: string
+          is_ad_hoc: boolean | null
           modules: Json
           raw_sources: Json | null
+          search_term: string | null
           source: string
         }
         Insert: {
+          composition_type?: string | null
           created_at?: string | null
+          derived_from?: string[] | null
           discipline: string
           discipline_path?: string | null
           id?: string
+          is_ad_hoc?: boolean | null
           modules: Json
           raw_sources?: Json | null
+          search_term?: string | null
           source: string
         }
         Update: {
+          composition_type?: string | null
           created_at?: string | null
+          derived_from?: string[] | null
           discipline?: string
           discipline_path?: string | null
           id?: string
+          is_ad_hoc?: boolean | null
           modules?: Json
           raw_sources?: Json | null
+          search_term?: string | null
           source?: string
         }
         Relationships: []

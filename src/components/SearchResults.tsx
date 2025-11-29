@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
+import { AdHocGenerationCard } from "@/components/AdHocGenerationCard";
 interface Discipline {
   id: string;
   l1: string;
@@ -30,6 +31,7 @@ export const SearchResults = ({
 }: SearchResultsProps) => {
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [generatingAdHoc, setGeneratingAdHoc] = useState(false);
 
   // Check cache for expanded discipline
   const expandedDiscipline = results.find(r => r.id === expandedId);
@@ -86,20 +88,37 @@ export const SearchResults = ({
     const path = getDisciplinePath(discipline).join(" > ");
     navigate(`/syllabus?useCache=true&discipline=${encodeURIComponent(disciplineName)}&path=${encodeURIComponent(path)}`);
   };
+
+  const handleAdHocGeneration = () => {
+    setGeneratingAdHoc(true);
+    const params = new URLSearchParams({
+      discipline: query,
+      isAdHoc: 'true',
+      searchTerm: query,
+      depth: globalConstraints.depth,
+      hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
+      skillLevel: globalConstraints.skillLevel
+    });
+    if (globalConstraints.goalDate) {
+      params.set('goalDate', globalConstraints.goalDate.toISOString());
+    }
+    navigate(`/syllabus?${params.toString()}`);
+  };
   if (searching) {
     return <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>;
   }
   if (results.length === 0) {
-    return <div className="text-center py-12">
-        <p className="text-muted-foreground text-lg">
-          No results found for "{query}"
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Try searching with different keywords
-        </p>
-      </div>;
+    return (
+      <div className="py-12 max-w-2xl mx-auto">
+        <AdHocGenerationCard 
+          searchTerm={query}
+          onGenerate={handleAdHocGeneration}
+          isGenerating={generatingAdHoc}
+        />
+      </div>
+    );
   }
   return <div>
       <h2 className="text-2xl font-serif font-bold mb-2">
