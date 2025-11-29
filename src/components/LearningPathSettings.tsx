@@ -21,11 +21,30 @@ export interface LearningPathConstraints {
 }
 
 export interface PruningStats {
-  totalSteps: number;
-  visibleSteps: number;
-  percentPruned: number;
-  estimatedHours: number;
-  budgetHours: number;
+  // Full curriculum baseline
+  fullCurriculumSteps: number;
+  fullCurriculumHours: number;
+  
+  // Depth filtering results
+  depthLabel: 'overview' | 'standard' | 'detailed';
+  stepsAfterDepthFilter: number;
+  hoursAfterDepthFilter: number;
+  stepsHiddenByDepth: number;
+  
+  // Time constraint results (if applicable)
+  hasTimeConstraint: boolean;
+  stepsHiddenByTime: number;
+  budgetHours?: number;
+  weeksAvailable?: number;
+  
+  // Final results
+  finalVisibleSteps: number;
+  finalEstimatedHours: number;
+  hoursSaved: number;
+  
+  // Hidden topic titles for transparency
+  hiddenByDepthTitles: string[];
+  hiddenByTimeTitles: string[];
 }
 
 interface LearningPathSettingsProps {
@@ -131,7 +150,7 @@ export const LearningPathSettings = ({ onApply, pruningStats, isApplying }: Lear
 
             {/* Hours per Week */}
             <div className="space-y-3">
-              <Label htmlFor="hours-per-week">Hours per Week</Label>
+              <Label htmlFor="hours-per-week">Hours per Week (Optional)</Label>
               <Input
                 id="hours-per-week"
                 type="number"
@@ -141,7 +160,7 @@ export const LearningPathSettings = ({ onApply, pruningStats, isApplying }: Lear
                 onChange={(e) => setHoursPerWeek(Math.max(1, Math.min(40, parseInt(e.target.value) || 5)))}
               />
               <p className="text-xs text-muted-foreground">
-                Available study time per week (1-40 hours)
+                Used with goal date for time-based filtering
               </p>
             </div>
 
@@ -173,7 +192,12 @@ export const LearningPathSettings = ({ onApply, pruningStats, isApplying }: Lear
               </Popover>
               {weeksAvailable && (
                 <p className="text-xs text-muted-foreground">
-                  {weeksAvailable} weeks available • {weeksAvailable * hoursPerWeek} total hours
+                  {weeksAvailable} weeks × {hoursPerWeek}h/week = {weeksAvailable * hoursPerWeek}h total budget
+                </p>
+              )}
+              {!goalDate && (
+                <p className="text-xs text-muted-foreground">
+                  Without a goal date, only depth setting affects the curriculum
                 </p>
               )}
             </div>
@@ -189,15 +213,79 @@ export const LearningPathSettings = ({ onApply, pruningStats, isApplying }: Lear
         </CollapsibleContent>
       </Collapsible>
 
-      {/* Pruning Summary */}
-      {pruningStats && pruningStats.percentPruned > 0 && (
+      {/* Enhanced Pruning Summary */}
+      {pruningStats && (
         <Alert className="mt-4">
           <Info className="h-4 w-4" />
-          <AlertDescription>
-            Based on your time limit ({pruningStats.budgetHours}h total), we pruned{" "}
-            <strong>{pruningStats.percentPruned}%</strong> of the standard curriculum.
-            Showing {pruningStats.visibleSteps} of {pruningStats.totalSteps} steps
-            (estimated {pruningStats.estimatedHours}h).
+          <AlertDescription className="space-y-3">
+            <div className="font-medium text-base">
+              {pruningStats.depthLabel.charAt(0).toUpperCase() + pruningStats.depthLabel.slice(1)} Mode
+            </div>
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex items-start gap-2">
+                <span className="text-muted-foreground min-w-24">Coverage:</span>
+                <div>
+                  <strong>{pruningStats.finalVisibleSteps}</strong> of {pruningStats.fullCurriculumSteps} total steps
+                  {pruningStats.stepsHiddenByDepth > 0 && (
+                    <span className="text-muted-foreground"> ({pruningStats.stepsHiddenByDepth} filtered by depth)</span>
+                  )}
+                  {pruningStats.stepsHiddenByTime > 0 && (
+                    <span className="text-muted-foreground"> ({pruningStats.stepsHiddenByTime} filtered by time)</span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-2">
+                <span className="text-muted-foreground min-w-24">Time estimate:</span>
+                <div>
+                  <strong>{pruningStats.finalEstimatedHours}h</strong>
+                  {pruningStats.hoursSaved > 0 && (
+                    <span className="text-green-600 dark:text-green-400"> (saving {pruningStats.hoursSaved}h vs full curriculum)</span>
+                  )}
+                </div>
+              </div>
+              
+              {pruningStats.hasTimeConstraint && pruningStats.budgetHours && (
+                <div className="flex items-start gap-2">
+                  <span className="text-muted-foreground min-w-24">Time budget:</span>
+                  <span>{pruningStats.budgetHours}h total ({pruningStats.weeksAvailable} weeks × {hoursPerWeek}h/week)</span>
+                </div>
+              )}
+            </div>
+            
+            {/* Collapsible hidden topics */}
+            {(pruningStats.hiddenByDepthTitles.length > 0 || pruningStats.hiddenByTimeTitles.length > 0) && (
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-auto p-0 text-primary hover:underline hover:bg-transparent">
+                    View hidden topics ({pruningStats.hiddenByDepthTitles.length + pruningStats.hiddenByTimeTitles.length})
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3 space-y-2 text-sm">
+                  {pruningStats.hiddenByDepthTitles.length > 0 && (
+                    <div className="border-l-2 border-muted pl-3">
+                      <div className="font-medium mb-1">Hidden by depth setting:</div>
+                      <div className="text-muted-foreground space-y-1">
+                        {pruningStats.hiddenByDepthTitles.map((title, idx) => (
+                          <div key={idx}>• {title}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {pruningStats.hiddenByTimeTitles.length > 0 && (
+                    <div className="border-l-2 border-muted pl-3">
+                      <div className="font-medium mb-1">Hidden by time constraint:</div>
+                      <div className="text-muted-foreground space-y-1">
+                        {pruningStats.hiddenByTimeTitles.map((title, idx) => (
+                          <div key={idx}>• {title}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </AlertDescription>
         </Alert>
       )}

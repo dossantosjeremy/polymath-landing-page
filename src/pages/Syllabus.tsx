@@ -25,6 +25,7 @@ interface Module {
   estimatedHours?: number;
   priority?: 'core' | 'important' | 'nice-to-have';
   isHiddenForTime?: boolean;
+  isHiddenForDepth?: boolean;
 }
 
 interface DiscoveredSource {
@@ -983,7 +984,7 @@ const Syllabus = () => {
               {/* Modules List */}
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
-                {parseModuleGroups(syllabusData.modules.filter(m => !m.isHiddenForTime)).map((moduleGroup) => (
+                {parseModuleGroups(syllabusData.modules.filter(m => !m.isHiddenForTime && !m.isHiddenForDepth)).map((moduleGroup) => (
                   <Collapsible 
                     key={moduleGroup.moduleNumber}
                     open={expandedModuleGroups.has(moduleGroup.moduleNumber)}
