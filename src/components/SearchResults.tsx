@@ -73,6 +73,12 @@ export const SearchResults = ({
     if (globalConstraints.goalDate) {
       params.set('goalDate', globalConstraints.goalDate.toISOString());
     }
+    
+    // Check if cached version exists - if so, add useCache parameter
+    if (cachedSyllabus) {
+      params.set('useCache', 'true');
+    }
+    
     navigate(`/syllabus?${params.toString()}`);
   };
   const handleLoadCachedSyllabus = (discipline: Discipline) => {

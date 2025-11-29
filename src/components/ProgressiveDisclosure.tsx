@@ -76,6 +76,12 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
     if (globalConstraints.goalDate) {
       params.set('goalDate', globalConstraints.goalDate.toISOString());
     }
+    
+    // Check if cached version exists - if so, add useCache parameter
+    if (cachedSyllabus) {
+      params.set('useCache', 'true');
+    }
+    
     navigate(`/syllabus?${params.toString()}`);
   };
 
