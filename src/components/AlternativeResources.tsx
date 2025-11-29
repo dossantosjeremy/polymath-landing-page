@@ -1,5 +1,7 @@
-import { ExternalLink, Mic, GraduationCap, Video, FileText, BookOpen, AlertTriangle } from 'lucide-react';
+import { ExternalLink, Mic, GraduationCap, Video, FileText, BookOpen, AlertTriangle, Flag } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useReportResource } from '@/hooks/useReportResource';
 
 interface AlternativeResource {
   type: 'podcast' | 'mooc' | 'video' | 'article' | 'book';
@@ -15,9 +17,13 @@ interface AlternativeResource {
 interface AlternativeResourcesProps {
   alternatives: AlternativeResource[];
   isCapstone?: boolean;
+  stepTitle: string;
+  discipline: string;
+  onReplace?: (index: number, newResource: any) => void;
 }
 
-export const AlternativeResources = ({ alternatives, isCapstone = false }: AlternativeResourcesProps) => {
+export const AlternativeResources = ({ alternatives, isCapstone = false, stepTitle, discipline, onReplace }: AlternativeResourcesProps) => {
+  const { reportAndReplace, isReporting } = useReportResource();
   if (!alternatives || alternatives.length === 0) {
     return null;
   }
@@ -45,6 +51,20 @@ export const AlternativeResources = ({ alternatives, isCapstone = false }: Alter
 
   const accentColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
 
+  const handleReport = async (resource: AlternativeResource, index: number) => {
+    const replacement = await reportAndReplace({
+      brokenUrl: resource.url,
+      resourceType: resource.type,
+      stepTitle,
+      discipline,
+      reportReason: `${resource.type} not accessible`
+    });
+
+    if (replacement && onReplace) {
+      onReplace(index, replacement);
+    }
+  };
+
   return (
     <div className="space-y-3">
       <h4 className="font-semibold text-sm flex items-center gap-2">
@@ -53,12 +73,9 @@ export const AlternativeResources = ({ alternatives, isCapstone = false }: Alter
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {alternatives.map((resource, idx) => (
-          <a
+          <div
             key={idx}
-            href={resource.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="border p-4 hover:bg-muted/50 transition-colors space-y-3 group"
+            className="border p-4 space-y-3 relative group"
           >
             {/* Type Icon & Label */}
             <div className="flex items-center justify-between">
@@ -74,12 +91,16 @@ export const AlternativeResources = ({ alternatives, isCapstone = false }: Alter
                     <AlertTriangle className="h-3 w-3 text-amber-600" />
                   </span>
                 )}
-                <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                <a href={resource.url} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground hover:text-foreground transition-colors" />
+                </a>
               </div>
             </div>
 
             {/* Title */}
-            <h5 className="font-medium text-sm line-clamp-2 leading-snug">{resource.title}</h5>
+            <a href={resource.url} target="_blank" rel="noopener noreferrer" className="block">
+              <h5 className="font-medium text-sm line-clamp-2 leading-snug hover:underline">{resource.title}</h5>
+            </a>
 
             {/* Metadata */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -95,7 +116,19 @@ export const AlternativeResources = ({ alternatives, isCapstone = false }: Alter
             {resource.author && (
               <p className="text-xs text-muted-foreground">by {resource.author}</p>
             )}
-          </a>
+
+            {/* Report button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleReport(resource, idx)}
+              disabled={isReporting}
+              className="w-full"
+            >
+              <Flag className="h-3 w-3 mr-1" />
+              Report broken link
+            </Button>
+          </div>
         ))}
       </div>
     </div>

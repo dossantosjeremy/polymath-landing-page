@@ -284,6 +284,15 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Fetch blacklisted URLs for this discipline
+    const { data: reportedLinks } = await supabase
+      .from('reported_links')
+      .select('url')
+      .eq('discipline', discipline);
+
+    const blacklist = reportedLinks?.map(r => r.url) || [];
+    console.log(`Found ${blacklist.length} blacklisted URLs for ${discipline}`);
+
     // Check cache unless force refresh is requested
     if (!forceRefresh) {
       const { data: cached } = await supabase
@@ -314,7 +323,12 @@ serve(async (req) => {
       ? `\n\nPrioritize resources from these authoritative syllabi sources:\n${transformedUrls.slice(0, 10).join('\n')}`
       : '';
 
-    const prompt = `Find the best learning resources for "${stepTitle}" in the context of "${discipline}".${sourceContext}
+    // Build blacklist constraint
+    const blacklistConstraint = blacklist.length > 0
+      ? `\n\nCRITICAL: DO NOT USE these broken/reported URLs:\n${blacklist.join('\n')}\n`
+      : '';
+
+    const prompt = `Find the best learning resources for "${stepTitle}" in the context of "${discipline}".${sourceContext}${blacklistConstraint}
 
 Return a JSON object with these fields:
 
@@ -408,6 +422,23 @@ Return ONLY the JSON object, no markdown formatting, no explanations.`;
     console.log('Validating resource URLs...');
     resources = await validateAndEnhanceResources(resources);
     console.log('URL validation complete');
+
+    // Filter out any blacklisted URLs that slipped through
+    if (blacklist.length > 0) {
+      if (resources.primaryVideo?.url && blacklist.includes(resources.primaryVideo.url)) {
+        resources.primaryVideo = null;
+      }
+      if (resources.deepReading?.url && blacklist.includes(resources.deepReading.url)) {
+        resources.deepReading = null;
+      }
+      if (resources.book?.url && blacklist.includes(resources.book.url)) {
+        resources.book = null;
+      }
+      if (resources.alternatives) {
+        resources.alternatives = resources.alternatives.filter(alt => !blacklist.includes(alt.url));
+      }
+      console.log('✓ Filtered out blacklisted URLs');
+    }
 
     // Cache the resources for future use
     try {

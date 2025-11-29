@@ -1,6 +1,7 @@
-import { ExternalLink, BookMarked, AlertTriangle, Search, Archive } from 'lucide-react';
+import { ExternalLink, BookMarked, AlertTriangle, Search, Archive, Flag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useReportResource } from '@/hooks/useReportResource';
 
 interface BookCardProps {
   title: string;
@@ -12,6 +13,9 @@ interface BookCardProps {
   isCapstone?: boolean;
   verified?: boolean;
   archivedUrl?: string;
+  stepTitle: string;
+  discipline: string;
+  onReplace?: (newBook: any) => void;
 }
 
 export const BookCard = ({
@@ -23,11 +27,29 @@ export const BookCard = ({
   why,
   isCapstone = false,
   verified = true,
-  archivedUrl
+  archivedUrl,
+  stepTitle,
+  discipline,
+  onReplace
 }: BookCardProps) => {
+  const { reportAndReplace, isReporting } = useReportResource();
   const accentColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
   const bgColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
   const showWarning = verified === false;
+
+  const handleReport = async () => {
+    const replacement = await reportAndReplace({
+      brokenUrl: url,
+      resourceType: 'book',
+      stepTitle,
+      discipline,
+      reportReason: 'Book link not accessible'
+    });
+
+    if (replacement && onReplace) {
+      onReplace(replacement);
+    }
+  };
 
   return (
     <div 
@@ -123,6 +145,16 @@ export const BookCard = ({
             </a>
           </Button>
         )}
+        
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          onClick={handleReport}
+          disabled={isReporting}
+          title="Report broken link & find replacement"
+        >
+          <Flag className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );
