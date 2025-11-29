@@ -126,42 +126,39 @@ serve(async (req) => {
 async function attemptExtraction(apiKey: string, stepTitle: string, discipline: string, sourceUrls: string[]): Promise<any | null> {
   const urlsString = sourceUrls.slice(0, 3).join(', ');
   
-  const prompt = `You are searching for assignment materials for this course topic:
-  
-Topic: "${stepTitle}"
-Discipline: "${discipline}"
-Source URLs: ${urlsString}
+  const prompt = `You are searching for assignment materials for this self-directed learner studying: "${stepTitle}" in ${discipline}.
 
-Search these course source URLs for assignment pages, problem sets, labs, or projects. Look for:
-- /assignments/ pages
-- /problem-sets/ pages
-- /labs/ pages
-- /projects/ pages
+CRITICAL: This learner has NOT seen any original course syllabus. Create a COMPLETELY STANDALONE assignment that:
+- Provides full context and background (assume they only know the topic title)
+- Does NOT reference "the course", "your proposal", due dates, or syllabus materials
+- Focuses on practical real-world application, not academic submission
 
-For MIT OCW specifically, try transforming /pages/syllabus/ to /pages/assignments/.
+Search these URLs for assignment pages, problem sets, labs, or projects:
+${urlsString}
 
-If you find assignment materials, extract:
-1. Assignment name/title
-2. The scenario/context (why this assignment matters)
-3. Specific instructions (requirements)
-4. Deliverable format (PDF, code, essay, etc.)
+Look for /assignments/, /problem-sets/, /labs/, or /projects/ pages.
+
+If found, extract and REWRITE as a standalone assignment with:
+1. Assignment name
+2. Context/scenario explaining why this matters (2-3 sentences)
+3. Instructions as formatted HTML using <h3>, <p>, <ul>, <li>, <strong>
+4. Deliverable format
 5. Estimated time
-6. Any attached PDFs or resources with direct links
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON:
 {
   "found": true,
-  "assignmentName": "Problem Set 1: Introduction to X",
+  "assignmentName": "Practical Exercise: [Topic]",
   "sourceUrl": "https://...",
-  "sourceLabel": "MIT Problem Set 1",
-  "scenario": "This assignment helps you apply...",
-  "instructions": ["Requirement 1", "Requirement 2"],
-  "deliverableFormat": "PDF",
+  "sourceLabel": "MIT Assignment",
+  "scenario": "This exercise helps you apply [topic] to real-world problems...",
+  "instructions": "<h3>Setup</h3><p>Begin by...</p><h3>Requirements</h3><ul><li>Complete...</li></ul>",
+  "deliverableFormat": "PDF document",
   "estimatedTime": "2 hours",
-  "resourceAttachments": [{"title": "Lab Manual", "url": "https://...", "type": "pdf", "pageRef": "pages 4-6"}]
+  "resourceAttachments": []
 }
 
-If no assignment materials are found, return: {"found": false}`;
+If not found: {"found": false}`;
 
   try {
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -174,7 +171,7 @@ If no assignment materials are found, return: {"found": false}`;
         model: 'sonar',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.2,
-        max_tokens: 2000,
+        max_tokens: 3000,
       }),
     });
 
@@ -201,33 +198,29 @@ If no assignment materials are found, return: {"found": false}`;
 }
 
 async function searchOERRepositories(apiKey: string, stepTitle: string, discipline: string): Promise<any | null> {
-  const prompt = `Search for assignment materials for this topic:
+  const prompt = `Search for assignment materials for a self-directed learner studying: "${stepTitle}" in ${discipline}.
 
-Topic: "${stepTitle}"
-Discipline: "${discipline}"
+CRITICAL: The learner has NOT seen any course. Create a STANDALONE assignment:
+- Full context and background included
+- NO references to "the course" or syllabus
+- Practical real-world application focus
 
-Search these OER repositories for relevant assignments, exercises, or projects:
-- oercommons.org
-- merlot.org
-- curriki.org
-- teach.com
+Search OER repositories: oercommons.org, merlot.org, curriki.org, teach.com
 
-Look for high-quality, well-structured assignments that match this topic.
-
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON:
 {
   "found": true,
-  "assignmentName": "Assignment title",
+  "assignmentName": "Practical Exercise: [Topic]",
   "sourceUrl": "https://...",
-  "sourceLabel": "OER Commons Assignment",
-  "scenario": "This assignment helps you...",
-  "instructions": ["Step 1", "Step 2"],
-  "deliverableFormat": "Essay/Code/PDF",
-  "estimatedTime": "1 hour",
+  "sourceLabel": "OER Commons",
+  "scenario": "This exercise helps you apply [topic] by...",
+  "instructions": "<h3>Part 1: Foundation</h3><p>Start by...</p><h3>Part 2: Application</h3><ul><li>Apply...</li></ul>",
+  "deliverableFormat": "Written report",
+  "estimatedTime": "1.5 hours",
   "resourceAttachments": []
 }
 
-If no suitable assignment is found, return: {"found": false}`;
+If not found: {"found": false}`;
 
   try {
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -240,7 +233,7 @@ If no suitable assignment is found, return: {"found": false}`;
         model: 'sonar',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.2,
-        max_tokens: 2000,
+        max_tokens: 3000,
       }),
     });
 
@@ -270,38 +263,39 @@ async function synthesizeWithBokCenter(apiKey: string, stepTitle: string, discip
     'Computer Science': { role: 'Software Engineer', audience: 'Technical team', format: 'Working code with documentation' },
     'History': { role: 'Historian', audience: 'Peer historians', format: '800-word research memo' },
     'Mathematics': { role: 'Applied Mathematician', audience: 'Technical stakeholders', format: 'Problem set with solutions' },
+    'Mathematical Logic': { role: 'Logic Researcher', audience: 'Academic peers', format: 'Proof document with explanations' },
     'default': { role: 'Subject matter expert', audience: 'Informed general reader', format: 'Written analysis' },
   };
 
   const mapping = disciplineMapping[discipline] || disciplineMapping['default'];
 
-  const prompt = `You are an instructional designer using Harvard Bok Center Assignment Design principles (https://bokcenter.harvard.edu/assignment-design).
+  const prompt = `Create a STANDALONE practical assignment for a self-directed learner studying "${stepTitle}" in ${discipline}.
 
-Create a high-quality assignment for this topic:
+CRITICAL REQUIREMENTS:
+- This is a STANDALONE assignment - the learner has NOT seen any course materials
+- DO NOT reference "the course", "your proposal", due dates, or Week X
+- Provide complete context assuming they only know the topic title
+- Focus on REAL-WORLD practical application, not academic submission
+- Use Harvard Bok Center principles (authentic task, clear objectives, scaffolded)
 
-Topic: "${stepTitle}"
-Discipline: "${discipline}"
+Assignment Context:
+- Role: Act as a ${mapping.role}
+- Audience: Create deliverable for ${mapping.audience}
+- Format: ${mapping.format}
 
-Design an assignment that follows these principles:
-- Clear learning objectives
-- Authentic task that simulates real-world application
-- Scaffolded complexity appropriate for the topic
-- Clear assessment criteria
+Output the instructions as formatted HTML:
+- Use <h3> for section headers (e.g., "Background", "Your Task", "Requirements")
+- Use <p> for paragraphs
+- Use <ul><li> for bulleted lists
+- Use <strong> for emphasis
+- Keep it clear, practical, and actionable
 
-Role: Act as a ${mapping.role}
-Audience: Writing for ${mapping.audience}
-Format: ${mapping.format}
-
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON:
 {
-  "assignmentName": "Practical Application: [Topic]",
+  "assignmentName": "Practical Application: ${stepTitle}",
   "sourceLabel": "Harvard Bok Framework",
-  "scenario": "To master ${stepTitle}, you must apply it in a realistic context. This assignment simulates...",
-  "instructions": [
-    "Step-by-step requirement 1",
-    "Step-by-step requirement 2",
-    "Step-by-step requirement 3"
-  ],
+  "scenario": "To master ${stepTitle}, you need to apply it in a realistic context. This assignment simulates a real-world scenario where...",
+  "instructions": "<h3>Background</h3><p>Understanding ${stepTitle} requires...</p><h3>Your Task</h3><p>You will...</p><h3>Requirements</h3><ul><li>Analyze...</li><li>Document...</li><li>Present...</li></ul><h3>Deliverable</h3><p>Submit a ${mapping.format} that demonstrates...</p>",
   "deliverableFormat": "${mapping.format}",
   "estimatedTime": "2-3 hours",
   "role": "${mapping.role}",
@@ -320,7 +314,7 @@ Return ONLY valid JSON in this exact format:
         model: 'google/gemini-2.5-flash',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        max_completion_tokens: 2000,
+        max_completion_tokens: 3000,
       }),
     });
 

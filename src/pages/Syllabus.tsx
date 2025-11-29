@@ -1148,21 +1148,23 @@ const Syllabus = () => {
                               
                               {expandedModules.has(step.originalIndex) && (
                                 <div className="px-4 pb-4 border-t">
-                                  <StepSummary
-                                    stepTitle={step.stepTitle}
-                                    discipline={discipline || ""}
-                                    stepDescription={step.description || ""}
-                                    sourceContent={(() => {
-                                      // Extract relevant source content from rawSources
-                                      const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
-                                      const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                                      const relevantSources = rawSources.filter(s => urls.includes(s.url));
-                                      return relevantSources
-                                        .map(s => s.content && s.content !== '[[EXTRACTION_FAILED]]' ? s.content : '')
-                                        .filter(Boolean)
-                                        .join('\n\n---\n\n');
-                                    })()}
-                                  />
+                                  {!step.isCapstone && (
+                                    <StepSummary
+                                      stepTitle={step.stepTitle}
+                                      discipline={discipline || ""}
+                                      stepDescription={step.description || ""}
+                                      sourceContent={(() => {
+                                        // Extract relevant source content from rawSources
+                                        const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
+                                        const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
+                                        const relevantSources = rawSources.filter(s => urls.includes(s.url));
+                                        return relevantSources
+                                          .map(s => s.content && s.content !== '[[EXTRACTION_FAILED]]' ? s.content : '')
+                                          .filter(Boolean)
+                                          .join('\n\n---\n\n');
+                                      })()}
+                                    />
+                                  )}
                                   <LearningPlayer 
                                     stepTitle={step.stepTitle}
                                     discipline={discipline || ""}

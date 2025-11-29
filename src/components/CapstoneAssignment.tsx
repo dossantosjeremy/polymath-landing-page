@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { Award, FileText, Clock, Users, Briefcase, ExternalLink, Paperclip, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,11 +15,16 @@ interface CapstoneAssignmentProps {
 
 export const CapstoneAssignment = ({ stepTitle, discipline, syllabusUrls = [] }: CapstoneAssignmentProps) => {
   const { assignment, isLoading, error, fetchAssignment } = useCapstoneAssignment();
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  useEffect(() => {
-    // Auto-load on mount
-    fetchAssignment(stepTitle, discipline, syllabusUrls);
-  }, [stepTitle, discipline]);
+  const handleLoadAssignment = () => {
+    setHasLoaded(true);
+    fetchAssignment(stepTitle, discipline, syllabusUrls, false);
+  };
+
+  const handleRegenerateAssignment = () => {
+    fetchAssignment(stepTitle, discipline, syllabusUrls, true);
+  };
 
   const getSourceBadgeColor = (tier: string) => {
     switch (tier) {
@@ -42,35 +47,61 @@ export const CapstoneAssignment = ({ stepTitle, discipline, syllabusUrls = [] }:
     return '📝';
   };
 
+  // Show load button initially
+  if (!hasLoaded && !assignment) {
+    return (
+      <Card className="border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5">
+        <div className="p-8 text-center space-y-4">
+          <Award className="h-12 w-12 mx-auto text-[hsl(var(--gold))]" />
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Capstone Assignment</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              A practical drill to apply what you've learned in a real-world context
+            </p>
+          </div>
+          <Button onClick={handleLoadAssignment} className="bg-[hsl(var(--gold))] hover:bg-[hsl(var(--gold))]/90">
+            Generate Assignment
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
   if (isLoading) {
     return (
-      <Card className="p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <Award className="h-6 w-6 text-[hsl(var(--gold))]" />
-          <Skeleton className="h-8 w-64" />
+      <Card className="border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5">
+        <div className="p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <Award className="h-6 w-6 text-[hsl(var(--gold))]" />
+            <Skeleton className="h-8 w-64" />
+          </div>
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-32 w-full" />
         </div>
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-32 w-full" />
       </Card>
     );
   }
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Failed to load capstone assignment: {error}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="mt-2"
-            onClick={() => fetchAssignment(stepTitle, discipline, syllabusUrls, true)}
-          >
-            Try Again
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <Card className="border-l-4 border-l-[hsl(var(--gold))] bg-[hsl(var(--gold))]/5">
+        <div className="p-6">
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load capstone assignment: {error}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={handleRegenerateAssignment}
+              >
+                Try Again
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+      </Card>
     );
   }
 
@@ -86,7 +117,7 @@ export const CapstoneAssignment = ({ stepTitle, discipline, syllabusUrls = [] }:
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3">
               <Award className="h-6 w-6 text-[hsl(var(--gold))] flex-shrink-0" />
-              <h3 className="text-xl font-semibold">🎯 Drill: {assignment.assignmentName}</h3>
+              <h3 className="text-xl font-semibold">🎯 {assignment.assignmentName}</h3>
             </div>
             <Badge className={`${getSourceBadgeColor(assignment.sourceTier)} flex items-center gap-1.5 px-3 py-1`}>
               {assignment.sourceTier === 'bok_synthesis' && '✨'}
@@ -112,19 +143,16 @@ export const CapstoneAssignment = ({ stepTitle, discipline, syllabusUrls = [] }:
           </p>
         </div>
 
-        {/* Instructions */}
+        {/* Instructions - rendered as HTML */}
         <div className="space-y-3">
           <h4 className="font-semibold flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Assignment Instructions
           </h4>
-          <ol className="space-y-2 list-decimal list-inside">
-            {assignment.instructions.map((instruction, idx) => (
-              <li key={idx} className="text-sm leading-relaxed pl-2">
-                {instruction}
-              </li>
-            ))}
-          </ol>
+          <div 
+            className="assignment-content"
+            dangerouslySetInnerHTML={{ __html: assignment.instructions }}
+          />
         </div>
 
         {/* Resource Attachments */}
@@ -187,6 +215,13 @@ export const CapstoneAssignment = ({ stepTitle, discipline, syllabusUrls = [] }:
               <span>Est. Time: {assignment.estimatedTime}</span>
             </div>
           </div>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleRegenerateAssignment}
+          >
+            Regenerate
+          </Button>
         </div>
       </div>
     </Card>

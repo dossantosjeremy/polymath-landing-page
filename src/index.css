@@ -204,4 +204,29 @@ All colors MUST be HSL.
   .academic-reference-content a:hover {
     @apply underline;
   }
+
+  /* Assignment content formatting */
+  .assignment-content {
+    @apply text-base leading-relaxed;
+  }
+
+  .assignment-content h3 {
+    @apply text-base font-semibold mt-5 mb-2 text-foreground;
+  }
+
+  .assignment-content p {
+    @apply mb-3 leading-relaxed text-foreground;
+  }
+
+  .assignment-content ul {
+    @apply list-disc pl-6 mb-4 space-y-2;
+  }
+
+  .assignment-content li {
+    @apply leading-relaxed;
+  }
+
+  .assignment-content strong {
+    @apply font-semibold text-foreground;
+  }
 }

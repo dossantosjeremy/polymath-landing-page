@@ -7,7 +7,7 @@ export interface AssignmentData {
   sourceLabel: string;
   sourceUrl?: string;
   scenario: string;
-  instructions: string[];
+  instructions: string; // Changed from string[] to HTML string
   deliverableFormat: string;
   estimatedTime: string;
   role?: string;
