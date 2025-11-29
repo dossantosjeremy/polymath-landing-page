@@ -156,29 +156,32 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
   }
 
-  /* Academic outline formatting for Teaching Reference */
-  .academic-outline h2 {
-    @apply mt-6 mb-3 font-serif text-lg font-semibold;
+  /* Academic reference formatting for Teaching Reference */
+  .academic-reference-content {
+    @apply text-base leading-relaxed;
   }
 
-  .academic-outline h3 {
-    @apply mt-4 mb-2 ml-4 font-serif text-base font-medium;
+  .academic-reference-content h1 {
+    @apply text-xl font-serif font-semibold mt-0 mb-6 text-foreground border-b border-border pb-2;
   }
 
-  .academic-outline ul,
-  .academic-outline ol {
-    @apply ml-8 space-y-1;
+  .academic-reference-content h2 {
+    @apply text-lg font-serif font-semibold mt-6 mb-3 text-foreground;
   }
 
-  .academic-outline li {
-    @apply leading-relaxed;
+  .academic-reference-content p {
+    @apply mb-4 leading-relaxed text-foreground;
   }
 
-  .academic-outline p {
-    @apply mb-2 leading-relaxed;
+  .academic-reference-content em {
+    @apply italic not-italic font-medium;
   }
 
-  .academic-outline a {
+  .academic-reference-content a {
     @apply text-primary hover:underline;
+  }
+
+  .academic-reference-content a:hover {
+    @apply underline;
   }
 }

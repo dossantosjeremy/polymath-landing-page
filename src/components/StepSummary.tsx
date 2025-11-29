@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { useStepSummary } from '@/hooks/useStepSummary';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import ReactMarkdown from 'react-markdown';
 
 interface StepSummaryProps {
   stepTitle: string;
@@ -110,38 +109,10 @@ export const StepSummary = ({
           )}
 
           {summary && !isLoading && (
-            <div className="prose prose-sm max-w-none text-foreground academic-outline">
-              <ReactMarkdown
-                components={{
-                  a: ({ node, ...props }) => (
-                    <a {...props} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline" />
-                  ),
-                  h1: ({ node, ...props }) => (
-                    <h1 {...props} className="text-xl font-serif font-semibold mt-6 mb-3 text-foreground" />
-                  ),
-                  h2: ({ node, ...props }) => (
-                    <h2 {...props} className="text-lg font-serif font-semibold mt-5 mb-2 text-foreground" />
-                  ),
-                  h3: ({ node, ...props }) => (
-                    <h3 {...props} className="text-base font-serif font-medium mt-4 mb-2 text-foreground" />
-                  ),
-                  ul: ({ node, ...props }) => (
-                    <ul {...props} className="list-none space-y-1 ml-6" />
-                  ),
-                  ol: ({ node, ...props }) => (
-                    <ol {...props} className="list-none space-y-1 ml-6" />
-                  ),
-                  li: ({ node, ...props }) => (
-                    <li {...props} className="text-foreground leading-relaxed" />
-                  ),
-                  p: ({ node, ...props }) => (
-                    <p {...props} className="text-foreground leading-relaxed mb-2" />
-                  ),
-                }}
-              >
-                {summary}
-              </ReactMarkdown>
-            </div>
+            <div 
+              className="academic-reference-content text-foreground"
+              dangerouslySetInnerHTML={{ __html: summary }}
+            />
           )}
         </CollapsibleContent>
       </Collapsible>
