@@ -38,7 +38,7 @@ All colors MUST be HSL.
     --input: 220 13% 91%;
     --ring: 222 47% 41%;
 
-    --radius: 9999px;
+    --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -132,7 +132,7 @@ All colors MUST be HSL.
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --sidebar: 0 0% 5%;
-    --radius: 0rem;
+    --radius: 0.5rem;
     --gold: 45 93% 60%;
     --gold-light: 45 93% 70%;
     --gold-foreground: 0 0% 0%;
@@ -154,5 +154,31 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Academic outline formatting for Teaching Reference */
+  .academic-outline h2 {
+    @apply mt-6 mb-3 font-serif text-lg font-semibold;
+  }
+
+  .academic-outline h3 {
+    @apply mt-4 mb-2 ml-4 font-serif text-base font-medium;
+  }
+
+  .academic-outline ul,
+  .academic-outline ol {
+    @apply ml-8 space-y-1;
+  }
+
+  .academic-outline li {
+    @apply leading-relaxed;
+  }
+
+  .academic-outline p {
+    @apply mb-2 leading-relaxed;
+  }
+
+  .academic-outline a {
+    @apply text-primary hover:underline;
   }
 }
