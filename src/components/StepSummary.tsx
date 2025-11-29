@@ -39,18 +39,19 @@ export const StepSummary = ({
             <span>Teaching Reference</span>
           </CollapsibleTrigger>
           
-          {!summary && !isLoading && (
-            <div className="flex items-center gap-2">
-              <Select value={referenceLength} onValueChange={(value: any) => setReferenceLength(value)}>
-                <SelectTrigger className="w-[180px] h-8">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="brief">Quick Overview</SelectItem>
-                  <SelectItem value="standard">Standard Reference</SelectItem>
-                  <SelectItem value="comprehensive">Full Reference</SelectItem>
-                </SelectContent>
-              </Select>
+          <div className="flex items-center gap-2">
+            <Select value={referenceLength} onValueChange={(value: any) => setReferenceLength(value)}>
+              <SelectTrigger className="w-[180px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="brief">Quick Overview</SelectItem>
+                <SelectItem value="standard">Standard Reference</SelectItem>
+                <SelectItem value="comprehensive">Full Reference</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            {!summary && !isLoading && (
               <Button
                 onClick={() => handleGenerate(false)}
                 size="sm"
@@ -58,29 +59,20 @@ export const StepSummary = ({
               >
                 Generate
               </Button>
+            )}
+            
+            {summary && !isLoading && (
               <Button
                 onClick={() => handleGenerate(true)}
                 size="sm"
-                variant="ghost"
-                className="gap-1"
-                title="Force fresh generation (bypass cache)"
+                variant="outline"
+                className="gap-2"
               >
                 <RefreshCw className="h-3 w-3" />
+                Regenerate
               </Button>
-            </div>
-          )}
-          
-          {summary && !isLoading && (
-            <Button
-              onClick={() => handleGenerate(true)}
-              size="sm"
-              variant="ghost"
-              className="gap-2"
-            >
-              <RefreshCw className="h-3 w-3" />
-              Regenerate
-            </Button>
-          )}
+            )}
+          </div>
         </div>
 
         <CollapsibleContent className="mt-4">
