@@ -16,6 +16,8 @@ interface StepResources {
     duration: string;
     whyThisVideo: string;
     keyMoments?: { time: string; label: string }[];
+    verified?: boolean;
+    archivedUrl?: string;
   } | null;
   
   deepReading: {
@@ -29,7 +31,12 @@ interface StepResources {
       citation: string;
       url: string;
       type: 'pdf' | 'article' | 'chapter' | 'external';
+      verified?: boolean;
+      archivedUrl?: string;
     }>;
+    verified?: boolean;
+    archivedUrl?: string;
+    directPdfUrl?: string;
   } | null;
   
   book: {
@@ -39,6 +46,8 @@ interface StepResources {
     source: string;
     chapterRecommendation?: string;
     why: string;
+    verified?: boolean;
+    archivedUrl?: string;
   } | null;
   
   alternatives: Array<{
@@ -48,6 +57,8 @@ interface StepResources {
     source: string;
     duration?: string;
     author?: string;
+    verified?: boolean;
+    archivedUrl?: string;
   }>;
 }
 
@@ -115,11 +126,139 @@ function transformToReadingsUrl(url: string): string {
   return url;
 }
 
+async function validateUrl(url: string): Promise<{ 
+  isValid: boolean; 
+  finalUrl: string; 
+  archivedUrl?: string;
+}> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    
+    const response = await fetch(url, { 
+      method: 'HEAD', 
+      redirect: 'follow',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (response.ok) {
+      return { isValid: true, finalUrl: response.url };
+    }
+    
+    // Try Wayback Machine if HEAD fails
+    const waybackResponse = await fetch(
+      `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`
+    );
+    const waybackData = await waybackResponse.json();
+    
+    if (waybackData.archived_snapshots?.closest?.available) {
+      return { 
+        isValid: false, 
+        finalUrl: url,
+        archivedUrl: waybackData.archived_snapshots.closest.url 
+      };
+    }
+    
+    return { isValid: false, finalUrl: url };
+  } catch (error) {
+    console.warn(`URL validation failed for ${url}:`, error);
+    return { isValid: false, finalUrl: url };
+  }
+}
+
+async function findDirectPdfUrl(pageUrl: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    const response = await fetch(pageUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    
+    const html = await response.text();
+    
+    const pdfMatches = html.match(/href=["']([^"']*\.pdf)["']/gi);
+    if (pdfMatches && pdfMatches.length > 0) {
+      const pdfPath = pdfMatches[0].match(/href=["']([^"']+)["']/i)?.[1];
+      if (pdfPath) {
+        const baseUrl = new URL(pageUrl);
+        return new URL(pdfPath, baseUrl).href;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function validateAndEnhanceResources(resources: StepResources): Promise<StepResources> {
+  const enhanced = { ...resources };
+  
+  if (enhanced.primaryVideo?.url) {
+    const validation = await validateUrl(enhanced.primaryVideo.url);
+    enhanced.primaryVideo = {
+      ...enhanced.primaryVideo,
+      verified: validation.isValid,
+      archivedUrl: validation.archivedUrl
+    };
+  }
+  
+  if (enhanced.deepReading?.url) {
+    const validation = await validateUrl(enhanced.deepReading.url);
+    const directPdf = await findDirectPdfUrl(enhanced.deepReading.url);
+    
+    enhanced.deepReading = {
+      ...enhanced.deepReading,
+      verified: validation.isValid,
+      archivedUrl: validation.archivedUrl,
+      directPdfUrl: directPdf || undefined
+    };
+    
+    if (enhanced.deepReading.specificReadings) {
+      enhanced.deepReading.specificReadings = await Promise.all(
+        enhanced.deepReading.specificReadings.map(async (reading) => {
+          if (reading.url) {
+            const readingValidation = await validateUrl(reading.url);
+            return { 
+              ...reading, 
+              verified: readingValidation.isValid,
+              archivedUrl: readingValidation.archivedUrl
+            };
+          }
+          return reading;
+        })
+      );
+    }
+  }
+  
+  if (enhanced.book?.url) {
+    const validation = await validateUrl(enhanced.book.url);
+    enhanced.book = {
+      ...enhanced.book,
+      verified: validation.isValid,
+      archivedUrl: validation.archivedUrl
+    };
+  }
+  
+  if (enhanced.alternatives?.length) {
+    enhanced.alternatives = await Promise.all(
+      enhanced.alternatives.map(async (alt) => {
+        const validation = await validateUrl(alt.url);
+        return {
+          ...alt,
+          verified: validation.isValid,
+          archivedUrl: validation.archivedUrl
+        };
+      })
+    );
+  }
+  
+  return enhanced;
+}
+
 function extractJSON(text: string): any {
-  // Remove markdown code blocks if present
   let cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   
-  // Find JSON object boundaries
   const jsonStart = cleaned.indexOf('{');
   const jsonEnd = cleaned.lastIndexOf('}');
   
@@ -235,10 +374,12 @@ Return a JSON object with these fields:
   ]
 }
 
-IMPORTANT INSTRUCTIONS:
-- For MIT OCW sources: ALWAYS use /pages/readings/ URLs (not /pages/syllabus/)
-- Extract SPECIFIC reading assignments from the readings page (author, book title, chapters, page ranges)
-- When the readings page has DIRECT LINKS to PDFs or articles, include them in deepReading.specificReadings array
+CRITICAL LINK REQUIREMENTS:
+- For PDFs: Return DIRECT URLs ending in .pdf, not landing pages (e.g., "https://example.edu/paper.pdf")
+- For books: Prefer direct Archive.org or Project Gutenberg links to readable content
+- For MIT OCW: Use /pages/readings/ URLs (not /pages/syllabus/)
+- Extract SPECIFIC reading assignments from readings pages (author, book title, chapters, page ranges)
+- When readings pages have DIRECT LINKS to PDFs or articles, include them in deepReading.specificReadings array
 - Each specificReading should have: citation (full bibliographic reference), url (direct link if available, empty string if not), type (pdf/article/chapter/external)
 - Format citations properly (e.g., "Kanwisher, N. (2010). Functional specificity..." or "Gazzaniga et al., Chapters 2-3")
 - If no direct links are available for readings, include them in focusHighlight but omit from specificReadings
@@ -254,7 +395,7 @@ Return ONLY the JSON object, no markdown formatting, no explanations.`;
 
     console.log('Perplexity raw response:', content.substring(0, 500));
     
-    const resources: StepResources = extractJSON(content);
+    let resources: StepResources = extractJSON(content);
     
     console.log('Successfully parsed resources:', {
       hasVideo: !!resources.primaryVideo,
@@ -262,6 +403,11 @@ Return ONLY the JSON object, no markdown formatting, no explanations.`;
       hasBook: !!resources.book,
       alternativesCount: resources.alternatives?.length || 0
     });
+
+    // Validate and enhance all URLs
+    console.log('Validating resource URLs...');
+    resources = await validateAndEnhanceResources(resources);
+    console.log('URL validation complete');
 
     // Cache the resources for future use
     try {
