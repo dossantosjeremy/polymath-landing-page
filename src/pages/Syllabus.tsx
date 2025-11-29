@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LearningPlayer } from "@/components/LearningPlayer";
 import { StepSummary } from "@/components/StepSummary";
+import { LearningPathSettings, LearningPathConstraints, PruningStats } from "@/components/LearningPathSettings";
 
 interface Module {
   title: string;
@@ -21,6 +22,9 @@ interface Module {
   sourceUrls?: string[];
   description?: string;
   isCapstone?: boolean;
+  estimatedHours?: number;
+  priority?: 'core' | 'important' | 'nice-to-have';
+  isHiddenForTime?: boolean;
 }
 
 interface DiscoveredSource {
@@ -38,6 +42,8 @@ interface SyllabusData {
   source: string;
   rawSources?: DiscoveredSource[];
   timestamp: string;
+  pruningStats?: PruningStats;
+  learningPathSettings?: LearningPathConstraints;
 }
 
 const Syllabus = () => {
@@ -56,6 +62,12 @@ const Syllabus = () => {
   const [regenerating, setRegenerating] = useState(false);
   const [originalSources, setOriginalSources] = useState<DiscoveredSource[]>([]);
   const [expandedModuleGroups, setExpandedModuleGroups] = useState<Set<number>>(new Set([1])); // First module open by default
+  const [learningSettings, setLearningSettings] = useState<LearningPathConstraints>({
+    depth: 'standard',
+    hoursPerWeek: 5,
+    skillLevel: 'beginner'
+  });
+  const [applyingConstraints, setApplyingConstraints] = useState(false);
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -432,7 +444,8 @@ const Syllabus = () => {
           selectedSourceUrls,
           customSources,
           enabledSources,
-          forceRefresh: isRegenerating // Force refresh when regenerating
+          forceRefresh: isRegenerating, // Force refresh when regenerating
+          learningConstraints: learningSettings
         }
       });
 
@@ -535,6 +548,16 @@ const Syllabus = () => {
     await generateSyllabus(selectedUrls);
   };
 
+  const handleApplyConstraints = async (constraints: LearningPathConstraints) => {
+    setLearningSettings(constraints);
+    setApplyingConstraints(true);
+    try {
+      await generateSyllabus();
+    } finally {
+      setApplyingConstraints(false);
+    }
+  };
+
   const saveSyllabus = async () => {
     if (!user) {
       toast({
@@ -635,6 +658,15 @@ const Syllabus = () => {
               </Button>
             )}
           </div>
+
+          {/* Learning Path Settings - only show when syllabus is loaded */}
+          {!loading && syllabusData && (
+            <LearningPathSettings
+              onApply={handleApplyConstraints}
+              pruningStats={syllabusData.pruningStats}
+              isApplying={applyingConstraints}
+            />
+          )}
 
           {loading ? (
             <div className="flex items-center justify-center py-20">
@@ -934,7 +966,7 @@ const Syllabus = () => {
               {/* Modules List */}
               <div className="space-y-6">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
-                {parseModuleGroups(syllabusData.modules).map((moduleGroup) => (
+                {parseModuleGroups(syllabusData.modules.filter(m => !m.isHiddenForTime)).map((moduleGroup) => (
                   <Collapsible 
                     key={moduleGroup.moduleNumber}
                     open={expandedModuleGroups.has(moduleGroup.moduleNumber)}
