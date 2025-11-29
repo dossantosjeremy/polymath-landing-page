@@ -6,7 +6,7 @@ import { ProgressiveDisclosure } from "@/components/ProgressiveDisclosure";
 import { SearchResults } from "@/components/SearchResults";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Settings } from "lucide-react";
+import { Search, Settings, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PreGenerationSettings, PreGenerationConstraints } from "@/components/PreGenerationSettings";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -144,9 +144,7 @@ const Explore = () => {
                     <span>Default Learning Path Settings</span>
                     {isCustomSettings && <Badge variant="secondary">Custom</Badge>}
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {settingsOpen ? "Hide" : "Show"} settings
-                  </span>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", settingsOpen && "rotate-180")} />
                 </Button>
               </CollapsibleTrigger>
 

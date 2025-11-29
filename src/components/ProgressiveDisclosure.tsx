@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { ChevronRight, Check, ScrollText, FlaskConical, Globe, Palette, Code2, BarChart3, Settings2, Zap } from "lucide-react";
+import { ChevronRight, Check, ScrollText, FlaskConical, Globe, Palette, Code2, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
-import { PreGenerationSettings, PreGenerationConstraints } from "@/components/PreGenerationSettings";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
 
 const getDomainIcon = (domain: string) => {
   const iconMap: Record<string, any> = {
@@ -39,17 +38,10 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
   const hasExpandedRef = useRef<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const columnRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [customConstraints, setCustomConstraints] = useState<PreGenerationConstraints>(globalConstraints);
 
   // Check for cached community syllabus
   const lastSelectedDiscipline = selectedPath[selectedPath.length - 1] || '';
   const { cachedSyllabus, isLoading: cacheLoading, cacheDate, sourceCount } = useCommuniySyllabus(lastSelectedDiscipline);
-
-  // Sync custom constraints with global when they change
-  useEffect(() => {
-    setCustomConstraints(globalConstraints);
-  }, [globalConstraints]);
 
   useEffect(() => {
     loadLevel1();
@@ -68,8 +60,8 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
     }
   }, [initialPath, levels.length]);
 
-  const buildSyllabusUrl = (constraints: PreGenerationConstraints) => {
-    if (selectedPath.length === 0) return '';
+  const handleSelectDiscipline = () => {
+    if (selectedPath.length === 0) return;
     
     const fullPath = selectedPath.join(' > ');
     const lastLevel = selectedPath[selectedPath.length - 1];
@@ -77,22 +69,14 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
     const params = new URLSearchParams({
       discipline: lastLevel,
       path: fullPath,
-      depth: constraints.depth,
-      hoursPerWeek: constraints.hoursPerWeek.toString(),
-      skillLevel: constraints.skillLevel
+      depth: globalConstraints.depth,
+      hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
+      skillLevel: globalConstraints.skillLevel
     });
-    if (constraints.goalDate) {
-      params.set('goalDate', constraints.goalDate.toISOString());
+    if (globalConstraints.goalDate) {
+      params.set('goalDate', globalConstraints.goalDate.toISOString());
     }
-    return `/syllabus?${params.toString()}`;
-  };
-
-  const handleQuickGenerate = () => {
-    navigate(buildSyllabusUrl(globalConstraints));
-  };
-
-  const handleCustomGenerate = () => {
-    navigate(buildSyllabusUrl(customConstraints));
+    navigate(`/syllabus?${params.toString()}`);
   };
 
   const handleLoadCachedSyllabus = () => {
@@ -281,77 +265,32 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
   return (
     <div className="space-y-4">
       {selectedPath.length > 0 && (
-        <div className="border border-accent bg-accent/20 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Selected discipline:</p>
-              <p className="font-semibold">{selectedPath.join(' > ')}</p>
-              {cachedSyllabus && cacheDate && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
-                </p>
-              )}
-            </div>
+        <div className="flex items-center justify-between bg-accent/20 border border-accent p-4">
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">Selected discipline:</p>
+            <p className="font-semibold">{selectedPath.join(' > ')}</p>
+            {cachedSyllabus && cacheDate && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+              </p>
+            )}
           </div>
-
-          {/* Option 1: Inline Settings Panel */}
-          <Collapsible open={showSettings} onOpenChange={setShowSettings}>
-            <CollapsibleTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="w-full justify-start text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Settings2 className="h-3 w-3 mr-2" />
-                {showSettings ? "Hide" : "Customize"} learning path settings
-              </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-3 p-4 border rounded-sm bg-card">
-              <PreGenerationSettings
-                constraints={customConstraints}
-                onChange={setCustomConstraints}
-                compact
-              />
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Option 4: Two-Button Split */}
           <div className="flex gap-2">
             {cachedSyllabus ? (
               <>
-                <Button onClick={handleLoadCachedSyllabus} className="flex-1 gap-2" disabled={cacheLoading}>
+                <Button onClick={handleLoadCachedSyllabus} className="gap-2" disabled={cacheLoading}>
                   <Check className="h-4 w-4" />
                   Load Cached Syllabus
                 </Button>
-                <Button onClick={handleQuickGenerate} variant="outline" className="flex-1 gap-2">
-                  <Zap className="h-4 w-4" />
-                  Quick Generate
+                <Button onClick={handleSelectDiscipline} variant="outline" className="gap-2">
+                  Generate Fresh
                 </Button>
               </>
             ) : (
-              <>
-                <Button onClick={handleQuickGenerate} className="flex-1 gap-2">
-                  <Zap className="h-4 w-4" />
-                  Quick Generate (Standard)
-                </Button>
-                <Button 
-                  onClick={handleCustomGenerate} 
-                  variant="outline" 
-                  className={cn(
-                    "flex-1 gap-2",
-                    (customConstraints.depth !== globalConstraints.depth || 
-                     customConstraints.hoursPerWeek !== globalConstraints.hoursPerWeek ||
-                     customConstraints.skillLevel !== globalConstraints.skillLevel ||
-                     customConstraints.goalDate) && "border-primary text-primary"
-                  )}
-                >
-                  <Settings2 className="h-4 w-4" />
-                  {(customConstraints.depth !== globalConstraints.depth || 
-                    customConstraints.hoursPerWeek !== globalConstraints.hoursPerWeek ||
-                    customConstraints.skillLevel !== globalConstraints.skillLevel ||
-                    customConstraints.goalDate) ? "Generate Custom" : "Customize & Generate"}
-                </Button>
-              </>
+              <Button onClick={handleSelectDiscipline} className="gap-2">
+                <Check className="h-4 w-4" />
+                Generate Syllabus
+              </Button>
             )}
           </div>
         </div>
