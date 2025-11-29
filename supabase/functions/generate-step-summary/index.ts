@@ -126,32 +126,57 @@ CRITICAL REQUIREMENTS - EXCLUDE:
 5. NO casual greetings or conversational language ("Alright everyone", "Today we're diving into")
 
 REQUIRED OUTPUT FORMAT - HTML with Academic Outline Structure:
-Return ONLY valid HTML (no markdown). Use this exact structure:
+Return ONLY valid HTML (no markdown). Each outline level must be a separate element for proper visual hierarchy.
 
-<h1>[Main Topic Title]</h1>
+Example structure:
 
-<h2>I. [First Major Section Title]</h2>
-<p>A. [Subsection] 1. [Point] a. [Detail] i. [Sub-detail] [Continue text naturally with proper formatting]</p>
+<h1>Main Topic Title</h1>
 
-<p>B. [Next Subsection] 1. [Point] a. [Detail]</p>
+<h2>I. First Major Section</h2>
 
-<h2>II. [Second Major Section Title]</h2>
-<p>A. [Subsection] 1. [Point] 2. [Point] 3. [Point]</p>
+<h3>A. The Milesian School</h3>
+<p class="intro">Early inquiries into the fundamental nature of reality.</p>
 
-FORMATTING RULES:
-- Use <h1> for main title
-- Use <h2> for major sections (I., II., III.)
-- Use <p> tags for all text content - include outline markers (A., 1., a., i.) inline within paragraphs
+<p class="point"><strong>1. Thales of Miletus</strong> (c. 624–546 BCE): Often considered the first philosopher, Thales proposed that <em>water</em> was the fundamental substance...</p>
+
+<p class="detail"><strong>a.</strong> His reasoning stemmed from observations of water's omnipresence in nature...</p>
+
+<p class="sub-detail"><strong>i.</strong> Water exists in multiple states and appears essential for life...</p>
+
+<p class="point"><strong>2. Anaximander of Miletus</strong> (c. 610–546 BCE): A student of Thales, Anaximander posited the <em>apeiron</em>...</p>
+
+<h3>B. Other Major Pre-Socratic Thinkers</h3>
+<p class="point"><strong>1. Heraclitus of Ephesus</strong> (c. 535–475 BCE): Known for the doctrine of perpetual change...</p>
+
+<h2>II. Second Major Section</h2>
+
+ELEMENT GUIDE:
+- <h1>: Main title only
+- <h2>: Roman numeral sections (I., II., III., IV.)
+- <h3>: Letter subsections (A., B., C., D.) - each on its own line
+- <p class="intro">: Optional brief introduction to subsection
+- <p class="point">: Numbered points (1., 2., 3.) - each gets its own paragraph
+- <p class="detail">: Letter details (a., b., c.) - each gets its own paragraph
+- <p class="sub-detail">: Roman numeral sub-details (i., ii., iii.) - each gets its own paragraph
+- Use <strong> to bold outline markers and key names
 - Use <em> for emphasis on key terms, foreign words, technical concepts
-- Use <a href="url"> for citations
-- Do NOT use <ul> or <li> - keep everything as continuous prose with outline markers
-- Flow naturally - don't force line breaks between outline levels`;
+- Use <a href="url"> for inline citations
+
+CRITICAL: Each numbered point (1., 2., 3.) must be in its own <p class="point"> tag. Each detail (a., b., c.) must be in its own <p class="detail"> tag. Do NOT combine multiple outline items in one paragraph.`;
 
     const userPrompt = `Generate formal academic reference notes in HTML format for: ${stepTitle}
 
 ${fullContext}
 
-Return ONLY valid HTML. Use <h1> for title, <h2> for major sections (I., II., III.), and <p> tags with inline outline markers (A., 1., a., i.) for content. Use <em> for key terms and <a> for citations. Write continuous prose with embedded outline structure - NOT bullet lists. Focus exclusively on explaining the ideas, theories, key thinkers, their arguments, and historical/intellectual context.`;
+Return ONLY valid HTML. Use the structured outline format with separate elements:
+- <h1> for main title
+- <h2> for Roman sections (I., II.)
+- <h3> for letter subsections (A., B.)
+- <p class="point"> for each numbered point (1., 2., 3.)
+- <p class="detail"> for each letter detail (a., b., c.)
+- <p class="sub-detail"> for each sub-detail (i., ii., iii.)
+
+Each outline item must be in its own element for proper visual hierarchy. Use <em> for key terms, <strong> for outline markers and names, and <a> for citations. Focus exclusively on explaining the ideas, theories, key thinkers, their arguments, and historical/intellectual context.`;
 
     console.log('Calling Lovable AI...');
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
