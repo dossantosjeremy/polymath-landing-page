@@ -95,8 +95,8 @@ const Syllabus = () => {
     } else if (useCache && discipline) {
       loadCachedSyllabus();
     } else if (discipline) {
-      // Pass pre-generation constraints if provided in URL
-      generateSyllabus(undefined, preGenerationConstraints);
+      // Pass constraints but don't force refresh - let backend check cache first
+      generateSyllabus(undefined, preGenerationConstraints, false);
     }
   }, [discipline, savedId, useCache]);
 
@@ -459,7 +459,8 @@ const Syllabus = () => {
     constraintsOverride?: LearningPathConstraints,
     forceRefresh?: boolean
   ) => {
-    const isRegenerating = !!selectedSourceUrls || !!constraintsOverride;
+    // Only treat as regenerating if sources are being changed OR force refresh requested
+    const isRegenerating = !!selectedSourceUrls || forceRefresh === true;
     if (isRegenerating) {
       setRegenerating(true);
     } else {
@@ -490,7 +491,7 @@ const Syllabus = () => {
           selectedSourceUrls,
           customSources,
           enabledSources,
-          forceRefresh: forceRefresh || isRegenerating,
+          forceRefresh: forceRefresh === true || !!selectedSourceUrls,
           learningConstraints: constraintsOverride || learningSettings
         }
       });
