@@ -16,6 +16,7 @@ interface Module {
   estimatedHours?: number;
   priority?: 'core' | 'important' | 'nice-to-have';
   isHiddenForTime?: boolean;
+  isHiddenForDepth?: boolean;
 }
 
 interface DiscoveredSource {
@@ -35,11 +36,30 @@ interface LearningPathConstraints {
 }
 
 interface PruningStats {
-  totalSteps: number;
-  visibleSteps: number;
-  percentPruned: number;
-  estimatedHours: number;
-  budgetHours: number;
+  // Full curriculum baseline
+  fullCurriculumSteps: number;
+  fullCurriculumHours: number;
+  
+  // Depth filtering results
+  depthLabel: 'overview' | 'standard' | 'detailed';
+  stepsAfterDepthFilter: number;
+  hoursAfterDepthFilter: number;
+  stepsHiddenByDepth: number;
+  
+  // Time constraint results (if applicable)
+  hasTimeConstraint: boolean;
+  stepsHiddenByTime: number;
+  budgetHours?: number;
+  weeksAvailable?: number;
+  
+  // Final results
+  finalVisibleSteps: number;
+  finalEstimatedHours: number;
+  hoursSaved: number;
+  
+  // Hidden topic titles for transparency
+  hiddenByDepthTitles: string[];
+  hiddenByTimeTitles: string[];
 }
 
 serve(async (req) => {
@@ -187,7 +207,7 @@ serve(async (req) => {
           const pruneResult = pruneToFitTime(modules, learningConstraints);
           modules = pruneResult.modules;
           pruningStats = pruneResult.stats;
-          console.log(`[Pruning] ${pruningStats.percentPruned}% pruned to fit time budget`);
+          console.log(`[Pruning] Showing ${pruningStats.finalVisibleSteps}/${pruningStats.fullCurriculumSteps} steps (${pruningStats.hoursSaved}h saved)`);
         }
 
         // Cache the result in community_syllabi (unless regenerating with selected sources)
@@ -271,7 +291,7 @@ serve(async (req) => {
       const pruneResult = pruneToFitTime(modules, learningConstraints);
       modules = pruneResult.modules;
       pruningStats = pruneResult.stats;
-      console.log(`[Pruning] ${pruningStats.percentPruned}% pruned to fit time budget`);
+      console.log(`[Pruning] Showing ${pruningStats.finalVisibleSteps}/${pruningStats.fullCurriculumSteps} steps (${pruningStats.hoursSaved}h saved)`);
     }
 
     // Filter out modules with invalid sourceUrls (not in rawSources)
@@ -849,107 +869,148 @@ function estimateStepTime(module: Module, skillLevel: string, depth: string): nu
   return baseTime * (skillMultiplier[skillLevel] || 1.0) * (depthMultiplier[depth] || 1.0);
 }
 
-// Helper function to classify module priority
-function classifyPriority(module: Module): 'core' | 'important' | 'nice-to-have' {
-  // Core: foundational topics, prerequisites, final capstone
+// Helper function to classify module priority (enhanced)
+function classifyPriority(module: Module, moduleIndex: number, totalModules: number): 'core' | 'important' | 'nice-to-have' {
+  // Core: foundational topics, prerequisites, final capstone, first few modules
   if (module.isCapstone) return 'core';
   if (module.tag === 'Foundations' || module.tag === 'Introduction') return 'core';
+  
+  // First 2-3 modules are typically foundational
+  if (moduleIndex < 3) return 'core';
   
   // Nice-to-have: historical context, advanced tangents, extra examples
   if (module.tag === 'Historical Context' || 
       module.tag === 'Advanced Theory' ||
       module.tag === 'Deep Dive' ||
       module.description?.toLowerCase().includes('optional') ||
-      module.description?.toLowerCase().includes('supplement')) {
+      module.description?.toLowerCase().includes('supplement') ||
+      module.description?.toLowerCase().includes('advanced topics')) {
     return 'nice-to-have';
   }
   
-  // Everything else is important
+  // Everything else is important (Theory, Applied, Practice)
   return 'important';
 }
 
-// Main pruning function
+// Enhanced pruning function with depth as primary filter
 function pruneToFitTime(
   modules: Module[], 
   constraints: LearningPathConstraints
 ): { modules: Module[]; stats: PruningStats } {
-  // Calculate total hours available
-  const weeksAvailable = constraints.goalDate 
-    ? Math.ceil((new Date(constraints.goalDate).getTime() - new Date().getTime()) / (7 * 24 * 60 * 60 * 1000))
-    : null;
-  const totalHoursAvailable = weeksAvailable 
-    ? weeksAvailable * constraints.hoursPerWeek
-    : null;
-
-  // Add estimated hours and priority to each module
-  const modulesWithMeta = modules.map(m => ({
+  
+  // Step 1: Calculate full curriculum baseline (always at beginner/detailed for reference)
+  const fullCurriculumHours = modules.reduce((sum, m) => 
+    sum + estimateStepTime(m, 'beginner', 'detailed'), 0);
+  
+  // Step 2: Classify all modules by priority with position awareness
+  const modulesWithMeta = modules.map((m, idx) => ({
     ...m,
     estimatedHours: estimateStepTime(m, constraints.skillLevel, constraints.depth),
-    priority: classifyPriority(m)
+    priority: classifyPriority(m, idx, modules.length)
   }));
-
-  // Calculate total estimated hours
-  const totalEstimatedHours = modulesWithMeta.reduce((sum, m) => sum + (m.estimatedHours || 0), 0);
-
-  // If no time constraint or within budget, return all modules
-  if (!totalHoursAvailable || totalEstimatedHours <= totalHoursAvailable) {
-    return {
-      modules: modulesWithMeta,
-      stats: {
-        totalSteps: modules.length,
-        visibleSteps: modules.length,
-        percentPruned: 0,
-        estimatedHours: totalEstimatedHours,
-        budgetHours: totalHoursAvailable || totalEstimatedHours
-      }
-    };
-  }
-
-  // Need to prune - iteratively remove lowest priority items
-  console.log(`[Pruning] Budget: ${totalHoursAvailable}h, Estimated: ${totalEstimatedHours}h`);
   
-  let visibleModules = [...modulesWithMeta];
-  let currentHours = totalEstimatedHours;
-
-  // Sort by priority (nice-to-have first, then important, core last)
-  const priorityOrder = { 'nice-to-have': 0, 'important': 1, 'core': 2 };
-  const sortedForRemoval = visibleModules
-    .map((m, idx) => ({ module: m, originalIndex: idx }))
-    .sort((a, b) => {
-      const priorityDiff = priorityOrder[a.module.priority!] - priorityOrder[b.module.priority!];
-      if (priorityDiff !== 0) return priorityDiff;
-      // Within same priority, prefer removing later items
-      return b.originalIndex - a.originalIndex;
-    });
-
-  // Remove items until we fit the budget
-  const hiddenIndices = new Set<number>();
-  for (const item of sortedForRemoval) {
-    if (currentHours <= totalHoursAvailable) break;
-    if (item.module.priority === 'core') continue; // Never remove core items
+  // Step 3: DEPTH FILTER (Primary) - Filter based on depth level
+  const depthPriorityFilter: Record<string, string[]> = {
+    'overview': ['core'],                            // Only core (~30-40%)
+    'standard': ['core', 'important'],               // Core + important (~70-80%)
+    'detailed': ['core', 'important', 'nice-to-have'] // Everything (100%)
+  };
+  
+  const allowedPriorities = depthPriorityFilter[constraints.depth];
+  const hiddenByDepth: Module[] = [];
+  const afterDepthFilter = modulesWithMeta.filter(m => {
+    if (allowedPriorities.includes(m.priority!)) return true;
+    hiddenByDepth.push(m);
+    return false;
+  });
+  
+  console.log(`[Depth Filter] ${constraints.depth}: ${afterDepthFilter.length}/${modules.length} steps visible`);
+  
+  const hoursAfterDepth = afterDepthFilter.reduce((sum, m) => sum + (m.estimatedHours || 0), 0);
+  
+  // Step 4: TIME FILTER (Secondary, optional) - Only if goal date provided
+  let afterTimeFilter = afterDepthFilter;
+  const hiddenByTime: Module[] = [];
+  let budgetHours: number | undefined;
+  let weeksAvailable: number | undefined;
+  
+  if (constraints.goalDate) {
+    weeksAvailable = Math.ceil(
+      (new Date(constraints.goalDate).getTime() - new Date().getTime()) / (7 * 24 * 60 * 60 * 1000)
+    );
+    budgetHours = weeksAvailable * constraints.hoursPerWeek;
     
-    hiddenIndices.add(item.originalIndex);
-    currentHours -= item.module.estimatedHours || 0;
+    const currentHours = hoursAfterDepth;
+    
+    if (currentHours > budgetHours) {
+      console.log(`[Time Filter] Budget: ${budgetHours}h, Current: ${currentHours}h - pruning needed`);
+      
+      // Need to prune more - remove important before core, never remove core
+      const priorityOrder = { 'nice-to-have': 0, 'important': 1, 'core': 2 };
+      const sortedForRemoval = afterDepthFilter
+        .map((m, idx) => ({ module: m, originalIndex: idx }))
+        .filter(item => item.module.priority !== 'core') // Never remove core
+        .sort((a, b) => {
+          const priorityDiff = priorityOrder[a.module.priority!] - priorityOrder[b.module.priority!];
+          if (priorityDiff !== 0) return priorityDiff;
+          // Within same priority, prefer removing later items
+          return b.originalIndex - a.originalIndex;
+        });
+      
+      let hoursToRemove = currentHours - budgetHours;
+      const hiddenTimeSet = new Set<number>();
+      
+      for (const item of sortedForRemoval) {
+        if (hoursToRemove <= 0) break;
+        hiddenByTime.push(item.module);
+        hiddenTimeSet.add(item.originalIndex);
+        hoursToRemove -= item.module.estimatedHours || 0;
+      }
+      
+      afterTimeFilter = afterDepthFilter.filter((m, idx) => !hiddenTimeSet.has(idx));
+      console.log(`[Time Filter] Removed ${hiddenByTime.length} steps to fit budget`);
+    }
   }
-
-  // Mark hidden modules
-  const finalModules = modulesWithMeta.map((m, idx) => ({
+  
+  // Step 5: Mark modules with visibility flags
+  const hiddenByDepthSet = new Set(hiddenByDepth);
+  const hiddenByTimeSet = new Set(hiddenByTime);
+  const finalModules = modulesWithMeta.map(m => ({
     ...m,
-    isHiddenForTime: hiddenIndices.has(idx)
+    isHiddenForDepth: hiddenByDepthSet.has(m),
+    isHiddenForTime: hiddenByTimeSet.has(m)
   }));
-
-  const visibleCount = finalModules.filter(m => !m.isHiddenForTime).length;
-  const percentPruned = Math.round(((modules.length - visibleCount) / modules.length) * 100);
-
+  
+  // Step 6: Build enhanced stats
+  const finalEstimatedHours = afterTimeFilter.reduce((sum, m) => sum + (m.estimatedHours || 0), 0);
+  
+  const stats: PruningStats = {
+    fullCurriculumSteps: modules.length,
+    fullCurriculumHours: Math.round(fullCurriculumHours),
+    
+    depthLabel: constraints.depth,
+    stepsAfterDepthFilter: afterDepthFilter.length,
+    hoursAfterDepthFilter: Math.round(hoursAfterDepth),
+    stepsHiddenByDepth: hiddenByDepth.length,
+    
+    hasTimeConstraint: !!constraints.goalDate,
+    stepsHiddenByTime: hiddenByTime.length,
+    budgetHours: budgetHours ? Math.round(budgetHours) : undefined,
+    weeksAvailable,
+    
+    finalVisibleSteps: afterTimeFilter.length,
+    finalEstimatedHours: Math.round(finalEstimatedHours),
+    hoursSaved: Math.round(fullCurriculumHours - finalEstimatedHours),
+    
+    hiddenByDepthTitles: hiddenByDepth.map(m => m.title.replace(/^(Module \d+ - Step \d+: |Step \d+: |Week \d+: )/, '')),
+    hiddenByTimeTitles: hiddenByTime.map(m => m.title.replace(/^(Module \d+ - Step \d+: |Step \d+: |Week \d+: )/, ''))
+  };
+  
+  console.log('[Pruning Stats]', JSON.stringify(stats, null, 2));
+  
   return {
     modules: finalModules,
-    stats: {
-      totalSteps: modules.length,
-      visibleSteps: visibleCount,
-      percentPruned,
-      estimatedHours: currentHours,
-      budgetHours: totalHoursAvailable
-    }
+    stats
   };
 }
 
