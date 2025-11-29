@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, Trash2, ExternalLink, BookOpen } from "lucide-react";
+import { Loader2, Trash2, ExternalLink, BookOpen, Calendar } from "lucide-react";
+import { ScheduleConfigurator } from "@/components/ScheduleConfigurator";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,6 +38,7 @@ const SavedSyllabi = () => {
   const [loading, setLoading] = useState(true);
   const [syllabi, setSyllabi] = useState<SavedSyllabus[]>([]);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [schedulingSyllabusId, setSchedulingSyllabusId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -182,6 +184,13 @@ const SavedSyllabi = () => {
                         View
                       </Button>
                       <Button
+                        onClick={() => setSchedulingSyllabusId(syllabus.id)}
+                        variant="outline"
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Schedule
+                      </Button>
+                      <Button
                         onClick={() => setDeleteId(syllabus.id)}
                         variant="outline"
                         size="icon"
@@ -218,6 +227,21 @@ const SavedSyllabi = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {schedulingSyllabusId && (
+        <ScheduleConfigurator
+          scheduleId={null}
+          syllabusId={schedulingSyllabusId}
+          onClose={() => setSchedulingSyllabusId(null)}
+          onComplete={() => {
+            setSchedulingSyllabusId(null);
+            toast({
+              title: "Schedule Created",
+              description: "Your course has been scheduled. View it in the Schedule page.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 };

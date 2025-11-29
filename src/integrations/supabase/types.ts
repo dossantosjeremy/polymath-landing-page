@@ -146,6 +146,47 @@ export type Database = {
         }
         Relationships: []
       }
+      learning_schedules: {
+        Row: {
+          availability: Json
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          saved_syllabus_id: string
+          start_date: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          availability: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          saved_syllabus_id: string
+          start_date?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          availability?: Json
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          saved_syllabus_id?: string
+          start_date?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_schedules_saved_syllabus_id_fkey"
+            columns: ["saved_syllabus_id"]
+            isOneToOne: false
+            referencedRelation: "saved_syllabi"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -261,6 +302,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      schedule_events: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          estimated_minutes: number
+          id: string
+          is_done: boolean | null
+          module_index: number
+          schedule_id: string
+          scheduled_date: string
+          step_title: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          estimated_minutes?: number
+          id?: string
+          is_done?: boolean | null
+          module_index: number
+          schedule_id: string
+          scheduled_date: string
+          step_title: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          estimated_minutes?: number
+          id?: string
+          is_done?: boolean | null
+          module_index?: number
+          schedule_id?: string
+          scheduled_date?: string
+          step_title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_events_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "learning_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       step_resources: {
         Row: {

@@ -1,4 +1,4 @@
-import { GraduationCap, LogOut, Bookmark, User } from "lucide-react";
+import { GraduationCap, LogOut, Bookmark, User, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,6 +48,14 @@ export const Navigation = () => {
               >
                 <Bookmark className="h-4 w-4" />
                 <span className="hidden sm:inline">Saved</span>
+              </Button>
+              <Button
+                variant="ghost"
+                className="rounded-full px-4 font-medium gap-2"
+                onClick={() => navigate("/schedule")}
+              >
+                <Calendar className="h-4 w-4" />
+                <span className="hidden sm:inline">Schedule</span>
               </Button>
               <Button
                 variant="ghost"
