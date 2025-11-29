@@ -6,8 +6,20 @@ import { Footer } from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Clock, PlayCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { Calendar, Clock, PlayCircle, ChevronDown, ChevronRight, SkipForward, ExternalLink, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { ScheduleConfigurator } from "@/components/ScheduleConfigurator";
 import { ScheduleTimeline } from "@/components/ScheduleTimeline";
 import { ScheduleRecovery } from "@/components/ScheduleRecovery";
@@ -22,6 +34,7 @@ interface ScheduleEvent {
   scheduled_date: string;
   is_done: boolean;
   completed_at: string | null;
+  schedule_id: string;
 }
 
 interface LearningSchedule {
@@ -39,8 +52,9 @@ interface LearningSchedule {
 
 export default function Schedule() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [schedules, setSchedules] = useState<LearningSchedule[]>([]);
-  const [todayEvents, setTodayEvents] = useState<(ScheduleEvent & { discipline: string })[]>([]);
+  const [todayEvents, setTodayEvents] = useState<(ScheduleEvent & { discipline: string; saved_syllabus_id: string })[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set());
   const [configuringScheduleId, setConfiguringScheduleId] = useState<string | null>(null);
@@ -79,9 +93,15 @@ export default function Schedule() {
             .eq("schedule_id", schedule.id)
             .order("scheduled_date", { ascending: true });
 
+          // Add schedule_id to each event
+          const eventsWithScheduleId = (events || []).map(event => ({
+            ...event,
+            schedule_id: schedule.id
+          }));
+
           return {
             ...schedule,
-            events: events || [],
+            events: eventsWithScheduleId,
           };
         })
       );
@@ -89,7 +109,7 @@ export default function Schedule() {
       setSchedules(schedulesWithEvents as LearningSchedule[]);
 
       const today = new Date().toISOString().split("T")[0];
-      const allTodayEvents: (ScheduleEvent & { discipline: string })[] = [];
+      const allTodayEvents: (ScheduleEvent & { discipline: string; saved_syllabus_id: string })[] = [];
 
       schedulesWithEvents.forEach((schedule) => {
         const todayScheduleEvents = schedule.events.filter(
@@ -99,6 +119,7 @@ export default function Schedule() {
           allTodayEvents.push({
             ...event,
             discipline: schedule.saved_syllabi.discipline,
+            saved_syllabus_id: schedule.saved_syllabus_id,
           });
         });
       });
@@ -175,6 +196,67 @@ export default function Schedule() {
     return `${activeDays.join(", ")} • ${formatMinutes(avgMinutes)}/day`;
   };
 
+  const pushEventToNextDay = async (eventId: string, scheduleId: string) => {
+    try {
+      const schedule = schedules.find(s => s.id === scheduleId);
+      if (!schedule) return;
+
+      const event = schedule.events.find(e => e.id === eventId);
+      if (!event) return;
+
+      const availability = schedule.availability;
+      const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      
+      let nextDate = new Date(event.scheduled_date);
+      nextDate.setDate(nextDate.getDate() + 1);
+      
+      while (true) {
+        const dayName = days[nextDate.getDay()];
+        if (availability[dayName] && availability[dayName] > 0) {
+          break;
+        }
+        nextDate.setDate(nextDate.getDate() + 1);
+      }
+
+      const { error } = await supabase
+        .from("schedule_events")
+        .update({ scheduled_date: nextDate.toISOString().split("T")[0] })
+        .eq("id", eventId);
+
+      if (error) throw error;
+
+      await fetchSchedules();
+      toast.success("Task moved to next available day");
+    } catch (error) {
+      console.error("Error pushing event:", error);
+      toast.error("Failed to move task");
+    }
+  };
+
+  const deleteSchedule = async (scheduleId: string) => {
+    try {
+      const { error: eventsError } = await supabase
+        .from("schedule_events")
+        .delete()
+        .eq("schedule_id", scheduleId);
+
+      if (eventsError) throw eventsError;
+
+      const { error: scheduleError } = await supabase
+        .from("learning_schedules")
+        .delete()
+        .eq("id", scheduleId);
+
+      if (scheduleError) throw scheduleError;
+
+      await fetchSchedules();
+      toast.success("Schedule deleted successfully");
+    } catch (error) {
+      console.error("Error deleting schedule:", error);
+      toast.error("Failed to delete schedule");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -198,58 +280,89 @@ export default function Schedule() {
           </p>
         </div>
 
-        {todayEvents.length > 0 && (
-          <Card className="mb-8 border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Today's Focus - {new Date().toLocaleDateString("en-US", { 
-                  weekday: "long", 
-                  month: "long", 
-                  day: "numeric", 
-                  year: "numeric" 
-                })}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="mb-4 flex items-center gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  <span>
-                    {formatMinutes(totalTodayMinutes)} planned • {formatMinutes(completedTodayMinutes)} completed
-                  </span>
-                </div>
+        <Card className="mb-8 border-primary/20 bg-primary/5">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Today's Focus - {new Date().toLocaleDateString("en-US", { 
+                weekday: "long", 
+                month: "long", 
+                day: "numeric", 
+                year: "numeric" 
+              })}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {todayEvents.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-4xl mb-3">🎉</div>
+                <p className="text-lg font-medium mb-2">No tasks scheduled for today!</p>
+                <p className="text-muted-foreground mb-4">
+                  Enjoy your free time, or explore new courses.
+                </p>
+                <Button variant="outline" onClick={() => navigate('/saved')}>
+                  Browse Saved Courses
+                </Button>
               </div>
+            ) : (
+              <>
+                <div className="mb-4 flex items-center gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      {formatMinutes(totalTodayMinutes)} planned • {formatMinutes(completedTodayMinutes)} completed
+                    </span>
+                  </div>
+                </div>
 
-              <div className="space-y-3">
-                {todayEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-background border"
-                  >
-                    <Checkbox
-                      checked={event.is_done}
-                      onCheckedChange={(checked) => markEventComplete(event.id, checked as boolean)}
-                    />
-                    <div className="flex-1">
-                      <div className={event.is_done ? "line-through text-muted-foreground" : ""}>
-                        {event.discipline}: {event.step_title}
+                <div className="space-y-3">
+                  {todayEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-background border"
+                    >
+                      <Checkbox
+                        checked={event.is_done}
+                        onCheckedChange={(checked) => markEventComplete(event.id, checked as boolean)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className={event.is_done ? "line-through text-muted-foreground" : ""}>
+                          {event.discipline}: {event.step_title}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {formatMinutes(event.estimated_minutes)} • {event.discipline}
+                        </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatMinutes(event.estimated_minutes)} • {event.discipline}
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigate(`/syllabus?savedId=${event.saved_syllabus_id}&step=${encodeURIComponent(event.step_title)}`)}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </Button>
+                        {!event.is_done && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => pushEventToNextDay(event.id, event.schedule_id)}
+                          >
+                            <SkipForward className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              <Button className="mt-4 w-full" size="lg">
-                <PlayCircle className="h-5 w-5 mr-2" />
-                Start Today's Session
-              </Button>
-            </CardContent>
-          </Card>
-        )}
+                <Button className="mt-4 w-full" size="lg">
+                  <PlayCircle className="h-5 w-5 mr-2" />
+                  Start Today's Session
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Calendar and Agenda Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
@@ -265,6 +378,7 @@ export default function Schedule() {
               selectedDate={selectedDate}
               schedules={schedules}
               onEventComplete={markEventComplete}
+              onPushToNextDay={pushEventToNextDay}
             />
           </div>
         </div>
@@ -319,7 +433,7 @@ export default function Schedule() {
                             <div>Started: {new Date(schedule.start_date).toLocaleDateString()}</div>
                           </div>
 
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <Button
                               variant="outline"
                               onClick={() => setViewingTimelineId(isViewing ? null : schedule.id)}
@@ -332,13 +446,40 @@ export default function Schedule() {
                             >
                               Edit Schedule
                             </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm">
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Schedule?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete this learning schedule and all associated events. This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => deleteSchedule(schedule.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Delete Schedule
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
 
                           {isViewing && (
                             <ScheduleTimeline
                               events={schedule.events}
                               discipline={schedule.saved_syllabi.discipline}
+                              savedSyllabusId={schedule.saved_syllabus_id}
                               onEventComplete={(eventId, isDone) => markEventComplete(eventId, isDone)}
+                              onPushToNextDay={pushEventToNextDay}
                             />
                           )}
 

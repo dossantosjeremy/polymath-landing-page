@@ -79,6 +79,7 @@ const Syllabus = () => {
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
   const savedId = searchParams.get("savedId");
+  const stepToScroll = searchParams.get("step");
   const useCache = searchParams.get("useCache") === "true";
   const isAdHoc = searchParams.get("isAdHoc") === "true";
   const searchTerm = searchParams.get("searchTerm") || discipline;
@@ -95,6 +96,23 @@ const Syllabus = () => {
     goalDate: urlGoalDate ? new Date(urlGoalDate) : undefined,
     skillLevel: urlSkillLevel || 'beginner'
   } : undefined;
+
+  // Scroll to step if specified in URL
+  useEffect(() => {
+    if (stepToScroll && syllabusData && !loading) {
+      setTimeout(() => {
+        const modules = syllabusData.modules;
+        const moduleIndex = modules.findIndex(m => m.title === stepToScroll);
+        if (moduleIndex !== -1) {
+          setExpandedModules(prev => new Set([...prev, moduleIndex]));
+          const element = document.getElementById(`module-${moduleIndex}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }, 300);
+    }
+  }, [stepToScroll, syllabusData, loading]);
 
   useEffect(() => {
     if (savedId) {

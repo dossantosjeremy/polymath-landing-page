@@ -1,7 +1,9 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Clock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Clock, SkipForward, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 interface ScheduleEvent {
   id: string;
@@ -9,10 +11,12 @@ interface ScheduleEvent {
   scheduled_date: string;
   is_done: boolean;
   estimated_minutes: number;
+  schedule_id: string;
 }
 
 interface LearningSchedule {
   id: string;
+  saved_syllabus_id: string;
   saved_syllabi: {
     discipline: string;
   };
@@ -23,6 +27,7 @@ interface ScheduleDayAgendaProps {
   selectedDate: Date;
   schedules: LearningSchedule[];
   onEventComplete: (eventId: string, isDone: boolean) => void;
+  onPushToNextDay: (eventId: string, scheduleId: string) => void;
 }
 
 const COURSE_COLORS = [
@@ -34,12 +39,14 @@ const COURSE_COLORS = [
   "hsl(330, 81%, 60%)", // pink
 ];
 
-export function ScheduleDayAgenda({ selectedDate, schedules, onEventComplete }: ScheduleDayAgendaProps) {
+export function ScheduleDayAgenda({ selectedDate, schedules, onEventComplete, onPushToNextDay }: ScheduleDayAgendaProps) {
+  const navigate = useNavigate();
   const selectedDateStr = selectedDate.toISOString().split("T")[0];
 
   const eventsForDay: Array<{
     event: ScheduleEvent;
     discipline: string;
+    savedSyllabusId: string;
     color: string;
   }> = [];
 
@@ -51,6 +58,7 @@ export function ScheduleDayAgenda({ selectedDate, schedules, onEventComplete }: 
         eventsForDay.push({
           event,
           discipline: schedule.saved_syllabi.discipline,
+          savedSyllabusId: schedule.saved_syllabus_id,
           color,
         });
       });
@@ -103,6 +111,24 @@ export function ScheduleDayAgenda({ selectedDate, schedules, onEventComplete }: 
                   <div className="text-sm text-muted-foreground">
                     {formatMinutes(item.event.estimated_minutes)}
                   </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => navigate(`/syllabus?savedId=${item.savedSyllabusId}&step=${encodeURIComponent(item.event.step_title)}`)}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
+                  {!item.event.is_done && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => onPushToNextDay(item.event.id, item.event.schedule_id)}
+                    >
+                      <SkipForward className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
