@@ -14,6 +14,7 @@ import { LearningPlayer } from "@/components/LearningPlayer";
 import { StepSummary } from "@/components/StepSummary";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
 import { LearningPathSettings, LearningPathConstraints, PruningStats } from "@/components/LearningPathSettings";
+import { CurriculumAuditCard } from "@/components/CurriculumAuditCard";
 
 interface Module {
   title: string;
@@ -823,7 +824,7 @@ const Syllabus = () => {
             </div>
           ) : syllabusData ? (
             <div className="space-y-6">
-              {/* Source Pills Banner - Show ALL sources actually used in syllabus with distinguishing labels */}
+              {/* Curriculum Audit Card - Ivy League Benchmark Widget */}
               {(() => {
                 const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
                 
@@ -839,52 +840,19 @@ const Syllabus = () => {
                 
                 if (usedSources.length === 0) return null;
                 
-                // Create distinguishing labels for same-domain sources
-                const labelCounts = new Map<string, number>();
-                const sourcesWithLabels = usedSources.map(source => {
-                  const baseName = getDomainShortName(source.url);
-                  const existingCount = labelCounts.get(baseName) || 0;
-                  labelCounts.set(baseName, existingCount + 1);
-                  
-                  // If we've seen this domain before, add course identifier
-                  const courseSuffix = existingCount > 0 ? extractCourseCode(source.url, source.courseName) : '';
-                  const label = courseSuffix ? `${baseName} (${courseSuffix})` : baseName;
-                  
-                  return { ...source, label };
-                });
-                
                 return (
-                  <div className="bg-accent/30 border border-accent p-4 flex items-start gap-4">
-                    <div className="flex-shrink-0 mt-1">
-                      <div className="h-10 w-10 bg-primary/10 flex items-center justify-center">
-                        <svg className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold mb-2">Curriculum Sources</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {sourcesWithLabels.map((source, idx) => {
-                          return (
-                            <a
-                              key={idx}
-                              href={source.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={cn(
-                                "inline-flex items-center gap-1 px-3 py-1 text-sm font-medium border transition-colors hover:opacity-80",
-                                getSourceColorByUrl(source.url)
-                              )}
-                            >
-                              {source.label}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
+                  <CurriculumAuditCard
+                    rawSources={usedSources}
+                    pruningStats={pruningStats || syllabusData.pruningStats}
+                    onRestoreAll={() => handleApplyConstraints({ 
+                      depth: 'detailed',
+                      hoursPerWeek: learningSettings.hoursPerWeek,
+                      skillLevel: learningSettings.skillLevel
+                    })}
+                    getDomainShortName={getDomainShortName}
+                    extractCourseCode={extractCourseCode}
+                    getSourceColorByUrl={getSourceColorByUrl}
+                  />
                 );
               })()}
 
