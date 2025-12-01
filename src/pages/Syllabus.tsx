@@ -103,15 +103,42 @@ const Syllabus = () => {
     if (stepToScroll && syllabusData && !loading) {
       setTimeout(() => {
         const modules = syllabusData.modules;
+        
+        // Find the module by matching title (raw title from schedule_events)
         const moduleIndex = modules.findIndex(m => m.title === stepToScroll);
+        
         if (moduleIndex !== -1) {
-          setExpandedModules(prev => new Set([...prev, moduleIndex]));
-          const element = document.getElementById(`module-${moduleIndex}`);
-          if (element) {
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Parse module groups to find which group contains this step
+          const visibleModules = modules.filter(m => !m.isHiddenForTime && !m.isHiddenForDepth);
+          const moduleGroups = parseModuleGroups(visibleModules);
+          
+          // Find which group contains this originalIndex
+          const groupContainingStep = moduleGroups.find(g => 
+            g.steps.some(s => s.originalIndex === moduleIndex)
+          );
+          
+          if (groupContainingStep) {
+            // Expand the module group
+            setExpandedModuleGroups(prev => new Set([...prev, groupContainingStep.moduleNumber]));
           }
+          
+          // Also expand the individual step
+          setExpandedModules(prev => new Set([...prev, moduleIndex]));
+          
+          // Scroll to the step element
+          setTimeout(() => {
+            const element = document.getElementById(`step-${moduleIndex}`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // Add visual highlight
+              element.classList.add('ring-2', 'ring-primary', 'ring-offset-2');
+              setTimeout(() => {
+                element.classList.remove('ring-2', 'ring-primary', 'ring-offset-2');
+              }, 3000);
+            }
+          }, 100);
         }
-      }, 300);
+      }, 500);
     }
   }, [stepToScroll, syllabusData, loading]);
 
@@ -1125,15 +1152,18 @@ const Syllabus = () => {
                          const isSingleStepCapstone = isCapstoneModule && moduleGroup.steps.length === 1;
                          
                          // For single-step capstone modules, render content directly without nested collapsible
-                         if (isSingleStepCapstone) {
-                           const step = moduleGroup.steps[0];
-                           return (
-                             <div className="ml-4 mt-2">
-                               <div className={cn(
-                                 "border overflow-hidden",
-                                 "bg-[hsl(var(--gold))]/5 border-accent"
-                               )}>
-                                 <div className="p-4">
+                          if (isSingleStepCapstone) {
+                            const step = moduleGroup.steps[0];
+                            return (
+                              <div 
+                                id={`step-${step.originalIndex}`}
+                                className="ml-4 mt-2"
+                              >
+                                <div className={cn(
+                                  "border overflow-hidden",
+                                  "bg-[hsl(var(--gold))]/5 border-accent"
+                                )}>
+                                  <div className="p-4">
                                    {step.description && (
                                      <p className="text-sm text-muted-foreground mb-3">{step.description}</p>
                                    )}
@@ -1184,16 +1214,17 @@ const Syllabus = () => {
                          
                          // For regular modules with multiple steps, render as before
                          return (
-                           <div className="space-y-2 ml-4 mt-2">
-                             {moduleGroup.steps.map((step) => {
-                               return (
-                                 <div
-                                    key={step.originalIndex}
-                                    className={cn(
-                                      "border overflow-hidden transition-all",
-                                      step.isCapstone ? "bg-[hsl(var(--gold))]/5 border-accent" : "bg-primary/5"
-                                    )}
-                                  >
+                            <div className="space-y-2 ml-4 mt-2">
+                              {moduleGroup.steps.map((step) => {
+                                return (
+                                  <div
+                                     id={`step-${step.originalIndex}`}
+                                     key={step.originalIndex}
+                                     className={cn(
+                                       "border overflow-hidden transition-all",
+                                       step.isCapstone ? "bg-[hsl(var(--gold))]/5 border-accent" : "bg-primary/5"
+                                     )}
+                                   >
                                    <button
                                      onClick={() => toggleModule(step.originalIndex)}
                                      className={cn(
