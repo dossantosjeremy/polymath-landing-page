@@ -158,7 +158,11 @@ async function callGeminiForVideos(stepTitle: string, discipline: string): Promi
           role: 'system',
           content: `You are an expert at finding educational YouTube videos. You have deep knowledge of YouTube's educational content ecosystem including channels like CrashCourse, Khan Academy, 3Blue1Brown, Veritasium, TED-Ed, MIT OpenCourseWare, and academic lecture series.
 
-CRITICAL: Only recommend videos you are confident exist. Return REAL YouTube URLs with actual video IDs.`
+CRITICAL RULES:
+1. ONLY output valid JSON - no explanations, no apologies, no text before/after
+2. If you don't know good videos for this topic, return an empty array: []
+3. Never say "I'm sorry" or "I cannot" or explain why you can't find videos
+4. Return REAL YouTube URLs with actual video IDs that you are confident exist`
         },
         {
           role: 'user',
@@ -178,7 +182,7 @@ For each video provide:
 - whyThisVideo: 1 sentence explaining educational value
 - keyMoments: 2-3 important timestamps if you know them
 
-Return JSON array only:
+RESPONSE FORMAT - START YOUR RESPONSE WITH [ AND END WITH ]:
 [
   {
     "url": "https://www.youtube.com/watch?v=...",
@@ -428,16 +432,33 @@ async function validateAndEnhanceResources(resources: StepResources): Promise<St
 }
 
 function extractJSON(text: string): any {
+  // Clean markdown code blocks
   let cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   
-  const jsonStart = cleaned.indexOf('{');
-  const jsonEnd = cleaned.lastIndexOf('}');
+  // Try to find JSON object first
+  const jsonObjStart = cleaned.indexOf('{');
+  const jsonObjEnd = cleaned.lastIndexOf('}');
   
-  if (jsonStart !== -1 && jsonEnd !== -1) {
-    cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+  // Try to find JSON array
+  const jsonArrStart = cleaned.indexOf('[');
+  const jsonArrEnd = cleaned.lastIndexOf(']');
+  
+  // Determine which comes first and is valid
+  let jsonString = cleaned;
+  
+  if (jsonObjStart !== -1 && jsonObjEnd !== -1 && 
+      (jsonArrStart === -1 || jsonObjStart < jsonArrStart)) {
+    jsonString = cleaned.substring(jsonObjStart, jsonObjEnd + 1);
+  } else if (jsonArrStart !== -1 && jsonArrEnd !== -1) {
+    jsonString = cleaned.substring(jsonArrStart, jsonArrEnd + 1);
   }
   
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.warn('Failed to parse JSON from response:', cleaned.substring(0, 200));
+    return null;  // Return null instead of throwing
+  }
 }
 
 async function extractArticleContent(url: string): Promise<{
@@ -657,7 +678,13 @@ VERIFICATION REQUIREMENTS:
 
 ${blacklistConstraint}
 
-Return valid JSON only:
+RESPONSE FORMAT - CRITICAL:
+- Return ONLY valid JSON - no explanations, no apologies, no text before/after
+- If you cannot find a resource type, return an empty array for that type
+- Never begin your response with text like "I appreciate" or "I'm sorry" or "I cannot"
+- Start your response with { and end with }
+- If you cannot find resources, return: {"readings": [], "books": [], "alternatives": []}
+
 {
   "readings": [
     {
@@ -705,9 +732,9 @@ Return valid JSON only:
     console.log('Perplexity raw response:', perplexityContent.substring(0, 500));
     console.log('Gemini returned', geminiVideos.length, 'videos');
     
-    const perplexityResources = extractJSON(perplexityContent);
+    const perplexityResources = extractJSON(perplexityContent) || {};
     
-    // Merge results
+    // Merge results with fallbacks
     let resources: StepResources = {
       videos: geminiVideos || [],
       readings: perplexityResources.readings || [],
