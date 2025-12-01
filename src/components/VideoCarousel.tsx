@@ -27,19 +27,27 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
   // Filter to only show verified videos
   const validVideos = videos.filter(v => v.url && v.verified !== false);
   
-  // If no valid videos, show search fallback
+  // If no valid videos, show embedded YouTube search player
   if (validVideos.length === 0) {
-    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${discipline} ${stepTitle}`)}`;
+    const encodedQuery = encodeURIComponent(`${discipline} ${stepTitle} educational`);
+    const searchEmbedUrl = `https://www.youtube.com/embed?listType=search&list=${encodedQuery}`;
+    
     return (
-      <Card className="p-8 text-center border-dashed">
-        <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <p className="text-sm text-muted-foreground mb-4">
-          No verified videos found for this topic.
-        </p>
-        <Button variant="outline" onClick={() => window.open(searchUrl, '_blank')}>
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Search on YouTube
-        </Button>
+      <Card className="p-4 border-dashed">
+        <div className="space-y-3">
+          <div className="aspect-video rounded overflow-hidden">
+            <iframe
+              src={searchEmbedUrl}
+              title={`Search results for ${stepTitle}`}
+              className="w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+          <p className="text-sm text-muted-foreground text-center">
+            YouTube search results for "{stepTitle}" - Click any video to watch
+          </p>
+        </div>
       </Card>
     );
   }
