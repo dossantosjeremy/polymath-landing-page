@@ -1,9 +1,11 @@
-import { ExternalLink, Search, AlertTriangle } from "lucide-react";
+import { useState } from 'react';
+import { ExternalLink, Search, AlertTriangle, Flag } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ResourceFallback } from './ResourceFallback';
+import { useReportResource } from '@/hooks/useReportResource';
 
 interface Video {
   url: string;
@@ -24,30 +26,54 @@ interface VideoCarouselProps {
 }
 
 export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselProps) => {
-  // Filter to only show verified videos
-  const validVideos = videos.filter(v => v.url && v.verified !== false);
+  const { reportAndReplace, isReporting } = useReportResource();
+  const [localVideos, setLocalVideos] = useState(videos);
   
-  // If no valid videos, show embedded YouTube search player
-  if (validVideos.length === 0) {
-    const encodedQuery = encodeURIComponent(`${discipline} ${stepTitle} educational`);
-    const searchEmbedUrl = `https://www.youtube.com/embed?listType=search&list=${encodedQuery}`;
+  // Filter to only show verified videos
+  const validVideos = localVideos.filter(v => v.url && v.verified !== false);
+  
+  const handleReport = async (videoIndex: number) => {
+    const video = validVideos[videoIndex];
+    const replacement = await reportAndReplace({
+      brokenUrl: video.url,
+      resourceType: 'video',
+      stepTitle,
+      discipline,
+      reportReason: 'Video not working'
+    });
     
+    if (replacement?.url) {
+      // Replace the broken video with the new one
+      const newVideos = [...localVideos];
+      const originalIndex = localVideos.findIndex(v => v.url === video.url);
+      if (originalIndex !== -1) {
+        newVideos[originalIndex] = {
+          url: replacement.url,
+          title: replacement.title || 'Replacement Video',
+          author: replacement.author || 'YouTube',
+          thumbnailUrl: replacement.thumbnailUrl || `https://img.youtube.com/vi/${replacement.url.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1]}/maxresdefault.jpg`,
+          duration: replacement.duration || '',
+          whyThisVideo: replacement.whyThisVideo || 'Replacement educational video',
+          verified: true
+        };
+        setLocalVideos(newVideos);
+      }
+    }
+  };
+  
+  // If no valid videos, show search fallback
+  if (validVideos.length === 0) {
+    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${discipline} ${stepTitle}`)}`;
     return (
-      <Card className="p-4 border-dashed">
-        <div className="space-y-3">
-          <div className="aspect-video rounded overflow-hidden">
-            <iframe
-              src={searchEmbedUrl}
-              title={`Search results for ${stepTitle}`}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
-          <p className="text-sm text-muted-foreground text-center">
-            YouTube search results for "{stepTitle}" - Click any video to watch
-          </p>
-        </div>
+      <Card className="p-8 text-center border-dashed">
+        <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <p className="text-sm text-muted-foreground mb-4">
+          No verified videos found for this topic.
+        </p>
+        <Button variant="outline" onClick={() => window.open(searchUrl, '_blank')}>
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Search on YouTube
+        </Button>
       </Card>
     );
   }
@@ -128,6 +154,15 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
                       >
                         <ExternalLink className="h-3 w-3 mr-1" />
                         Watch on YouTube
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleReport(index)}
+                        disabled={isReporting}
+                      >
+                        <Flag className="h-3 w-3 mr-1" />
+                        {isReporting ? 'Finding replacement...' : 'Report & Replace'}
                       </Button>
                     </div>
 
