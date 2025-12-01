@@ -341,8 +341,9 @@ async function validateAndEnhanceResources(resources: StepResources): Promise<St
         };
       })
     );
-    enhanced.videos = validatedVideos.filter(v => v.verified !== false);
-    console.log(`${enhanced.videos.length} videos passed verification`);
+    // Keep all videos, let frontend decide what to show
+    enhanced.videos = validatedVideos;
+    console.log(`${validatedVideos.filter(v => v.verified !== false).length} videos passed verification`);
   }
   
   // Validate and enhance readings with content extraction
@@ -753,6 +754,21 @@ RESPONSE FORMAT - CRITICAL:
     console.log('Validating resource URLs...');
     resources = await validateAndEnhanceResources(resources);
     console.log('URL validation complete');
+
+    // Guarantee at least one video entry exists (even if it's a fallback)
+    if (!resources.videos || resources.videos.length === 0) {
+      resources.videos = [{
+        url: '',
+        title: `Search for ${stepTitle} videos`,
+        author: 'YouTube Search',
+        thumbnailUrl: '',
+        duration: '',
+        whyThisVideo: `No pre-verified videos found. Click to search YouTube for "${stepTitle}" in ${discipline}`,
+        verified: false,
+        keyMoments: []
+      }];
+      console.log('Added fallback video entry for search');
+    }
 
     // Filter out any blacklisted URLs that slipped through
     if (blacklist.length > 0) {

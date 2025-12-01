@@ -132,8 +132,8 @@ export const LearningPlayer = ({
   };
 
   // Separate alternatives by type
-  const podcasts = displayResources.alternatives?.filter(alt => alt.type === 'podcast') || [];
-  const otherAlternatives = displayResources.alternatives?.filter(alt => alt.type !== 'podcast') || [];
+  const podcasts = displayResources.alternatives?.filter(alt => alt.type === 'podcast' && alt.url && alt.verified !== false) || [];
+  const otherAlternatives = displayResources.alternatives?.filter(alt => alt.type !== 'podcast' && alt.url && alt.verified !== false) || [];
 
   const handleAlternativeReplace = (index: number, newResource: any, isPodcast: boolean) => {
     const updatedAlternatives = [...(displayResources.alternatives || [])];
@@ -154,13 +154,14 @@ export const LearningPlayer = ({
     <div className="space-y-3 py-6">
       {/* Video Carousel */}
       {displayResources.videos && displayResources.videos.length > 0 && (() => {
-        const verifiedVideos = displayResources.videos.filter(v => v.verified !== false);
-        return verifiedVideos.length > 0 && (
+        const verifiedVideos = displayResources.videos.filter(v => v.url && v.verified !== false);
+        const label = verifiedVideos.length > 0 ? `(${verifiedVideos.length})` : '(Search)';
+        return (
           <Collapsible open={openSections.has('videos')} onOpenChange={() => toggleSection('videos')}>
             <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
               <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has('videos') ? '' : '-rotate-90'}`} />
               <Video className="h-4 w-4" />
-              <span className="font-semibold text-sm">Educational Videos ({verifiedVideos.length})</span>
+              <span className="font-semibold text-sm">Educational Videos {label}</span>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-3">
               <VideoCarousel 
@@ -175,13 +176,14 @@ export const LearningPlayer = ({
 
       {/* Reading Carousel */}
       {displayResources.readings && displayResources.readings.length > 0 && (() => {
-        const verifiedReadings = displayResources.readings.filter(r => r.verified !== false);
-        return verifiedReadings.length > 0 && (
+        const verifiedReadings = displayResources.readings.filter(r => r.url && r.verified !== false);
+        const label = verifiedReadings.length > 0 ? `(${verifiedReadings.length})` : '(Search)';
+        return (
           <Collapsible open={openSections.has('readings')} onOpenChange={() => toggleSection('readings')}>
             <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
               <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has('readings') ? '' : '-rotate-90'}`} />
               <FileText className="h-4 w-4" />
-              <span className="font-semibold text-sm">Authority Readings ({verifiedReadings.length})</span>
+              <span className="font-semibold text-sm">Authority Readings {label}</span>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-3">
               <ReadingCarousel 
