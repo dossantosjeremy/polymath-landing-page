@@ -90,13 +90,23 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
   const handleFindMore = async () => {
     try {
       const existingUrls = localReadings.map(r => r.url);
-      const newReading = await findMore('reading', stepTitle, discipline, existingUrls);
+      const result = await findMore('reading', stepTitle, discipline, existingUrls);
       
-      if (newReading) {
-        setLocalReadings([...localReadings, newReading]);
+      // Check if it's an error response
+      if (result?.error) {
+        toast({
+          title: "No New Readings Found",
+          description: result.message || "Could not find additional readings that aren't already in your list.",
+          variant: "default"
+        });
+        return;
+      }
+      
+      if (result) {
+        setLocalReadings([...localReadings, result]);
         toast({
           title: "Reading Added",
-          description: `Added: ${newReading.title}`,
+          description: `Added: ${result.title}`,
         });
       }
     } catch (err) {

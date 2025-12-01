@@ -131,11 +131,16 @@ Return ONLY valid JSON:
       const data = await callPerplexityAPI(prompt, 'sonar-pro', 1500);
       const videos = extractJSON(data.choices[0]?.message?.content);
       
+      console.log('Perplexity response for videos:', data.choices[0]?.message?.content?.substring(0, 200));
+      
       if (Array.isArray(videos) && videos.length > 0) {
         const video = videos[0];
         const videoId = video.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
         
+        console.log('Found video candidate:', video.title, 'ID:', videoId);
+        
         if (videoId && await verifyYouTubeVideo(videoId)) {
+          console.log('Video verified successfully');
           newResource = {
             url: video.url,
             title: video.title,
@@ -145,7 +150,11 @@ Return ONLY valid JSON:
             whyThisVideo: video.whyThisVideo,
             verified: true
           };
+        } else {
+          console.log('Video verification failed');
         }
+      } else {
+        console.log('No videos found in Perplexity response');
       }
     } else if (resourceType === 'reading') {
       const blacklistConstraint = blacklist.length > 0
@@ -207,12 +216,17 @@ Return ONLY valid JSON:
     }
 
     if (!newResource) {
-      return new Response(JSON.stringify({ error: 'No additional resource found' }), {
-        status: 404,
+      console.log('No new resource found after search');
+      return new Response(JSON.stringify({ 
+        error: 'No additional resource found',
+        message: 'Could not find any new resources that are not already in your list. Please try again later or search manually.'
+      }), {
+        status: 200, // Changed from 404 to 200
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
+    console.log('Successfully found new resource:', newResource.title || newResource.url);
     return new Response(JSON.stringify(newResource), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
