@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ExternalLink, Play, AlertTriangle } from 'lucide-react';
+import { Video, ExternalLink, Clock, Search, Play, AlertTriangle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -26,6 +26,26 @@ interface VideoCarouselProps {
 
 export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselProps) => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+  
+  // Filter to only show verified videos
+  const validVideos = videos.filter(v => v.url && v.verified !== false);
+  
+  // If no valid videos, show search fallback
+  if (validVideos.length === 0) {
+    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${discipline} ${stepTitle}`)}`;
+    return (
+      <Card className="p-8 text-center border-dashed">
+        <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <p className="text-sm text-muted-foreground mb-4">
+          No verified videos found for this topic.
+        </p>
+        <Button variant="outline" onClick={() => window.open(searchUrl, '_blank')}>
+          <ExternalLink className="h-4 w-4 mr-2" />
+          Search on YouTube
+        </Button>
+      </Card>
+    );
+  }
 
   const getYouTubeEmbedUrl = (url: string): string => {
     const videoId = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/)?.[1];
@@ -36,7 +56,7 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
     <div className="space-y-4">
       <Carousel className="w-full">
         <CarouselContent>
-          {videos.map((video, index) => {
+          {validVideos.map((video, index) => {
             const isExpanded = expandedIndex === index;
             const embedUrl = getYouTubeEmbedUrl(video.url);
 

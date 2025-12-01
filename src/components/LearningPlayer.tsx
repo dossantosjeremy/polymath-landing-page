@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { BookOpen, Loader2, ChevronDown, ChevronRight, Video, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoCarousel } from './VideoCarousel';
 import { ReadingCarousel } from './ReadingCarousel';
@@ -153,38 +153,46 @@ export const LearningPlayer = ({
   return (
     <div className="space-y-3 py-6">
       {/* Video Carousel */}
-      {displayResources.videos && displayResources.videos.length > 0 && (
-        <Collapsible open={openSections.has('videos')} onOpenChange={() => toggleSection('videos')}>
-          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
-            {openSections.has('videos') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            <span className="font-semibold text-sm">📺 Educational Videos ({displayResources.videos.length})</span>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <VideoCarousel 
-              videos={displayResources.videos}
-              stepTitle={stepTitle}
-              discipline={discipline}
-            />
-          </CollapsibleContent>
-        </Collapsible>
-      )}
+      {displayResources.videos && displayResources.videos.length > 0 && (() => {
+        const verifiedVideos = displayResources.videos.filter(v => v.verified !== false);
+        return verifiedVideos.length > 0 && (
+          <Collapsible open={openSections.has('videos')} onOpenChange={() => toggleSection('videos')}>
+            <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
+              <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has('videos') ? '' : '-rotate-90'}`} />
+              <Video className="h-4 w-4" />
+              <span className="font-semibold text-sm">Educational Videos ({verifiedVideos.length})</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">
+              <VideoCarousel 
+                videos={displayResources.videos}
+                stepTitle={stepTitle}
+                discipline={discipline}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })()}
 
       {/* Reading Carousel */}
-      {displayResources.readings && displayResources.readings.length > 0 && (
-        <Collapsible open={openSections.has('readings')} onOpenChange={() => toggleSection('readings')}>
-          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
-            {openSections.has('readings') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            <span className="font-semibold text-sm">📖 Authority Readings ({displayResources.readings.length})</span>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <ReadingCarousel 
-              readings={displayResources.readings}
-              stepTitle={stepTitle}
-              discipline={discipline}
-            />
-          </CollapsibleContent>
-        </Collapsible>
-      )}
+      {displayResources.readings && displayResources.readings.length > 0 && (() => {
+        const verifiedReadings = displayResources.readings.filter(r => r.verified !== false);
+        return verifiedReadings.length > 0 && (
+          <Collapsible open={openSections.has('readings')} onOpenChange={() => toggleSection('readings')}>
+            <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
+              <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has('readings') ? '' : '-rotate-90'}`} />
+              <FileText className="h-4 w-4" />
+              <span className="font-semibold text-sm">Authority Readings ({verifiedReadings.length})</span>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">
+              <ReadingCarousel 
+                readings={displayResources.readings}
+                stepTitle={stepTitle}
+                discipline={discipline}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })()}
 
       {/* Book Resources */}
       {booksList.length > 0 && (

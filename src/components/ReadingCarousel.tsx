@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ExternalLink, AlertTriangle, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { ExternalLink, AlertTriangle, FileText, ChevronDown, ChevronUp, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { Carousel, CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ResourceFallback } from './ResourceFallback';
 
 interface Reading {
@@ -35,6 +35,40 @@ interface ReadingCarouselProps {
 
 export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCarouselProps) => {
   const [expandedContent, setExpandedContent] = useState<Set<number>>(new Set());
+  const [api, setApi] = useState<CarouselApi>();
+  
+  // Filter to only show verified readings
+  const validReadings = readings.filter(r => r.url && r.verified !== false);
+  
+  // Fallback for no valid readings
+  if (validReadings.length === 0) {
+    return (
+      <Card className="p-8 text-center border-dashed">
+        <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <p className="text-sm text-muted-foreground mb-4">
+          No verified readings found. Try these authoritative sources:
+        </p>
+        <div className="flex gap-3 justify-center flex-wrap">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => window.open(`https://plato.stanford.edu/search/searcher.py?query=${encodeURIComponent(stepTitle)}`, '_blank')}
+          >
+            <ExternalLink className="h-3 w-3 mr-2" />
+            Stanford Encyclopedia
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => window.open(`https://en.wikipedia.org/wiki/${encodeURIComponent(stepTitle.replace(/\s+/g, '_'))}`, '_blank')}
+          >
+            <ExternalLink className="h-3 w-3 mr-2" />
+            Wikipedia
+          </Button>
+        </div>
+      </Card>
+    );
+  }
 
   const toggleContent = (index: number) => {
     setExpandedContent(prev => {
@@ -59,9 +93,9 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
 
   return (
     <div className="space-y-4">
-      <Carousel className="w-full">
+      <Carousel setApi={setApi} className="w-full">
         <CarouselContent>
-          {readings.map((reading, index) => {
+          {validReadings.map((reading, index) => {
             const isExpanded = expandedContent.has(index);
             const hasEmbeddedContent = reading.embeddedContent && reading.contentExtractionStatus === 'success';
 
@@ -192,7 +226,7 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
             );
           })}
         </CarouselContent>
-        {readings.length > 1 && (
+        {validReadings.length > 1 && (
           <>
             <CarouselPrevious />
             <CarouselNext />
