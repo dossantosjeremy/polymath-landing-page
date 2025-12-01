@@ -211,6 +211,70 @@ RESPONSE FORMAT:
   }
 }
 
+// Attempt 2: Brute Force - Target famous educational channels
+async function searchBruteForceVideos(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+  const blacklistConstraint = blacklist.length > 0
+    ? `DO NOT return these URLs: ${blacklist.filter(url => url.includes('youtube')).join(', ')}`
+    : '';
+
+  const prompt = `SEARCH YouTube NOW for: site:youtube.com (CrashCourse OR "TED-Ed" OR "Khan Academy" OR "3Blue1Brown" OR Veritasium) "${stepTitle}"
+
+Find videos from these TRUSTED channels that actually exist.
+
+${blacklistConstraint}
+
+Return ONLY valid JSON array:
+[{"url": "https://www.youtube.com/watch?v=REAL_ID", "title": "exact title", "author": "channel", "duration": "10:00", "whyThisVideo": "reason"}]
+
+If nothing found, return []`;
+
+  try {
+    const data = await callPerplexityAPI(prompt, 'sonar-pro', 1500);
+    const content = data.choices[0]?.message?.content;
+    if (!content) return [];
+    
+    const videos = extractJSON(content);
+    if (Array.isArray(videos)) {
+      return videos.map(video => ({
+        ...video,
+        thumbnailUrl: generateYouTubeThumbnail(video.url)
+      }));
+    }
+    return [];
+  } catch (e) {
+    console.error('Brute force video search failed:', e);
+    return [];
+  }
+}
+
+// Attempt 3: Hail Mary - Generic lecture search
+async function searchHailMaryVideos(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+  const prompt = `SEARCH YouTube for: site:youtube.com "${stepTitle}" lecture OR tutorial OR explained
+
+Find ANY educational video that exists and is relevant to "${stepTitle}" in ${discipline}.
+
+Return ONLY the first working video you find as JSON:
+[{"url": "https://www.youtube.com/watch?v=VIDEO_ID", "title": "title", "author": "channel", "duration": "duration", "whyThisVideo": "General lecture on topic"}]`;
+
+  try {
+    const data = await callPerplexityAPI(prompt, 'sonar-pro', 1000);
+    const content = data.choices[0]?.message?.content;
+    if (!content) return [];
+    
+    const videos = extractJSON(content);
+    if (Array.isArray(videos)) {
+      return videos.map(video => ({
+        ...video,
+        thumbnailUrl: generateYouTubeThumbnail(video.url)
+      }));
+    }
+    return [];
+  } catch (e) {
+    console.error('Hail mary video search failed:', e);
+    return [];
+  }
+}
+
 function generateYouTubeThumbnail(url: string): string {
   const videoIdMatch = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (videoIdMatch) {
@@ -329,56 +393,6 @@ async function validateAndEnhanceResources(resources: StepResources, stepTitle: 
     enhanced.videos = validatedVideos;
     const verifiedCount = validatedVideos.filter(v => v.verified !== false).length;
     console.log(`${verifiedCount} videos passed verification`);
-    
-    // Recovery search if NO verified videos exist
-    if (verifiedCount === 0 && validatedVideos.length > 0) {
-      console.log('⚠ All videos failed verification, attempting recovery search...');
-      
-      const recoveryPrompt = `Search YouTube NOW for educational videos about: "${stepTitle}" in ${discipline}
-
-Return ONLY the first real, existing educational video you find. Use site:youtube.com in your search.
-
-CRITICAL REQUIREMENTS:
-- The video MUST actually exist (verify it's real before returning)
-- Use educational channels: CrashCourse, Khan Academy, MIT OCW, Yale, TED-Ed, etc.
-- Return format (ONLY valid JSON array):
-[{
-  "url": "https://www.youtube.com/watch?v=REAL_VIDEO_ID",
-  "title": "Exact video title",
-  "author": "Channel name",
-  "duration": "10:00",
-  "whyThisVideo": "Brief explanation"
-}]
-
-If no real video can be found, return []`;
-
-      try {
-        const recoveryData = await callPerplexityAPI(recoveryPrompt, 'sonar-pro', 1000);
-        const recoveryContent = recoveryData.choices[0]?.message?.content;
-        const recoveryVideos = extractJSON(recoveryContent);
-        
-        if (Array.isArray(recoveryVideos) && recoveryVideos.length > 0) {
-          const recoveryVideo = recoveryVideos[0];
-          const videoId = recoveryVideo.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
-          
-          if (videoId && await verifyYouTubeVideo(videoId)) {
-            enhanced.videos.unshift({
-              url: recoveryVideo.url,
-              title: recoveryVideo.title || 'Educational Video',
-              author: recoveryVideo.author || 'YouTube',
-              thumbnailUrl: generateYouTubeThumbnail(recoveryVideo.url),
-              duration: recoveryVideo.duration || '',
-              whyThisVideo: recoveryVideo.whyThisVideo || 'Auto-discovered educational video for this topic',
-              keyMoments: [],
-              verified: true
-            });
-            console.log('✓ Recovery search found verified video:', recoveryVideo.title);
-          }
-        }
-      } catch (e) {
-        console.warn('Recovery search failed:', e);
-      }
-    }
   }
   
   // Validate and enhance readings with content extraction
@@ -753,11 +767,68 @@ RESPONSE FORMAT - CRITICAL:
   ]
 }`;
 
-    // Call Perplexity for videos and other resources in parallel
-    const [perplexityVideos, perplexityData] = await Promise.all([
-      callPerplexityForVideos(stepTitle, discipline, blacklist),
-      callPerplexityAPI(prompt)
-    ]);
+    // HUNTER-SEEKER LOOP: Keep trying until we find a verified video
+    let verifiedVideos: any[] = [];
+    let attempts = 0;
+    const maxAttempts = 3;
+    let allRawVideos: any[] = [];
+
+    // Start resource discovery in parallel while hunting for videos
+    const resourcePromise = callPerplexityAPI(prompt);
+
+    while (verifiedVideos.length === 0 && attempts < maxAttempts) {
+      attempts++;
+      console.log(`🎯 Video Hunt Attempt ${attempts}/${maxAttempts}...`);
+      
+      let rawVideos: any[] = [];
+      
+      if (attempts === 1) {
+        // Standard search
+        rawVideos = await callPerplexityForVideos(stepTitle, discipline, blacklist);
+      } else if (attempts === 2) {
+        // Brute force - famous channels
+        console.log('Escalating to brute force search (famous channels)...');
+        rawVideos = await searchBruteForceVideos(stepTitle, discipline, blacklist);
+      } else {
+        // Hail Mary - any lecture
+        console.log('Escalating to hail mary search (any lecture)...');
+        rawVideos = await searchHailMaryVideos(stepTitle, discipline, blacklist);
+      }
+      
+      allRawVideos = [...allRawVideos, ...rawVideos];
+      
+      // Validate immediately
+      if (rawVideos.length > 0) {
+        for (const video of rawVideos) {
+          const videoId = video.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
+          if (videoId && await verifyYouTubeVideo(videoId)) {
+            verifiedVideos.push({
+              ...video,
+              thumbnailUrl: generateYouTubeThumbnail(video.url),
+              verified: true
+            });
+            console.log(`✓ Found verified video: ${video.title}`);
+          }
+        }
+      }
+      
+      if (verifiedVideos.length > 0) {
+        console.log(`✓ Hunt successful after ${attempts} attempt(s)`);
+        break;
+      }
+    }
+
+    // Use verified videos, or all raw videos (unverified) as last resort
+    const perplexityVideos = verifiedVideos.length > 0 ? verifiedVideos : allRawVideos.map(v => ({
+      ...v,
+      thumbnailUrl: generateYouTubeThumbnail(v.url),
+      verified: false
+    }));
+
+    console.log(`Video hunt complete: ${verifiedVideos.length} verified, ${allRawVideos.length} total`);
+
+    // Wait for resource discovery to complete
+    const perplexityData = await resourcePromise;
 
     const perplexityContent = perplexityData.choices[0]?.message?.content;
     
