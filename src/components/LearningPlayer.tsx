@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { BookOpen, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { VideoPlayer } from './VideoPlayer';
-import { ReadingCard } from './ReadingCard';
+import { VideoCarousel } from './VideoCarousel';
+import { ReadingCarousel } from './ReadingCarousel';
 import { BookCard } from './BookCard';
 import { AlternativeResources } from './AlternativeResources';
 import { CapstoneAssignment } from './CapstoneAssignment';
@@ -103,7 +103,13 @@ export const LearningPlayer = ({
   }
 
   const displayResources = currentResources || resources;
-  const hasAnyContent = displayResources.primaryVideo || displayResources.deepReading || displayResources.book || (displayResources.alternatives && displayResources.alternatives.length > 0);
+  const hasAnyContent = 
+    (displayResources.videos && displayResources.videos.length > 0) ||
+    (displayResources.readings && displayResources.readings.length > 0) ||
+    (displayResources.books && displayResources.books.length > 0) ||
+    (displayResources.alternatives && displayResources.alternatives.length > 0) ||
+    // Backward compatibility
+    displayResources.primaryVideo || displayResources.deepReading || displayResources.book;
 
   if (!hasAnyContent) {
     return (
@@ -129,18 +135,6 @@ export const LearningPlayer = ({
   const podcasts = displayResources.alternatives?.filter(alt => alt.type === 'podcast') || [];
   const otherAlternatives = displayResources.alternatives?.filter(alt => alt.type !== 'podcast') || [];
 
-  const handleVideoReplace = (newVideo: any) => {
-    setCurrentResources({ ...displayResources, primaryVideo: newVideo });
-  };
-
-  const handleReadingReplace = (newReading: any) => {
-    setCurrentResources({ ...displayResources, deepReading: newReading });
-  };
-
-  const handleBookReplace = (newBook: any) => {
-    setCurrentResources({ ...displayResources, book: newBook });
-  };
-
   const handleAlternativeReplace = (index: number, newResource: any, isPodcast: boolean) => {
     const updatedAlternatives = [...(displayResources.alternatives || [])];
     const actualIndex = isPodcast 
@@ -153,61 +147,63 @@ export const LearningPlayer = ({
     }
   };
 
+  // Organize books (if using new array format)
+  const booksList = displayResources.books || (displayResources.book ? [displayResources.book] : []);
+
   return (
     <div className="space-y-3 py-6">
-      {/* Primary Video */}
-      {displayResources.primaryVideo && (
-        <Collapsible open={openSections.has('video')} onOpenChange={() => toggleSection('video')}>
+      {/* Video Carousel */}
+      {displayResources.videos && displayResources.videos.length > 0 && (
+        <Collapsible open={openSections.has('videos')} onOpenChange={() => toggleSection('videos')}>
           <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
-            {openSections.has('video') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            <span className="font-semibold text-sm">📺 Primary Video (1)</span>
+            {openSections.has('videos') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-semibold text-sm">📺 Educational Videos ({displayResources.videos.length})</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <VideoPlayer 
-              {...displayResources.primaryVideo} 
-              isCapstone={isCapstone}
+            <VideoCarousel 
+              videos={displayResources.videos}
               stepTitle={stepTitle}
               discipline={discipline}
-              onReplace={handleVideoReplace}
             />
           </CollapsibleContent>
         </Collapsible>
       )}
 
-      {/* Deep Reading */}
-      {displayResources.deepReading && (
-        <Collapsible open={openSections.has('reading')} onOpenChange={() => toggleSection('reading')}>
+      {/* Reading Carousel */}
+      {displayResources.readings && displayResources.readings.length > 0 && (
+        <Collapsible open={openSections.has('readings')} onOpenChange={() => toggleSection('readings')}>
           <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
-            {openSections.has('reading') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            <span className="font-semibold text-sm">📖 Deep Reading (1)</span>
+            {openSections.has('readings') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-semibold text-sm">📖 Authority Readings ({displayResources.readings.length})</span>
           </CollapsibleTrigger>
           <CollapsibleContent className="pt-3">
-            <ReadingCard 
-              {...displayResources.deepReading} 
-              isCapstone={isCapstone}
+            <ReadingCarousel 
+              readings={displayResources.readings}
               stepTitle={stepTitle}
               discipline={discipline}
-              onReplace={handleReadingReplace}
             />
           </CollapsibleContent>
         </Collapsible>
       )}
 
-      {/* Book Resource */}
-      {displayResources.book && (
-        <Collapsible open={openSections.has('book')} onOpenChange={() => toggleSection('book')}>
+      {/* Book Resources */}
+      {booksList.length > 0 && (
+        <Collapsible open={openSections.has('books')} onOpenChange={() => toggleSection('books')}>
           <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
-            {openSections.has('book') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            <span className="font-semibold text-sm">📚 Recommended Book (1)</span>
+            {openSections.has('books') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="font-semibold text-sm">📚 Recommended Books ({booksList.length})</span>
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
-            <BookCard 
-              {...displayResources.book} 
-              isCapstone={isCapstone}
-              stepTitle={stepTitle}
-              discipline={discipline}
-              onReplace={handleBookReplace}
-            />
+          <CollapsibleContent className="pt-3 space-y-3">
+            {booksList.map((book, index) => (
+              <BookCard 
+                key={index}
+                {...book} 
+                isCapstone={isCapstone}
+                stepTitle={stepTitle}
+                discipline={discipline}
+                onReplace={() => {}}
+              />
+            ))}
           </CollapsibleContent>
         </Collapsible>
       )}

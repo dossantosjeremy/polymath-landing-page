@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface StepResources {
-  primaryVideo: {
+  videos: Array<{
     url: string;
     title: string;
     author: string;
@@ -18,15 +18,18 @@ interface StepResources {
     keyMoments?: { time: string; label: string }[];
     verified?: boolean;
     archivedUrl?: string;
-  } | null;
+  }>;
   
-  deepReading: {
+  readings: Array<{
     url: string;
     domain: string;
     title: string;
+    author?: string;
     snippet: string;
     focusHighlight: string;
     favicon?: string;
+    embeddedContent?: string;
+    contentExtractionStatus?: 'success' | 'partial' | 'failed';
     specificReadings?: Array<{
       citation: string;
       url: string;
@@ -37,9 +40,9 @@ interface StepResources {
     verified?: boolean;
     archivedUrl?: string;
     directPdfUrl?: string;
-  } | null;
+  }>;
   
-  book: {
+  books: Array<{
     title: string;
     author: string;
     url: string;
@@ -48,7 +51,9 @@ interface StepResources {
     why: string;
     verified?: boolean;
     archivedUrl?: string;
-  } | null;
+    embeddedContent?: string;
+    isPublicDomain?: boolean;
+  }>;
   
   alternatives: Array<{
     type: 'podcast' | 'mooc' | 'video' | 'article' | 'book';
@@ -194,52 +199,90 @@ async function findDirectPdfUrl(pageUrl: string): Promise<string | null> {
 async function validateAndEnhanceResources(resources: StepResources): Promise<StepResources> {
   const enhanced = { ...resources };
   
-  if (enhanced.primaryVideo?.url) {
-    const validation = await validateUrl(enhanced.primaryVideo.url);
-    enhanced.primaryVideo = {
-      ...enhanced.primaryVideo,
-      verified: validation.isValid,
-      archivedUrl: validation.archivedUrl
-    };
+  // Validate and enhance videos
+  if (enhanced.videos?.length) {
+    enhanced.videos = await Promise.all(
+      enhanced.videos.map(async (video) => {
+        const validation = await validateUrl(video.url);
+        return {
+          ...video,
+          verified: validation.isValid,
+          archivedUrl: validation.archivedUrl
+        };
+      })
+    );
   }
   
-  if (enhanced.deepReading?.url) {
-    const validation = await validateUrl(enhanced.deepReading.url);
-    const directPdf = await findDirectPdfUrl(enhanced.deepReading.url);
-    
-    enhanced.deepReading = {
-      ...enhanced.deepReading,
-      verified: validation.isValid,
-      archivedUrl: validation.archivedUrl,
-      directPdfUrl: directPdf || undefined
-    };
-    
-    if (enhanced.deepReading.specificReadings) {
-      enhanced.deepReading.specificReadings = await Promise.all(
-        enhanced.deepReading.specificReadings.map(async (reading) => {
-          if (reading.url) {
-            const readingValidation = await validateUrl(reading.url);
-            return { 
-              ...reading, 
-              verified: readingValidation.isValid,
-              archivedUrl: readingValidation.archivedUrl
-            };
+  // Validate and enhance readings with content extraction
+  if (enhanced.readings?.length) {
+    enhanced.readings = await Promise.all(
+      enhanced.readings.map(async (reading) => {
+        const validation = await validateUrl(reading.url);
+        const directPdf = await findDirectPdfUrl(reading.url);
+        
+        // Attempt content extraction for high-authority sources
+        let embeddedContent = undefined;
+        let contentStatus: 'success' | 'partial' | 'failed' = 'failed';
+        let extractedAuthor = reading.author;
+        
+        if (reading.domain.includes('stanford.edu') || 
+            reading.domain.includes('wikipedia.org') ||
+            reading.domain.includes('gutenberg.org') ||
+            reading.domain.includes('archive.org')) {
+          const extraction = await extractArticleContent(reading.url);
+          embeddedContent = extraction.content || undefined;
+          contentStatus = extraction.status;
+          if (extraction.author) {
+            extractedAuthor = extraction.author;
           }
-          return reading;
-        })
-      );
-    }
+        }
+        
+        const enhancedReading = {
+          ...reading,
+          author: extractedAuthor,
+          verified: validation.isValid,
+          archivedUrl: validation.archivedUrl,
+          directPdfUrl: directPdf || undefined,
+          embeddedContent,
+          contentExtractionStatus: contentStatus
+        };
+        
+        if (enhancedReading.specificReadings) {
+          enhancedReading.specificReadings = await Promise.all(
+            enhancedReading.specificReadings.map(async (specific) => {
+              if (specific.url) {
+                const readingValidation = await validateUrl(specific.url);
+                return { 
+                  ...specific, 
+                  verified: readingValidation.isValid,
+                  archivedUrl: readingValidation.archivedUrl
+                };
+              }
+              return specific;
+            })
+          );
+        }
+        
+        return enhancedReading;
+      })
+    );
   }
   
-  if (enhanced.book?.url) {
-    const validation = await validateUrl(enhanced.book.url);
-    enhanced.book = {
-      ...enhanced.book,
-      verified: validation.isValid,
-      archivedUrl: validation.archivedUrl
-    };
+  // Validate and enhance books
+  if (enhanced.books?.length) {
+    enhanced.books = await Promise.all(
+      enhanced.books.map(async (book) => {
+        const validation = await validateUrl(book.url);
+        return {
+          ...book,
+          verified: validation.isValid,
+          archivedUrl: validation.archivedUrl
+        };
+      })
+    );
   }
   
+  // Validate alternatives
   if (enhanced.alternatives?.length) {
     enhanced.alternatives = await Promise.all(
       enhanced.alternatives.map(async (alt) => {
@@ -267,6 +310,87 @@ function extractJSON(text: string): any {
   }
   
   return JSON.parse(cleaned);
+}
+
+async function extractArticleContent(url: string): Promise<{
+  content: string | null;
+  status: 'success' | 'partial' | 'failed';
+  author?: string;
+}> {
+  try {
+    console.log(`Attempting content extraction from: ${url}`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch(url, { 
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; ProjectHermesBot/1.0)'
+      }
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      return { content: null, status: 'failed' };
+    }
+    
+    const html = await response.text();
+    
+    // Stanford Encyclopedia of Philosophy
+    if (url.includes('plato.stanford.edu')) {
+      const match = html.match(/<div id="aueditable"[^>]*>([\s\S]*?)<\/div>/);
+      if (match) {
+        let content = match[1];
+        // Clean up scripts and styles
+        content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+        content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+        // Extract author
+        const authorMatch = html.match(/<meta name="citation_author" content="([^"]+)"/);
+        const author = authorMatch ? authorMatch[1] : undefined;
+        // Limit content to ~3000 words
+        const truncated = content.substring(0, 15000);
+        return { content: truncated, status: 'success', author };
+      }
+    }
+    
+    // Wikipedia
+    if (url.includes('wikipedia.org')) {
+      const match = html.match(/<div id="mw-content-text"[^>]*>([\s\S]*?)<div id="catlinks"/);
+      if (match) {
+        let content = match[1];
+        // Remove references, navigation, tables
+        content = content.replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '');
+        content = content.replace(/<table[^>]*>[\s\S]*?<\/table>/gi, '');
+        content = content.replace(/<div class="reflist"[^>]*>[\s\S]*?<\/div>/gi, '');
+        content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+        content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+        // Limit content
+        const truncated = content.substring(0, 12000);
+        return { content: truncated, status: 'success' };
+      }
+    }
+    
+    // Generic fallback for articles
+    const mainContentMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/) ||
+                             html.match(/<main[^>]*>([\s\S]*?)<\/main>/) ||
+                             html.match(/<div class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/);
+    
+    if (mainContentMatch) {
+      let content = mainContentMatch[1];
+      content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+      content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+      content = content.replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '');
+      content = content.replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '');
+      const truncated = content.substring(0, 10000);
+      return { content: truncated, status: 'partial' };
+    }
+    
+    return { content: null, status: 'failed' };
+  } catch (error) {
+    console.error(`Content extraction failed for ${url}:`, error);
+    return { content: null, status: 'failed' };
+  }
 }
 
 serve(async (req) => {
@@ -330,51 +454,59 @@ serve(async (req) => {
 
     const prompt = `Find the best learning resources for "${stepTitle}" in the context of "${discipline}".${sourceContext}${blacklistConstraint}
 
+CRITICAL: Return AT LEAST 3 videos, AT LEAST 3 readings, and AT LEAST 2 books.
+
 Return a JSON object with these fields:
 
 {
-  "primaryVideo": {
-    "url": "YouTube URL (<20 min, educational, not promotional)",
-    "title": "Video title",
-    "author": "Channel name",
-    "thumbnailUrl": "YouTube thumbnail URL",
-    "duration": "MM:SS format",
-    "whyThisVideo": "One sentence explaining why this is the best choice",
-    "keyMoments": [
-      {"time": "0:00", "label": "Introduction"},
-      {"time": "2:45", "label": "Main concept"}
-    ]
-  },
+  "videos": [
+    {
+      "url": "YouTube URL (<20 min, educational, not promotional)",
+      "title": "Video title",
+      "author": "Channel name",
+      "thumbnailUrl": "YouTube thumbnail URL (format: https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg)",
+      "duration": "MM:SS format",
+      "whyThisVideo": "One sentence explaining why this video is valuable",
+      "keyMoments": [
+        {"time": "0:00", "label": "Introduction"},
+        {"time": "2:45", "label": "Main concept"}
+      ]
+    }
+    // ... AT LEAST 3 videos total
+  ],
   
-  "deepReading": {
-    "url": "Main readings page URL (prefer /pages/readings/ for MIT OCW)",
-    "domain": "mit.edu",
-    "title": "Course/Article title",
-    "snippet": "Brief description of readings for this topic",
-    "focusHighlight": "Summary of what to focus on",
-    "favicon": "Optional favicon URL",
-    "specificReadings": [
-      {
-        "citation": "Kanwisher, N. (2010). Functional specificity in the human brain...",
-        "url": "https://direct-link-to-pdf.pdf",
-        "type": "pdf"
-      },
-      {
-        "citation": "Gazzaniga, M.S., Ivry, R.B. & Mangun, G.R. Cognitive Neuroscience, Chapters 2-3",
-        "url": "https://link-if-available-or-empty-string",
-        "type": "chapter"
-      }
-    ]
-  },
+  "readings": [
+    {
+      "url": "Article URL - PRIORITIZE: Stanford Encyclopedia (plato.stanford.edu), Wikipedia, MIT OCW /pages/readings/, arXiv.org, high-authority academic sources",
+      "domain": "plato.stanford.edu",
+      "title": "Article/Page title",
+      "author": "Author name if known",
+      "snippet": "Brief description of the article content (2-3 sentences)",
+      "focusHighlight": "What readers should focus on in this article",
+      "favicon": "Optional favicon URL",
+      "specificReadings": [
+        {
+          "citation": "Full citation with author, year, title",
+          "url": "https://direct-link-to-pdf.pdf or article URL",
+          "type": "pdf" | "article" | "chapter" | "external"
+        }
+      ]
+    }
+    // ... AT LEAST 3 readings total - MUST prioritize extractable sources: Stanford Encyclopedia, Wikipedia, Project Gutenberg, Archive.org
+  ],
   
-  "book": {
-    "title": "Book title (prefer classic texts, authoritative textbooks, or books from Project Gutenberg, Archive.org)",
-    "author": "Author name",
-    "url": "URL to book (Project Gutenberg, Archive.org, or authoritative source)",
-    "source": "Project Gutenberg / Archive.org / publisher",
-    "chapterRecommendation": "e.g., 'Chapter 3: The Nature of Virtue'",
-    "why": "One sentence on why this book is recommended"
-  },
+  "books": [
+    {
+      "title": "Book title - PREFER: Project Gutenberg (gutenberg.org), Archive.org, classic texts, authoritative textbooks",
+      "author": "Author name",
+      "url": "Direct URL to readable book (Project Gutenberg, Archive.org preferred)",
+      "source": "Project Gutenberg / Archive.org / Open Library / publisher",
+      "chapterRecommendation": "e.g., 'Chapter 3: The Nature of Virtue' or 'Pages 45-67'",
+      "why": "One sentence on why this book is recommended",
+      "isPublicDomain": true/false
+    }
+    // ... AT LEAST 2 books total
+  ],
   
   "alternatives": [
     {
@@ -388,15 +520,22 @@ Return a JSON object with these fields:
   ]
 }
 
-CRITICAL LINK REQUIREMENTS:
-- For PDFs: Return DIRECT URLs ending in .pdf, not landing pages (e.g., "https://example.edu/paper.pdf")
-- For books: Prefer direct Archive.org or Project Gutenberg links to readable content
-- For MIT OCW: Use /pages/readings/ URLs (not /pages/syllabus/)
-- Extract SPECIFIC reading assignments from readings pages (author, book title, chapters, page ranges)
-- When readings pages have DIRECT LINKS to PDFs or articles, include them in deepReading.specificReadings array
-- Each specificReading should have: citation (full bibliographic reference), url (direct link if available, empty string if not), type (pdf/article/chapter/external)
-- Format citations properly (e.g., "Kanwisher, N. (2010). Functional specificity..." or "Gazzaniga et al., Chapters 2-3")
-- If no direct links are available for readings, include them in focusHighlight but omit from specificReadings
+HIGH-AUTHORITY SOURCE PRIORITIES FOR READINGS (content will be embedded):
+1. Stanford Encyclopedia of Philosophy (plato.stanford.edu) - excellent for philosophy, highly extractable
+2. Wikipedia (wikipedia.org) - reliable, comprehensive, highly extractable
+3. MIT OCW readings pages (ocw.mit.edu/pages/readings/) - academic quality
+4. Project Gutenberg (gutenberg.org) - classic texts, public domain
+5. Internet Archive (archive.org) - diverse materials, public access
+6. arXiv (arxiv.org) - open access research papers
+
+CRITICAL REQUIREMENTS:
+- For readings: MUST include AT LEAST 3 readings from the priority sources above
+- For books: MUST include AT LEAST 2 books, preferably from Project Gutenberg or Archive.org
+- For videos: MUST include AT LEAST 3 YouTube videos with proper thumbnail URLs
+- YouTube thumbnails: Use format https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg where VIDEO_ID is extracted from the video URL
+- PDFs: Return DIRECT URLs ending in .pdf, not landing pages
+- Citations: Include author names, publication years, full titles
+- All URLs must be valid and accessible
 
 Return ONLY the JSON object, no markdown formatting, no explanations.`;
 
@@ -412,9 +551,9 @@ Return ONLY the JSON object, no markdown formatting, no explanations.`;
     let resources: StepResources = extractJSON(content);
     
     console.log('Successfully parsed resources:', {
-      hasVideo: !!resources.primaryVideo,
-      hasReading: !!resources.deepReading,
-      hasBook: !!resources.book,
+      videoCount: resources.videos?.length || 0,
+      readingCount: resources.readings?.length || 0,
+      bookCount: resources.books?.length || 0,
       alternativesCount: resources.alternatives?.length || 0
     });
 
@@ -425,14 +564,14 @@ Return ONLY the JSON object, no markdown formatting, no explanations.`;
 
     // Filter out any blacklisted URLs that slipped through
     if (blacklist.length > 0) {
-      if (resources.primaryVideo?.url && blacklist.includes(resources.primaryVideo.url)) {
-        resources.primaryVideo = null;
+      if (resources.videos) {
+        resources.videos = resources.videos.filter(video => !blacklist.includes(video.url));
       }
-      if (resources.deepReading?.url && blacklist.includes(resources.deepReading.url)) {
-        resources.deepReading = null;
+      if (resources.readings) {
+        resources.readings = resources.readings.filter(reading => !blacklist.includes(reading.url));
       }
-      if (resources.book?.url && blacklist.includes(resources.book.url)) {
-        resources.book = null;
+      if (resources.books) {
+        resources.books = resources.books.filter(book => !blacklist.includes(book.url));
       }
       if (resources.alternatives) {
         resources.alternatives = resources.alternatives.filter(alt => !blacklist.includes(alt.url));
@@ -462,9 +601,9 @@ Return ONLY the JSON object, no markdown formatting, no explanations.`;
     console.error('Error in fetch-step-resources:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error',
-      primaryVideo: null,
-      deepReading: null,
-      book: null,
+      videos: [],
+      readings: [],
+      books: [],
       alternatives: []
     }), {
       status: 500,
