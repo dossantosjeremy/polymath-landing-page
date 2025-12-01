@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.find-additional-resource]
 verify_jwt = false
+
+[functions.recover-podcast-link]
+verify_jwt = false
