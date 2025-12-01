@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { ExternalLink, AlertTriangle, FileText, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { ExternalLink, AlertTriangle, FileText, ChevronDown, ChevronUp, Search, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Carousel, CarouselApi, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ResourceFallback } from './ResourceFallback';
+import { useFindMoreResource } from '@/hooks/useFindMoreResource';
+import { useToast } from '@/hooks/use-toast';
 
 interface Reading {
   url: string;
@@ -36,9 +38,12 @@ interface ReadingCarouselProps {
 export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCarouselProps) => {
   const [expandedContent, setExpandedContent] = useState<Set<number>>(new Set());
   const [api, setApi] = useState<CarouselApi>();
+  const [localReadings, setLocalReadings] = useState(readings);
+  const { findMore, isSearching } = useFindMoreResource();
+  const { toast } = useToast();
   
   // Filter to only show verified readings
-  const validReadings = readings.filter(r => r.url && r.verified !== false);
+  const validReadings = localReadings.filter(r => r.url && r.verified !== false);
   
   // Fallback for no valid readings
   if (validReadings.length === 0) {
@@ -80,6 +85,27 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
       }
       return next;
     });
+  };
+
+  const handleFindMore = async () => {
+    try {
+      const existingUrls = localReadings.map(r => r.url);
+      const newReading = await findMore('reading', stepTitle, discipline, existingUrls);
+      
+      if (newReading) {
+        setLocalReadings([...localReadings, newReading]);
+        toast({
+          title: "Reading Added",
+          description: `Added: ${newReading.title}`,
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Search Failed",
+        description: "Could not find additional readings. Try again later.",
+        variant: "destructive"
+      });
+    }
   };
 
   const getSourceBadgeColor = (domain: string) => {
@@ -233,6 +259,19 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
           </>
         )}
       </Carousel>
+      
+      {/* Find More Button */}
+      <div className="flex justify-center pt-2">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleFindMore}
+          disabled={isSearching}
+        >
+          <PlusCircle className="h-4 w-4 mr-2" />
+          {isSearching ? 'Searching...' : 'Find One More Reading'}
+        </Button>
+      </div>
     </div>
   );
 };

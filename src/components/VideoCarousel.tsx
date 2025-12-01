@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { ExternalLink, Search, AlertTriangle, Flag } from "lucide-react";
+import { ExternalLink, Search, AlertTriangle, Flag, PlusCircle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ResourceFallback } from './ResourceFallback';
 import { useReportResource } from '@/hooks/useReportResource';
+import { useFindMoreResource } from '@/hooks/useFindMoreResource';
+import { useToast } from '@/hooks/use-toast';
 
 interface Video {
   url: string;
@@ -27,6 +29,8 @@ interface VideoCarouselProps {
 
 export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselProps) => {
   const { reportAndReplace, isReporting } = useReportResource();
+  const { findMore, isSearching } = useFindMoreResource();
+  const { toast } = useToast();
   const [localVideos, setLocalVideos] = useState(videos);
   
   // Filter to only show verified videos
@@ -58,6 +62,27 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
         };
         setLocalVideos(newVideos);
       }
+    }
+  };
+
+  const handleFindMore = async () => {
+    try {
+      const existingUrls = localVideos.map(v => v.url);
+      const newVideo = await findMore('video', stepTitle, discipline, existingUrls);
+      
+      if (newVideo) {
+        setLocalVideos([...localVideos, newVideo]);
+        toast({
+          title: "Video Added",
+          description: `Added: ${newVideo.title}`,
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Search Failed",
+        description: "Could not find additional videos. Try again later.",
+        variant: "destructive"
+      });
     }
   };
   
@@ -199,6 +224,19 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
           </>
         )}
       </Carousel>
+      
+      {/* Find More Button */}
+      <div className="flex justify-center pt-2">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleFindMore}
+          disabled={isSearching}
+        >
+          <PlusCircle className="h-4 w-4 mr-2" />
+          {isSearching ? 'Searching...' : 'Find One More Video'}
+        </Button>
+      </div>
     </div>
   );
 };
