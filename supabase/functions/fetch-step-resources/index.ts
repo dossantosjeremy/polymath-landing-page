@@ -67,6 +67,18 @@ interface StepResources {
   }>;
 }
 
+async function verifyYouTubeVideo(videoId: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`
+    );
+    return response.ok;
+  } catch (error) {
+    console.error('YouTube oEmbed verification failed:', videoId, error);
+    return false;
+  }
+}
+
 async function callPerplexityAPI(prompt: string): Promise<any> {
   const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!perplexityApiKey) {
@@ -81,12 +93,12 @@ async function callPerplexityAPI(prompt: string): Promise<any> {
       'Authorization': `Bearer ${perplexityApiKey}`,
       'Content-Type': 'application/json',
     },
-      body: JSON.stringify({
-        model: 'sonar',
-        messages: [
+    body: JSON.stringify({
+      model: 'llama-3.1-sonar-large-128k-online',
+      messages: [
         {
           role: 'system',
-          content: 'You are a learning resource curator. Return ONLY valid JSON with no markdown formatting or explanation.'
+          content: 'You are an expert educational resource curator. You MUST search the web and provide ONLY real URLs that actually exist. Never generate fake URLs or video IDs. Return only valid JSON.'
         },
         {
           role: 'user',
@@ -94,7 +106,9 @@ async function callPerplexityAPI(prompt: string): Promise<any> {
         }
       ],
       temperature: 0.2,
-      max_tokens: 2000,
+      search_recency_filter: 'month',
+      return_citations: true,
+      max_tokens: 4000,
     }),
   });
 
@@ -151,7 +165,8 @@ async function validateUrl(url: string): Promise<{
       return { isValid: true, finalUrl: response.url };
     }
     
-    // Try Wayback Machine if HEAD fails
+    // For non-OK responses, immediately fail (don't use broken URLs)
+    console.log(`URL validation failed (${response.status}) for ${url}`);
     const waybackResponse = await fetch(
       `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`
     );
@@ -199,18 +214,36 @@ async function findDirectPdfUrl(pageUrl: string): Promise<string | null> {
 async function validateAndEnhanceResources(resources: StepResources): Promise<StepResources> {
   const enhanced = { ...resources };
   
-  // Validate and enhance videos
+  // Validate videos with YouTube oEmbed verification
   if (enhanced.videos?.length) {
-    enhanced.videos = await Promise.all(
+    console.log(`Validating ${enhanced.videos.length} videos...`);
+    const validatedVideos = await Promise.all(
       enhanced.videos.map(async (video) => {
+        // Extract video ID from URL
+        const videoIdMatch = video.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/);
+        if (!videoIdMatch) {
+          console.log('Invalid YouTube URL format:', video.url);
+          return { ...video, verified: false };
+        }
+        
+        const videoId = videoIdMatch[1];
+        const isValidVideo = await verifyYouTubeVideo(videoId);
+        
+        if (!isValidVideo) {
+          console.log('YouTube video verification failed:', videoId);
+          return { ...video, verified: false };
+        }
+        
         const validation = await validateUrl(video.url);
         return {
           ...video,
-          verified: validation.isValid,
+          verified: validation.isValid && isValidVideo,
           archivedUrl: validation.archivedUrl
         };
       })
     );
+    enhanced.videos = validatedVideos.filter(v => v.verified !== false);
+    console.log(`${enhanced.videos.length} videos passed verification`);
   }
   
   // Validate and enhance readings with content extraction
@@ -339,36 +372,67 @@ async function extractArticleContent(url: string): Promise<{
     
     // Stanford Encyclopedia of Philosophy
     if (url.includes('plato.stanford.edu')) {
-      const match = html.match(/<div id="aueditable"[^>]*>([\s\S]*?)<\/div>/);
+      // Try multiple selectors for Stanford Encyclopedia
+      let match = html.match(/<div id="main-text"[^>]*>([\s\S]*?)<div id="related-entries"/i) ||
+                  html.match(/<div id="aueditable"[^>]*>([\s\S]*?)<div id="related-entries"/i) ||
+                  html.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+      
       if (match) {
         let content = match[1];
-        // Clean up scripts and styles
-        content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-        content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-        // Extract author
+        
+        // Clean up the HTML
+        content = content
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<img[^>]*>/gi, '')
+          .replace(/<a[^>]*>([\s\S]*?)<\/a>/gi, '$1')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        // Extract author from the preamble if available
         const authorMatch = html.match(/<meta name="citation_author" content="([^"]+)"/);
         const author = authorMatch ? authorMatch[1] : undefined;
-        // Limit content to ~3000 words
-        const truncated = content.substring(0, 15000);
-        return { content: truncated, status: 'success', author };
+        
+        // Limit content to first 3000 words
+        const words = content.split(/\s+/);
+        if (words.length > 3000) {
+          content = words.slice(0, 3000).join(' ') + '...';
+        }
+        
+        return { content, status: 'success', author };
       }
+      
+      return { content: null, status: 'failed' };
     }
     
     // Wikipedia
     if (url.includes('wikipedia.org')) {
-      const match = html.match(/<div id="mw-content-text"[^>]*>([\s\S]*?)<div id="catlinks"/);
+      // Extract main content with improved selector
+      const match = html.match(/<div[^>]*class="[^"]*mw-parser-output[^"]*"[^>]*>([\s\S]*?)<div[^>]*id="catlinks"/i);
       if (match) {
         let content = match[1];
-        // Remove references, navigation, tables
-        content = content.replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '');
-        content = content.replace(/<table[^>]*>[\s\S]*?<\/table>/gi, '');
-        content = content.replace(/<div class="reflist"[^>]*>[\s\S]*?<\/div>/gi, '');
-        content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-        content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-        // Limit content
-        const truncated = content.substring(0, 12000);
-        return { content: truncated, status: 'success' };
+        
+        // Clean up
+        content = content
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<sup[^>]*>[\s\S]*?<\/sup>/gi, '')
+          .replace(/<img[^>]*>/gi, '')
+          .replace(/<table[^>]*>[\s\S]*?<\/table>/gi, '')
+          .replace(/<div[^>]*class="[^"]*infobox[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        
+        // Limit to first 2500 words
+        const words = content.split(/\s+/);
+        if (words.length > 2500) {
+          content = words.slice(0, 2500).join(' ') + '...';
+        }
+        
+        return { content, status: 'success' };
       }
+      
+      return { content: null, status: 'failed' };
     }
     
     // Generic fallback for articles
@@ -452,77 +516,105 @@ serve(async (req) => {
       ? `\n\nCRITICAL: DO NOT USE these broken/reported URLs:\n${blacklist.join('\n')}\n`
       : '';
 
-    const prompt = `Find the best learning resources for "${stepTitle}" in the context of "${discipline}".${sourceContext}${blacklistConstraint}
+    const prompt = `SEARCH THE WEB and find REAL, VERIFIED learning resources for this learning step.
 
-CRITICAL: Return AT LEAST 3 videos, AT LEAST 3 readings, and AT LEAST 2 books.
+Step: "${stepTitle}"
+Discipline: "${discipline}"
 
-Return a JSON object with these fields:
+${sourceContext}
 
+CRITICAL REQUIREMENTS - YOU MUST ACTUALLY SEARCH AND VERIFY THESE RESOURCES EXIST:
+
+1. VIDEOS (Search for at least 3 REAL educational videos):
+   - YOU MUST search YouTube.com and return REAL video URLs that exist
+   - Search terms: "${stepTitle} educational video", "CrashCourse ${stepTitle}", "Khan Academy ${stepTitle}"
+   - Prioritize: CrashCourse, Khan Academy, MIT OCW, TED-Ed, Veritasium, 3Blue1Brown
+   - Videos must be <20 minutes and directly on topic
+   - DO NOT generate fake video IDs - only return URLs you found via search
+   - Provide: REAL YouTube URL, exact title from the video, channel name, duration
+   - Include "whyThisVideo" explanation (1 sentence)
+   - Include "keyMoments" with timestamps
+
+2. READINGS (Search for at least 3 REAL authoritative articles):
+   - YOU MUST search these specific domains and return REAL pages:
+     * plato.stanford.edu (Stanford Encyclopedia of Philosophy)
+     * en.wikipedia.org
+     * ocw.mit.edu (MIT OpenCourseWare)
+     * gutenberg.org (Project Gutenberg)
+     * archive.org (Internet Archive)
+   
+   - Search queries: "site:plato.stanford.edu ${stepTitle}", "site:en.wikipedia.org ${stepTitle}"
+   - DO NOT generate fake URLs - only return pages you found
+   
+   For each reading provide:
+   - REAL, verified URL that exists
+   - Exact title from the page
+   - Author (if available)
+   - Domain (extract from URL)
+   - Brief snippet (2-3 sentences from the actual article)
+   - "focusHighlight" recommendation (e.g., "Read sections 1-3")
+
+3. BOOKS (Find at least 2 real books):
+   - Search for authoritative books on the topic
+   - Provide: title, author, URL (to publisher/library/Amazon)
+   - Chapter recommendations
+   - Brief explanation of relevance
+
+4. ALTERNATIVES (Find 2-3 real supplementary resources):
+   - Search for podcasts, MOOC courses, tools
+   - Each must have: type, REAL url, title, source, duration
+
+VERIFICATION REQUIREMENTS:
+- Every URL you return must be a REAL page you found via web search
+- Do not invent video IDs, course codes, or podcast episodes
+- If you cannot find a resource, omit it rather than generating a fake URL
+- Verify the content matches the topic before including it
+
+${blacklistConstraint}
+
+Return valid JSON only:
 {
   "videos": [
     {
-      "url": "YouTube URL (<20 min, educational, not promotional)",
-      "title": "Video title",
-      "author": "Channel name",
-      "thumbnailUrl": "YouTube thumbnail URL (format: https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg)",
-      "duration": "MM:SS format",
-      "whyThisVideo": "One sentence explaining why this video is valuable",
-      "keyMoments": [
-        {"time": "0:00", "label": "Introduction"},
-        {"time": "2:45", "label": "Main concept"}
-      ]
+      "url": "REAL YouTube URL you found via search",
+      "title": "Exact title from the video",
+      "author": "Exact channel name",
+      "thumbnailUrl": "https://i.ytimg.com/vi/VIDEO_ID/maxresdefault.jpg",
+      "duration": "MM:SS",
+      "whyThisVideo": "One sentence explanation",
+      "keyMoments": [{"time": "M:SS", "label": "Topic"}]
     }
-    // ... AT LEAST 3 videos total
   ],
-  
   "readings": [
     {
-      "url": "Article URL - PRIORITIZE: Stanford Encyclopedia (plato.stanford.edu), Wikipedia, MIT OCW /pages/readings/, arXiv.org, high-authority academic sources",
-      "domain": "plato.stanford.edu",
-      "title": "Article/Page title",
-      "author": "Author name if known",
-      "snippet": "Brief description of the article content (2-3 sentences)",
-      "focusHighlight": "What readers should focus on in this article",
-      "favicon": "Optional favicon URL",
-      "specificReadings": [
-        {
-          "citation": "Full citation with author, year, title",
-          "url": "https://direct-link-to-pdf.pdf or article URL",
-          "type": "pdf" | "article" | "chapter" | "external"
-        }
-      ]
+      "url": "REAL URL you found via search",
+      "title": "Exact title from page",
+      "author": "Author if available",
+      "domain": "Domain from URL",
+      "snippet": "2-3 sentences from actual article",
+      "focusHighlight": "Reading recommendation"
     }
-    // ... AT LEAST 3 readings total - MUST prioritize extractable sources: Stanford Encyclopedia, Wikipedia, Project Gutenberg, Archive.org
   ],
-  
   "books": [
     {
-      "title": "Book title - PREFER: Project Gutenberg (gutenberg.org), Archive.org, classic texts, authoritative textbooks",
+      "title": "Book title",
       "author": "Author name",
-      "url": "Direct URL to readable book (Project Gutenberg, Archive.org preferred)",
-      "source": "Project Gutenberg / Archive.org / Open Library / publisher",
-      "chapterRecommendation": "e.g., 'Chapter 3: The Nature of Virtue' or 'Pages 45-67'",
-      "why": "One sentence on why this book is recommended",
-      "isPublicDomain": true/false
+      "url": "Real book URL",
+      "source": "Publisher/source",
+      "chapterRecommendation": "Chapter suggestions",
+      "why": "Relevance explanation"
     }
-    // ... AT LEAST 2 books total
   ],
-  
   "alternatives": [
     {
-      "type": "podcast" | "mooc" | "video" | "article" | "book",
-      "url": "Resource URL",
+      "type": "podcast|mooc|tool",
+      "url": "Real resource URL",
       "title": "Resource title",
-      "source": "Platform name (Spotify, Coursera, edX, etc.)",
-      "duration": "Optional duration",
-      "author": "Optional author/creator"
+      "source": "Source name",
+      "duration": "Duration/length"
     }
   ]
-}
-
-HIGH-AUTHORITY SOURCE PRIORITIES FOR READINGS (content will be embedded):
-1. Stanford Encyclopedia of Philosophy (plato.stanford.edu) - excellent for philosophy, highly extractable
-2. Wikipedia (wikipedia.org) - reliable, comprehensive, highly extractable
+}`;
 3. MIT OCW readings pages (ocw.mit.edu/pages/readings/) - academic quality
 4. Project Gutenberg (gutenberg.org) - classic texts, public domain
 5. Internet Archive (archive.org) - diverse materials, public access
