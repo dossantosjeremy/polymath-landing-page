@@ -172,7 +172,7 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
             );
           })}
         </CarouselContent>
-        {videos.length > 1 && (
+        {validVideos.length > 1 && (
           <>
             <CarouselPrevious />
             <CarouselNext />
