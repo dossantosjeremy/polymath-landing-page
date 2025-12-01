@@ -237,4 +237,102 @@ All colors MUST be HSL.
   .assignment-content strong {
     @apply font-semibold text-foreground;
   }
+
+  /* Embedded article content formatting for ReadingCarousel */
+  .embedded-article-content {
+    font-family: var(--font-serif);
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: hsl(var(--foreground));
+  }
+
+  .embedded-article-content h1,
+  .embedded-article-content h2,
+  .embedded-article-content h3,
+  .embedded-article-content h4 {
+    font-family: var(--font-serif);
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    color: hsl(var(--foreground));
+  }
+
+  .embedded-article-content h1 {
+    @apply text-xl border-b border-border pb-2;
+  }
+
+  .embedded-article-content h2 {
+    @apply text-lg;
+  }
+
+  .embedded-article-content h3 {
+    @apply text-base;
+  }
+
+  .embedded-article-content p {
+    margin-bottom: 1rem;
+  }
+
+  .embedded-article-content blockquote {
+    border-left: 3px solid hsl(var(--primary));
+    padding-left: 1rem;
+    margin: 1rem 0;
+    font-style: italic;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .embedded-article-content ul,
+  .embedded-article-content ol {
+    margin: 0.75rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .embedded-article-content li {
+    margin-bottom: 0.5rem;
+  }
+
+  .embedded-article-content a {
+    color: hsl(var(--primary));
+    text-decoration: underline;
+  }
+
+  .embedded-article-content a:hover {
+    opacity: 0.8;
+  }
+
+  .embedded-article-content code {
+    background: hsl(var(--muted));
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+  }
+
+  .embedded-article-content pre {
+    background: hsl(var(--muted));
+    padding: 1rem;
+    border-radius: 0.25rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+
+  .embedded-article-content pre code {
+    background: none;
+    padding: 0;
+  }
+
+  .embedded-article-content strong {
+    font-weight: 600;
+  }
+
+  .embedded-article-content em {
+    font-style: italic;
+  }
+
+  .embedded-article-content img {
+    max-width: 100%;
+    height: auto;
+    margin: 1rem 0;
+    border-radius: 0.25rem;
+  }
 }

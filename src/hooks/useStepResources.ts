@@ -2,7 +2,69 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface StepResources {
-  primaryVideo: {
+  // Updated to support multiple videos
+  videos: Array<{
+    url: string;
+    title: string;
+    author: string;
+    thumbnailUrl: string;
+    duration: string;
+    whyThisVideo: string;
+    keyMoments?: { time: string; label: string }[];
+    verified?: boolean;
+    archivedUrl?: string;
+  }>;
+  
+  // Updated to support multiple readings with embedded content
+  readings: Array<{
+    url: string;
+    domain: string;
+    title: string;
+    author?: string;
+    snippet: string;
+    focusHighlight: string;
+    favicon?: string;
+    embeddedContent?: string;
+    contentExtractionStatus?: 'success' | 'partial' | 'failed';
+    specificReadings?: Array<{
+      citation: string;
+      url: string;
+      type: 'pdf' | 'article' | 'chapter' | 'external';
+      verified?: boolean;
+      archivedUrl?: string;
+    }>;
+    verified?: boolean;
+    archivedUrl?: string;
+    directPdfUrl?: string;
+  }>;
+  
+  // Updated to support multiple books
+  books: Array<{
+    title: string;
+    author: string;
+    url: string;
+    source: string;
+    chapterRecommendation?: string;
+    why: string;
+    verified?: boolean;
+    archivedUrl?: string;
+    embeddedContent?: string;
+    isPublicDomain?: boolean;
+  }>;
+  
+  alternatives: Array<{
+    type: 'podcast' | 'mooc' | 'video' | 'article' | 'book';
+    url: string;
+    title: string;
+    source: string;
+    duration?: string;
+    author?: string;
+    verified?: boolean;
+    archivedUrl?: string;
+  }>;
+
+  // Legacy fields for backward compatibility (deprecated)
+  primaryVideo?: {
     url: string;
     title: string;
     author: string;
@@ -14,7 +76,7 @@ export interface StepResources {
     archivedUrl?: string;
   } | null;
   
-  deepReading: {
+  deepReading?: {
     url: string;
     domain: string;
     title: string;
@@ -33,7 +95,7 @@ export interface StepResources {
     directPdfUrl?: string;
   } | null;
   
-  book: {
+  book?: {
     title: string;
     author: string;
     url: string;
@@ -43,17 +105,6 @@ export interface StepResources {
     verified?: boolean;
     archivedUrl?: string;
   } | null;
-  
-  alternatives: Array<{
-    type: 'podcast' | 'mooc' | 'video' | 'article' | 'book';
-    url: string;
-    title: string;
-    source: string;
-    duration?: string;
-    author?: string;
-    verified?: boolean;
-    archivedUrl?: string;
-  }>;
 }
 
 export const useStepResources = () => {
