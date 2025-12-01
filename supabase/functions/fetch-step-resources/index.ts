@@ -79,7 +79,7 @@ async function verifyYouTubeVideo(videoId: string): Promise<boolean> {
   }
 }
 
-async function callPerplexityAPI(prompt: string): Promise<any> {
+async function callPerplexityAPI(prompt: string, model: string = 'sonar', maxTokens: number = 4000): Promise<any> {
   const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!perplexityApiKey) {
     throw new Error('PERPLEXITY_API_KEY not configured');
@@ -94,7 +94,7 @@ async function callPerplexityAPI(prompt: string): Promise<any> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'sonar',
+      model: model,
       messages: [
         {
           role: 'system',
@@ -108,7 +108,7 @@ async function callPerplexityAPI(prompt: string): Promise<any> {
       temperature: 0.2,
       search_recency_filter: 'month',
       return_citations: true,
-      max_tokens: 4000,
+      max_tokens: maxTokens,
     }),
   });
 
@@ -136,82 +136,66 @@ async function callPerplexityAPI(prompt: string): Promise<any> {
   return data;
 }
 
-async function callGeminiForVideos(stepTitle: string, discipline: string): Promise<any[]> {
-  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
-  if (!lovableApiKey) {
-    console.warn('LOVABLE_API_KEY not configured, skipping Gemini video search');
+async function callPerplexityForVideos(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+  const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+  if (!perplexityApiKey) {
+    console.warn('PERPLEXITY_API_KEY not configured, skipping video search');
     return [];
   }
 
-  console.log('Calling Gemini for YouTube video discovery...');
+  console.log('Calling Perplexity for YouTube video discovery...');
   
-  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${lovableApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'google/gemini-2.5-flash',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert at finding educational YouTube videos. You have deep knowledge of YouTube's educational content ecosystem including channels like CrashCourse, Khan Academy, 3Blue1Brown, Veritasium, TED-Ed, MIT OpenCourseWare, and academic lecture series.
+  const blacklistConstraint = blacklist.length > 0
+    ? `\n\nCRITICAL: DO NOT RETURN these broken/reported video URLs:\n${blacklist.filter(url => url.includes('youtube.com') || url.includes('youtu.be')).join('\n')}\n`
+    : '';
 
-CRITICAL RULES:
-1. ONLY output valid JSON - no explanations, no apologies, no text before/after
-2. If you don't know good videos for this topic, return an empty array: []
-3. Never say "I'm sorry" or "I cannot" or explain why you can't find videos
-4. Return REAL YouTube URLs with actual video IDs that you are confident exist`
-        },
-        {
-          role: 'user',
-          content: `Find 3-5 high-quality educational YouTube videos about: "${stepTitle}" in the discipline of "${discipline}"
+  const prompt = `SEARCH YOUTUBE and find REAL, EXISTING educational videos about: "${stepTitle}" in the discipline of "${discipline}"
 
-Requirements:
-- Videos must be under 25 minutes (prefer 8-18 minutes for engagement)
-- From reputable educational channels (CrashCourse, Khan Academy, 3Blue1Brown, Veritasium, TED-Ed, MIT OCW, university lectures, etc.)
-- Directly relevant to the topic
-- Return ONLY videos you are confident exist with real video IDs
+SEARCH REQUIREMENTS:
+- Perform actual YouTube searches using queries like: "${stepTitle} lecture", "${stepTitle} explained", "${stepTitle} tutorial"
+- Search for videos from authoritative educational channels: CrashCourse, Khan Academy, 3Blue1Brown, Veritasium, TED-Ed, MIT OCW, university lecture channels
+- Verify each video exists before including it
+- Videos must be under 25 minutes (prefer 8-18 minutes)
+- Return 3-5 videos maximum
 
-For each video provide:
-- url: Full YouTube URL (https://www.youtube.com/watch?v=REAL_VIDEO_ID)
-- title: The exact video title
+${blacklistConstraint}
+
+For each video you find, provide:
+- url: Full YouTube URL (https://www.youtube.com/watch?v=VIDEO_ID) - MUST be a real video you found
+- title: Exact video title from YouTube
 - author: Channel name
-- duration: Estimated duration (e.g., "12:34")
-- whyThisVideo: 1 sentence explaining educational value
-- keyMoments: 2-3 important timestamps if you know them
+- duration: Video duration (e.g., "12:34")
+- whyThisVideo: 1 sentence explaining why this video is relevant
+- keyMoments: 2-3 key timestamps if identifiable
 
-RESPONSE FORMAT - START YOUR RESPONSE WITH [ AND END WITH ]:
+CRITICAL RESPONSE RULES:
+1. Return ONLY valid JSON - no text before/after, no apologies, no explanations
+2. Start response with [ and end with ]
+3. Only include videos that ACTUALLY EXIST on YouTube right now
+4. If you cannot find real videos, return an empty array: []
+5. Never invent video IDs or make up URLs
+
+RESPONSE FORMAT:
 [
   {
-    "url": "https://www.youtube.com/watch?v=...",
-    "title": "...",
-    "author": "...",
-    "duration": "...",
-    "whyThisVideo": "...",
-    "keyMoments": [{"time": "0:00", "label": "Introduction"}]
+    "url": "https://www.youtube.com/watch?v=REAL_VIDEO_ID",
+    "title": "Exact title from YouTube",
+    "author": "Channel name",
+    "duration": "12:34",
+    "whyThisVideo": "One sentence explanation",
+    "keyMoments": [{"time": "0:45", "label": "Introduction"}]
   }
-]`
-        }
-      ],
-    }),
-  });
+]`;
 
-  if (!response.ok) {
-    console.error('Gemini API error:', response.status);
-    return [];
-  }
-
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-  
-  if (!content) {
-    console.warn('No content in Gemini response');
-    return [];
-  }
-  
   try {
+    const data = await callPerplexityAPI(prompt, 'llama-3.1-sonar-large-128k-online');
+    const content = data.choices[0]?.message?.content;
+    
+    if (!content) {
+      console.warn('No content in Perplexity video response');
+      return [];
+    }
+    
     const videos = extractJSON(content);
     if (Array.isArray(videos)) {
       // Add thumbnails to each video
@@ -222,7 +206,7 @@ RESPONSE FORMAT - START YOUR RESPONSE WITH [ AND END WITH ]:
     }
     return [];
   } catch (e) {
-    console.error('Failed to parse Gemini video response:', e);
+    console.error('Failed to parse Perplexity video response:', e);
     return [];
   }
 }
@@ -718,9 +702,9 @@ RESPONSE FORMAT - CRITICAL:
   ]
 }`;
 
-    // Call Gemini for videos and Perplexity for other resources in parallel
-    const [geminiVideos, perplexityData] = await Promise.all([
-      callGeminiForVideos(stepTitle, discipline),
+    // Call Perplexity for videos and other resources in parallel
+    const [perplexityVideos, perplexityData] = await Promise.all([
+      callPerplexityForVideos(stepTitle, discipline, blacklist),
       callPerplexityAPI(prompt)
     ]);
 
@@ -731,13 +715,13 @@ RESPONSE FORMAT - CRITICAL:
     }
 
     console.log('Perplexity raw response:', perplexityContent.substring(0, 500));
-    console.log('Gemini returned', geminiVideos.length, 'videos');
+    console.log('Perplexity returned', perplexityVideos.length, 'videos');
     
     const perplexityResources = extractJSON(perplexityContent) || {};
     
     // Merge results with fallbacks
     let resources: StepResources = {
-      videos: geminiVideos || [],
+      videos: perplexityVideos || [],
       readings: perplexityResources.readings || [],
       books: perplexityResources.books || [],
       alternatives: perplexityResources.alternatives || [],
