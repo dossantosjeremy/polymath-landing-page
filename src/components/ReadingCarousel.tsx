@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ExternalLink, AlertTriangle, FileText, ChevronDown, ChevronUp, Search, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +41,21 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
   const [localReadings, setLocalReadings] = useState(readings);
   const { findMore, isSearching } = useFindMoreResource();
   const { toast } = useToast();
+
+  // Close expanded content when carousel slides change
+  useEffect(() => {
+    if (!api) return;
+
+    const handleSelect = () => {
+      setExpandedContent(new Set());
+    };
+
+    api.on("select", handleSelect);
+
+    return () => {
+      api.off("select", handleSelect);
+    };
+  }, [api]);
   
   // Filter to only show verified readings
   const validReadings = localReadings.filter(r => r.url && r.verified !== false);
