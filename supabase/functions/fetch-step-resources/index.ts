@@ -136,6 +136,101 @@ async function callPerplexityAPI(prompt: string): Promise<any> {
   return data;
 }
 
+async function callGeminiForVideos(stepTitle: string, discipline: string): Promise<any[]> {
+  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+  if (!lovableApiKey) {
+    console.warn('LOVABLE_API_KEY not configured, skipping Gemini video search');
+    return [];
+  }
+
+  console.log('Calling Gemini for YouTube video discovery...');
+  
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${lovableApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        {
+          role: 'system',
+          content: `You are an expert at finding educational YouTube videos. You have deep knowledge of YouTube's educational content ecosystem including channels like CrashCourse, Khan Academy, 3Blue1Brown, Veritasium, TED-Ed, MIT OpenCourseWare, and academic lecture series.
+
+CRITICAL: Only recommend videos you are confident exist. Return REAL YouTube URLs with actual video IDs.`
+        },
+        {
+          role: 'user',
+          content: `Find 3-5 high-quality educational YouTube videos about: "${stepTitle}" in the discipline of "${discipline}"
+
+Requirements:
+- Videos must be under 25 minutes (prefer 8-18 minutes for engagement)
+- From reputable educational channels (CrashCourse, Khan Academy, 3Blue1Brown, Veritasium, TED-Ed, MIT OCW, university lectures, etc.)
+- Directly relevant to the topic
+- Return ONLY videos you are confident exist with real video IDs
+
+For each video provide:
+- url: Full YouTube URL (https://www.youtube.com/watch?v=REAL_VIDEO_ID)
+- title: The exact video title
+- author: Channel name
+- duration: Estimated duration (e.g., "12:34")
+- whyThisVideo: 1 sentence explaining educational value
+- keyMoments: 2-3 important timestamps if you know them
+
+Return JSON array only:
+[
+  {
+    "url": "https://www.youtube.com/watch?v=...",
+    "title": "...",
+    "author": "...",
+    "duration": "...",
+    "whyThisVideo": "...",
+    "keyMoments": [{"time": "0:00", "label": "Introduction"}]
+  }
+]`
+        }
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('Gemini API error:', response.status);
+    return [];
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+  
+  if (!content) {
+    console.warn('No content in Gemini response');
+    return [];
+  }
+  
+  try {
+    const videos = extractJSON(content);
+    if (Array.isArray(videos)) {
+      // Add thumbnails to each video
+      return videos.map(video => ({
+        ...video,
+        thumbnailUrl: generateYouTubeThumbnail(video.url)
+      }));
+    }
+    return [];
+  } catch (e) {
+    console.error('Failed to parse Gemini video response:', e);
+    return [];
+  }
+}
+
+function generateYouTubeThumbnail(url: string): string {
+  const videoIdMatch = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (videoIdMatch) {
+    return `https://i.ytimg.com/vi/${videoIdMatch[1]}/maxresdefault.jpg`;
+  }
+  return '';
+}
+
 function transformToReadingsUrl(url: string): string {
   // MIT OCW: /pages/syllabus/ → /pages/readings/
   if (url.includes('ocw.mit.edu') && url.includes('/pages/syllabus')) {
@@ -525,17 +620,7 @@ ${sourceContext}
 
 CRITICAL REQUIREMENTS - YOU MUST ACTUALLY SEARCH AND VERIFY THESE RESOURCES EXIST:
 
-1. VIDEOS (Search for at least 3 REAL educational videos):
-   - YOU MUST search YouTube.com and return REAL video URLs that exist
-   - Search terms: "${stepTitle} educational video", "CrashCourse ${stepTitle}", "Khan Academy ${stepTitle}"
-   - Prioritize: CrashCourse, Khan Academy, MIT OCW, TED-Ed, Veritasium, 3Blue1Brown
-   - Videos must be <20 minutes and directly on topic
-   - DO NOT generate fake video IDs - only return URLs you found via search
-   - Provide: REAL YouTube URL, exact title from the video, channel name, duration
-   - Include "whyThisVideo" explanation (1 sentence)
-   - Include "keyMoments" with timestamps
-
-2. READINGS (Search for at least 3 REAL authoritative articles):
+1. READINGS (Search for at least 3 REAL authoritative articles):
    - YOU MUST search these specific domains and return REAL pages:
      * plato.stanford.edu (Stanford Encyclopedia of Philosophy)
      * en.wikipedia.org
@@ -554,19 +639,19 @@ CRITICAL REQUIREMENTS - YOU MUST ACTUALLY SEARCH AND VERIFY THESE RESOURCES EXIS
    - Brief snippet (2-3 sentences from the actual article)
    - "focusHighlight" recommendation (e.g., "Read sections 1-3")
 
-3. BOOKS (Find at least 2 real books):
+2. BOOKS (Find at least 2 real books):
    - Search for authoritative books on the topic
    - Provide: title, author, URL (to publisher/library/Amazon)
    - Chapter recommendations
    - Brief explanation of relevance
 
-4. ALTERNATIVES (Find 2-3 real supplementary resources):
+3. ALTERNATIVES (Find 2-3 real supplementary resources):
    - Search for podcasts, MOOC courses, tools
    - Each must have: type, REAL url, title, source, duration
 
 VERIFICATION REQUIREMENTS:
 - Every URL you return must be a REAL page you found via web search
-- Do not invent video IDs, course codes, or podcast episodes
+- Do not invent course codes or podcast episodes
 - If you cannot find a resource, omit it rather than generating a fake URL
 - Verify the content matches the topic before including it
 
@@ -574,17 +659,6 @@ ${blacklistConstraint}
 
 Return valid JSON only:
 {
-  "videos": [
-    {
-      "url": "REAL YouTube URL you found via search",
-      "title": "Exact title from the video",
-      "author": "Exact channel name",
-      "thumbnailUrl": "https://i.ytimg.com/vi/VIDEO_ID/maxresdefault.jpg",
-      "duration": "MM:SS",
-      "whyThisVideo": "One sentence explanation",
-      "keyMoments": [{"time": "M:SS", "label": "Topic"}]
-    }
-  ],
   "readings": [
     {
       "url": "REAL URL you found via search",
@@ -616,16 +690,30 @@ Return valid JSON only:
   ]
 }`;
 
-    const data = await callPerplexityAPI(prompt);
-    const content = data.choices[0]?.message?.content;
+    // Call Gemini for videos and Perplexity for other resources in parallel
+    const [geminiVideos, perplexityData] = await Promise.all([
+      callGeminiForVideos(stepTitle, discipline),
+      callPerplexityAPI(prompt)
+    ]);
+
+    const perplexityContent = perplexityData.choices[0]?.message?.content;
     
-    if (!content) {
+    if (!perplexityContent) {
       throw new Error('No content in Perplexity response');
     }
 
-    console.log('Perplexity raw response:', content.substring(0, 500));
+    console.log('Perplexity raw response:', perplexityContent.substring(0, 500));
+    console.log('Gemini returned', geminiVideos.length, 'videos');
     
-    let resources: StepResources = extractJSON(content);
+    const perplexityResources = extractJSON(perplexityContent);
+    
+    // Merge results
+    let resources: StepResources = {
+      videos: geminiVideos || [],
+      readings: perplexityResources.readings || [],
+      books: perplexityResources.books || [],
+      alternatives: perplexityResources.alternatives || [],
+    };
     
     console.log('Successfully parsed resources:', {
       videoCount: resources.videos?.length || 0,
