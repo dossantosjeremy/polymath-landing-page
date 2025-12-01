@@ -1,9 +1,12 @@
-import { ExternalLink, GraduationCap, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { ExternalLink, GraduationCap, AlertTriangle, PlusCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { ResourceFallback } from './ResourceFallback';
+import { useFindMoreResource } from '@/hooks/useFindMoreResource';
+import { useToast } from '@/hooks/use-toast';
 
 interface MOOC {
   url: string;
@@ -21,8 +24,12 @@ interface MOOCCarouselProps {
 }
 
 export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps) => {
+  const [localMOOCs, setLocalMOOCs] = useState(moocs);
+  const { findMore, isSearching } = useFindMoreResource();
+  const { toast } = useToast();
+  
   // Filter to only show verified MOOCs, limit to 3
-  const validMOOCs = moocs.filter(m => m.url && m.verified !== false).slice(0, 3);
+  const validMOOCs = localMOOCs.filter(m => m.url && m.verified !== false).slice(0, 3);
   
   // Fallback for no valid MOOCs
   if (validMOOCs.length === 0) {
@@ -53,6 +60,36 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
       </Card>
     );
   }
+
+  const handleFindMore = async () => {
+    if (validMOOCs.length >= 3) {
+      toast({
+        title: "Limit Reached",
+        description: "Maximum of 3 MOOCs can be displayed.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const existingUrls = localMOOCs.map(m => m.url);
+      const newMOOC = await findMore('mooc', stepTitle, discipline, existingUrls);
+      
+      if (newMOOC) {
+        setLocalMOOCs([...localMOOCs, newMOOC]);
+        toast({
+          title: "MOOC Added",
+          description: `Added: ${newMOOC.title}`,
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Search Failed",
+        description: "Could not find additional MOOCs. Try again later.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const getSourceBadgeColor = (source: string) => {
     if (source.toLowerCase().includes('coursera')) return 'bg-blue-600 text-white';
@@ -129,6 +166,19 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
           </>
         )}
       </Carousel>
+      
+      {/* Find More Button */}
+      <div className="flex justify-center pt-2">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleFindMore}
+          disabled={isSearching || validMOOCs.length >= 3}
+        >
+          <PlusCircle className="h-4 w-4 mr-2" />
+          {isSearching ? 'Searching...' : 'Find One More MOOC'}
+        </Button>
+      </div>
     </div>
   );
 };
