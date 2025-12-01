@@ -228,8 +228,8 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
         </CarouselContent>
         {validReadings.length > 1 && (
           <>
-            <CarouselPrevious />
-            <CarouselNext />
+            <CarouselPrevious className="-left-12" />
+            <CarouselNext className="-right-12" />
           </>
         )}
       </Carousel>
