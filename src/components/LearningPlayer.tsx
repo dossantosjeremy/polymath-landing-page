@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { BookOpen, Loader2, ChevronDown, ChevronRight, Video, FileText } from 'lucide-react';
+import { BookOpen, Loader2, ChevronDown, ChevronRight, Video, FileText, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoCarousel } from './VideoCarousel';
 import { ReadingCarousel } from './ReadingCarousel';
+import { MOOCCarousel } from './MOOCCarousel';
 import { BookCard } from './BookCard';
 import { AlternativeResources } from './AlternativeResources';
 import { CapstoneAssignment } from './CapstoneAssignment';
@@ -132,8 +133,9 @@ export const LearningPlayer = ({
   };
 
   // Separate alternatives by type
+  const moocs = displayResources.alternatives?.filter(alt => alt.type === 'mooc' && alt.url && alt.verified !== false) || [];
   const podcasts = displayResources.alternatives?.filter(alt => alt.type === 'podcast' && alt.url && alt.verified !== false) || [];
-  const otherAlternatives = displayResources.alternatives?.filter(alt => alt.type !== 'podcast' && alt.url && alt.verified !== false) || [];
+  const otherAlternatives = displayResources.alternatives?.filter(alt => alt.type !== 'podcast' && alt.type !== 'mooc' && alt.url && alt.verified !== false) || [];
 
   const handleAlternativeReplace = (index: number, newResource: any, isPodcast: boolean) => {
     const updatedAlternatives = [...(displayResources.alternatives || [])];
@@ -214,6 +216,24 @@ export const LearningPlayer = ({
                 onReplace={() => {}}
               />
             ))}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
+      {/* MOOC Courses */}
+      {moocs.length > 0 && (
+        <Collapsible open={openSections.has('moocs')} onOpenChange={() => toggleSection('moocs')}>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 hover:text-primary transition-colors">
+            <ChevronDown className={`h-4 w-4 transition-transform ${openSections.has('moocs') ? '' : '-rotate-90'}`} />
+            <GraduationCap className="h-4 w-4" />
+            <span className="font-semibold text-sm">Online Courses (MOOCs) ({Math.min(moocs.length, 3)})</span>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <MOOCCarousel 
+              moocs={moocs}
+              stepTitle={stepTitle}
+              discipline={discipline}
+            />
           </CollapsibleContent>
         </Collapsible>
       )}
