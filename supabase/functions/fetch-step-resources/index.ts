@@ -615,21 +615,6 @@ Return valid JSON only:
     }
   ]
 }`;
-3. MIT OCW readings pages (ocw.mit.edu/pages/readings/) - academic quality
-4. Project Gutenberg (gutenberg.org) - classic texts, public domain
-5. Internet Archive (archive.org) - diverse materials, public access
-6. arXiv (arxiv.org) - open access research papers
-
-CRITICAL REQUIREMENTS:
-- For readings: MUST include AT LEAST 3 readings from the priority sources above
-- For books: MUST include AT LEAST 2 books, preferably from Project Gutenberg or Archive.org
-- For videos: MUST include AT LEAST 3 YouTube videos with proper thumbnail URLs
-- YouTube thumbnails: Use format https://img.youtube.com/vi/VIDEO_ID/hqdefault.jpg where VIDEO_ID is extracted from the video URL
-- PDFs: Return DIRECT URLs ending in .pdf, not landing pages
-- Citations: Include author names, publication years, full titles
-- All URLs must be valid and accessible
-
-Return ONLY the JSON object, no markdown formatting, no explanations.`;
 
     const data = await callPerplexityAPI(prompt);
     const content = data.choices[0]?.message?.content;
