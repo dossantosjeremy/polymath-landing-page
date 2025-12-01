@@ -68,13 +68,23 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
   const handleFindMore = async () => {
     try {
       const existingUrls = localVideos.map(v => v.url);
-      const newVideo = await findMore('video', stepTitle, discipline, existingUrls);
+      const result = await findMore('video', stepTitle, discipline, existingUrls);
       
-      if (newVideo) {
-        setLocalVideos([...localVideos, newVideo]);
+      // Check if it's an error response
+      if (result?.error) {
+        toast({
+          title: "No New Videos Found",
+          description: result.message || "Could not find additional videos that aren't already in your list.",
+          variant: "default"
+        });
+        return;
+      }
+      
+      if (result) {
+        setLocalVideos([...localVideos, result]);
         toast({
           title: "Video Added",
-          description: `Added: ${newVideo.title}`,
+          description: `Added: ${result.title}`,
         });
       }
     } catch (err) {

@@ -73,13 +73,23 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
 
     try {
       const existingUrls = localMOOCs.map(m => m.url);
-      const newMOOC = await findMore('mooc', stepTitle, discipline, existingUrls);
+      const result = await findMore('mooc', stepTitle, discipline, existingUrls);
       
-      if (newMOOC) {
-        setLocalMOOCs([...localMOOCs, newMOOC]);
+      // Check if it's an error response
+      if (result?.error) {
+        toast({
+          title: "No New MOOCs Found",
+          description: result.message || "Could not find additional MOOCs that aren't already in your list.",
+          variant: "default"
+        });
+        return;
+      }
+      
+      if (result) {
+        setLocalMOOCs([...localMOOCs, result]);
         toast({
           title: "MOOC Added",
-          description: `Added: ${newMOOC.title}`,
+          description: `Added: ${result.title}`,
         });
       }
     } catch (err) {
