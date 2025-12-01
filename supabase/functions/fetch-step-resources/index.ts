@@ -188,7 +188,7 @@ RESPONSE FORMAT:
 ]`;
 
   try {
-    const data = await callPerplexityAPI(prompt, 'llama-3.1-sonar-large-128k-online');
+    const data = await callPerplexityAPI(prompt, 'sonar-pro');
     const content = data.choices[0]?.message?.content;
     
     if (!content) {
@@ -294,7 +294,7 @@ async function findDirectPdfUrl(pageUrl: string): Promise<string | null> {
   }
 }
 
-async function validateAndEnhanceResources(resources: StepResources): Promise<StepResources> {
+async function validateAndEnhanceResources(resources: StepResources, stepTitle: string, discipline: string): Promise<StepResources> {
   const enhanced = { ...resources };
   
   // Validate videos with YouTube oEmbed verification
@@ -327,7 +327,58 @@ async function validateAndEnhanceResources(resources: StepResources): Promise<St
     );
     // Keep all videos, let frontend decide what to show
     enhanced.videos = validatedVideos;
-    console.log(`${validatedVideos.filter(v => v.verified !== false).length} videos passed verification`);
+    const verifiedCount = validatedVideos.filter(v => v.verified !== false).length;
+    console.log(`${verifiedCount} videos passed verification`);
+    
+    // Recovery search if NO verified videos exist
+    if (verifiedCount === 0 && validatedVideos.length > 0) {
+      console.log('⚠ All videos failed verification, attempting recovery search...');
+      
+      const recoveryPrompt = `Search YouTube NOW for educational videos about: "${stepTitle}" in ${discipline}
+
+Return ONLY the first real, existing educational video you find. Use site:youtube.com in your search.
+
+CRITICAL REQUIREMENTS:
+- The video MUST actually exist (verify it's real before returning)
+- Use educational channels: CrashCourse, Khan Academy, MIT OCW, Yale, TED-Ed, etc.
+- Return format (ONLY valid JSON array):
+[{
+  "url": "https://www.youtube.com/watch?v=REAL_VIDEO_ID",
+  "title": "Exact video title",
+  "author": "Channel name",
+  "duration": "10:00",
+  "whyThisVideo": "Brief explanation"
+}]
+
+If no real video can be found, return []`;
+
+      try {
+        const recoveryData = await callPerplexityAPI(recoveryPrompt, 'sonar-pro', 1000);
+        const recoveryContent = recoveryData.choices[0]?.message?.content;
+        const recoveryVideos = extractJSON(recoveryContent);
+        
+        if (Array.isArray(recoveryVideos) && recoveryVideos.length > 0) {
+          const recoveryVideo = recoveryVideos[0];
+          const videoId = recoveryVideo.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
+          
+          if (videoId && await verifyYouTubeVideo(videoId)) {
+            enhanced.videos.unshift({
+              url: recoveryVideo.url,
+              title: recoveryVideo.title || 'Educational Video',
+              author: recoveryVideo.author || 'YouTube',
+              thumbnailUrl: generateYouTubeThumbnail(recoveryVideo.url),
+              duration: recoveryVideo.duration || '',
+              whyThisVideo: recoveryVideo.whyThisVideo || 'Auto-discovered educational video for this topic',
+              keyMoments: [],
+              verified: true
+            });
+            console.log('✓ Recovery search found verified video:', recoveryVideo.title);
+          }
+        }
+      } catch (e) {
+        console.warn('Recovery search failed:', e);
+      }
+    }
   }
   
   // Validate and enhance readings with content extraction
@@ -736,7 +787,7 @@ RESPONSE FORMAT - CRITICAL:
 
     // Validate and enhance all URLs
     console.log('Validating resource URLs...');
-    resources = await validateAndEnhanceResources(resources);
+    resources = await validateAndEnhanceResources(resources, stepTitle, discipline);
     console.log('URL validation complete');
 
     // Guarantee at least one video entry exists (even if it's a fallback)
