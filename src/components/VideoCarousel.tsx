@@ -61,18 +61,28 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
     }
   };
   
-  // If no valid videos, show search fallback
+  // If no valid videos, show retry UI
   if (validVideos.length === 0) {
-    const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`${discipline} ${stepTitle}`)}`;
+    const [isRetrying, setIsRetrying] = useState(false);
+    
+    const handleRetry = () => {
+      setIsRetrying(true);
+      // Reload the page to trigger a fresh video hunt
+      window.location.reload();
+    };
+    
     return (
       <Card className="p-8 text-center border-dashed">
-        <Search className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+        <AlertTriangle className="h-12 w-12 mx-auto text-amber-500 mb-4" />
         <p className="text-sm text-muted-foreground mb-4">
-          No verified videos found for this topic.
+          Video discovery in progress...
         </p>
-        <Button variant="outline" onClick={() => window.open(searchUrl, '_blank')}>
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Search on YouTube
+        <Button 
+          variant="default" 
+          onClick={handleRetry}
+          disabled={isRetrying}
+        >
+          {isRetrying ? 'Finding videos...' : 'Retry Video Discovery'}
         </Button>
       </Card>
     );
