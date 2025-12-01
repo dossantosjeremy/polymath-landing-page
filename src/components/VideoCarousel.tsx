@@ -101,7 +101,7 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
             const embedUrl = getYouTubeEmbedUrl(video.url);
 
             return (
-              <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3">
+              <CarouselItem key={index}>
                 <Card className="border-2 border-border p-4 space-y-3">
                   {/* Embedded Video */}
                   <div className="aspect-video">
@@ -194,8 +194,8 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
         </CarouselContent>
         {validVideos.length > 1 && (
           <>
-            <CarouselPrevious />
-            <CarouselNext />
+            <CarouselPrevious className="-left-12" />
+            <CarouselNext className="-right-12" />
           </>
         )}
       </Carousel>
