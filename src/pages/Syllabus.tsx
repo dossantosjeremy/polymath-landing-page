@@ -15,6 +15,7 @@ import { StepSummary } from "@/components/StepSummary";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
 import { LearningPathSettings, LearningPathConstraints, PruningStats } from "@/components/LearningPathSettings";
 import { CurriculumAuditCard } from "@/components/CurriculumAuditCard";
+import { AdHocHeader } from "@/components/AdHocHeader";
 
 interface Module {
   title: string;
@@ -51,6 +52,14 @@ interface SyllabusData {
   compositionType?: 'single' | 'composite_program' | 'vocational';
   derivedFrom?: string[];
   searchTerm?: string;
+  topicPillars?: Array<{
+    name: string;
+    searchTerms: string[];
+    recommendedSources: string[];
+    priority: 'core' | 'important' | 'nice-to-have';
+  }>;
+  narrativeFlow?: string;
+  synthesisRationale?: string;
 }
 
 const Syllabus = () => {
@@ -762,49 +771,18 @@ const Syllabus = () => {
             ))}
           </nav>
 
-          {/* Ad-Hoc Generation Banner */}
+          {/* Ad-Hoc Generation Banner - Enhanced Curriculum Architect UI */}
           {!loading && syllabusData?.isAdHoc && (
-            <div className="mb-6 bg-gradient-to-r from-[hsl(var(--gold))]/10 to-amber-50 border border-[hsl(var(--gold))]/30 rounded-lg p-4">
-              <div className="flex items-center gap-3">
-                <Sparkles className="h-6 w-6 text-[hsl(var(--gold))] flex-shrink-0" />
-                <div className="flex-1">
-                  <h3 className="font-semibold">Custom Curriculum Generated</h3>
-                  <p className="text-sm text-muted-foreground">
-                    This syllabus was built from web sources. Not part of our curated academic database.
-                  </p>
-                </div>
-                {syllabusData.compositionType === 'composite_program' && syllabusData.derivedFrom && syllabusData.derivedFrom.length > 0 && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-[hsl(var(--gold))]/20 border border-[hsl(var(--gold))]/40 rounded-md">
-                    <span className="text-xs font-medium text-[hsl(var(--gold))]">🧩 Composite Program</span>
-                  </div>
-                )}
-                {syllabusData.compositionType === 'vocational' && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-[hsl(var(--gold))]/20 border border-[hsl(var(--gold))]/40 rounded-md">
-                    <span className="text-xs font-medium text-[hsl(var(--gold))]">✨ Vocational Skill</span>
-                  </div>
-                )}
-                {(!syllabusData.compositionType || syllabusData.compositionType === 'single') && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-[hsl(var(--gold))]/20 border border-[hsl(var(--gold))]/40 rounded-md">
-                    <span className="text-xs font-medium text-[hsl(var(--gold))]">✨ Web Sourced</span>
-                  </div>
-                )}
-              </div>
-              
-              {/* For composite programs, show the constituent disciplines */}
-              {syllabusData.compositionType === 'composite_program' && syllabusData.derivedFrom && syllabusData.derivedFrom.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2 items-center">
-                  <span className="text-xs text-muted-foreground">Built from:</span>
-                  {syllabusData.derivedFrom.map((discipline, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center px-2 py-1 text-xs font-medium bg-background border border-[hsl(var(--gold))]/20 rounded"
-                    >
-                      {discipline}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+            <AdHocHeader
+              discipline={discipline}
+              compositionType={syllabusData.compositionType}
+              derivedFrom={syllabusData.derivedFrom}
+              topicPillars={syllabusData.topicPillars}
+              narrativeFlow={syllabusData.narrativeFlow}
+              synthesisRationale={syllabusData.synthesisRationale}
+              sourceCount={syllabusData.rawSources?.length || 0}
+              sourceNames={(syllabusData.rawSources || []).map(s => getDomainShortName(s.url)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5)}
+            />
           )}
 
           {/* Header */}
