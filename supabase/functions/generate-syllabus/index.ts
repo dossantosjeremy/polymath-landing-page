@@ -130,7 +130,8 @@ serve(async (req) => {
     // - For database disciplines when user explicitly chose AI-Enhanced
     const shouldUseAuthorities = isAdHoc || useAIEnhanced;
     
-    if (isAdHoc) {
+    // Run topic analysis for ad-hoc OR AI-enhanced searches
+    if (isAdHoc || useAIEnhanced) {
       console.log('[Topic Analysis] Analyzing topic composition with Curriculum Architect...');
       const compositionAnalysis = await analyzeTopicComposition(discipline, LOVABLE_API_KEY);
       compositionType = compositionAnalysis.compositionType;
@@ -264,8 +265,8 @@ serve(async (req) => {
 
     // If we have multiple extracted syllabi, process them
     if (validExtractions.length > 0) {
-      // For AD-HOC topics: Use Curriculum Architect (synthesis, not aggregation)
-      if (isAdHoc && topicPillars.length > 0) {
+      // For AD-HOC or AI-ENHANCED topics: Use Curriculum Architect (synthesis, not aggregation)
+      if ((isAdHoc || useAIEnhanced) && topicPillars.length > 0) {
         console.log('[Curriculum Architect] Synthesizing curriculum (not aggregating)...');
         const synthesisResult = await synthesizeCurriculum(
           validExtractions,
@@ -298,8 +299,8 @@ serve(async (req) => {
             console.log(`[Pruning] Showing ${pruningStats.finalVisibleSteps}/${pruningStats.fullCurriculumSteps} steps (${pruningStats.hoursSaved}h saved)`);
           }
 
-          // Cache the result
-          if (!selectedSourceUrls) {
+          // Cache the result (only for true ad-hoc, not AI-enhanced database disciplines)
+          if (!selectedSourceUrls && isAdHoc) {
             try {
               console.log('[Cache Save] Upserting synthesized syllabus to community_syllabi...');
               const { error: upsertError } = await supabase
@@ -326,6 +327,8 @@ serve(async (req) => {
             } catch (cacheError) {
               console.error('[Cache Save] Exception:', cacheError);
             }
+          } else if (useAIEnhanced && !isAdHoc) {
+            console.log('[Cache Skip] AI-Enhanced mode for database discipline - not caching as ad-hoc');
           }
 
           return new Response(
@@ -339,7 +342,8 @@ serve(async (req) => {
               timestamp: new Date().toISOString(),
               pruningStats,
               learningPathSettings: learningConstraints,
-              isAdHoc: true,
+              isAdHoc: isAdHoc,
+              isAIEnhanced: useAIEnhanced,
               compositionType,
               derivedFrom,
               searchTerm: searchTerm || discipline,

@@ -50,6 +50,7 @@ interface SyllabusData {
   pruningStats?: PruningStats;
   learningPathSettings?: LearningPathConstraints;
   isAdHoc?: boolean;
+  isAIEnhanced?: boolean;
   compositionType?: 'single' | 'composite_program' | 'vocational';
   derivedFrom?: string[];
   searchTerm?: string;
@@ -919,8 +920,8 @@ const Syllabus = () => {
             ))}
           </nav>
 
-          {/* Ad-Hoc Generation Banner - Enhanced Curriculum Architect UI */}
-          {!loading && syllabusData?.isAdHoc && (
+          {/* Ad-Hoc Generation Banner - Enhanced Curriculum Architect UI (also for AI-Enhanced mode) */}
+          {!loading && (syllabusData?.isAdHoc || syllabusData?.isAIEnhanced) && (
             <AdHocHeader
               discipline={discipline}
               compositionType={syllabusData.compositionType}
@@ -1254,8 +1255,8 @@ const Syllabus = () => {
                 </p>
               </div>
 
-              {/* New Authorities Discovered Section - Only for Ad-Hoc syllabi with discovered authorities */}
-              {syllabusData.isAdHoc && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
+              {/* New Authorities Discovered Section - For Ad-Hoc or AI-Enhanced syllabi with discovered authorities */}
+              {(syllabusData.isAdHoc || syllabusData.isAIEnhanced) && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
                 <NewAuthoritiesSection 
                   authorities={syllabusData.discoveredAuthorities}
                   discipline={discipline}
