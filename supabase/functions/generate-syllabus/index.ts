@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { analyzeTopicComposition } from "./analyzeTopicComposition.ts";
+import { synthesizeCurriculum } from "./synthesizeCurriculum.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -109,13 +110,21 @@ serve(async (req) => {
     // Analyze topic composition for ad-hoc requests
     let compositionType: 'single' | 'composite_program' | 'vocational' = 'single';
     let derivedFrom: string[] = [];
+    let topicPillars: Array<{ name: string; searchTerms: string[]; recommendedSources: string[]; priority: 'core' | 'important' | 'nice-to-have' }> = [];
+    let narrativeFlow = 'Foundations → Core Concepts → Advanced Topics → Application';
+    let vocationalFirst = false;
+    let synthesisRationale = '';
     
     if (isAdHoc) {
-      console.log('[Topic Analysis] Analyzing topic composition...');
+      console.log('[Topic Analysis] Analyzing topic composition with Curriculum Architect...');
       const compositionAnalysis = await analyzeTopicComposition(discipline, LOVABLE_API_KEY);
       compositionType = compositionAnalysis.compositionType;
       derivedFrom = compositionAnalysis.constituentDisciplines || [];
-      console.log(`[Topic Analysis] Type: ${compositionType}, Derived from: ${derivedFrom.join(', ')}`);
+      topicPillars = compositionAnalysis.pillars || [];
+      narrativeFlow = compositionAnalysis.narrativeFlow || narrativeFlow;
+      vocationalFirst = compositionAnalysis.vocationalFirst || false;
+      console.log(`[Topic Analysis] Type: ${compositionType}, Pillars: ${topicPillars.map(p => p.name).join(', ')}`);
+      console.log(`[Topic Analysis] Vocational First: ${vocationalFirst}, Narrative: ${narrativeFlow}`);
     }
 
     // Check community cache first (unless regenerating with selected sources or force refresh)
@@ -203,8 +212,97 @@ serve(async (req) => {
     const validExtractions = extractedSyllabi.filter(e => e.modules.length > 0);
     console.log(`[Module Extraction] Successfully extracted from ${validExtractions.length} source(s)`);
 
-    // If we have multiple extracted syllabi, merge them into a comprehensive syllabus
+    // If we have multiple extracted syllabi, process them
     if (validExtractions.length > 0) {
+      // For AD-HOC topics: Use Curriculum Architect (synthesis, not aggregation)
+      if (isAdHoc && topicPillars.length > 0) {
+        console.log('[Curriculum Architect] Synthesizing curriculum (not aggregating)...');
+        const synthesisResult = await synthesizeCurriculum(
+          validExtractions,
+          discipline,
+          topicPillars,
+          narrativeFlow,
+          PERPLEXITY_API_KEY
+        );
+        
+        if (synthesisResult.modules.length >= 4) {
+          modules = synthesisResult.modules;
+          synthesisRationale = synthesisResult.synthesisRationale;
+          syllabusSource = `AI-Synthesized Curriculum from ${validExtractions.length} source(s)`;
+          sourceUrl = validExtractions[0].source.url;
+          
+          // Deduplicate but do NOT force all sources to appear (synthesis already selected best)
+          modules = deduplicateModules(modules);
+          
+          // Ensure capstone exists (synthesis should include one, but verify)
+          if (!modules.some(m => m.isCapstone)) {
+            modules = weaveCapstoneCheckpoints(modules, discipline);
+          }
+
+          // Apply time constraints if provided
+          let pruningStats: PruningStats | undefined;
+          if (learningConstraints) {
+            const pruneResult = pruneToFitTime(modules, learningConstraints);
+            modules = pruneResult.modules;
+            pruningStats = pruneResult.stats;
+            console.log(`[Pruning] Showing ${pruningStats.finalVisibleSteps}/${pruningStats.fullCurriculumSteps} steps (${pruningStats.hoursSaved}h saved)`);
+          }
+
+          // Cache the result
+          if (!selectedSourceUrls) {
+            try {
+              console.log('[Cache Save] Upserting synthesized syllabus to community_syllabi...');
+              const { error: upsertError } = await supabase
+                .from('community_syllabi')
+                .upsert({
+                  discipline,
+                  discipline_path: null,
+                  modules,
+                  raw_sources: rawSources,
+                  source: syllabusSource,
+                  is_ad_hoc: true,
+                  composition_type: compositionType,
+                  derived_from: derivedFrom,
+                  search_term: searchTerm || discipline
+                }, { 
+                  onConflict: 'discipline' 
+                });
+
+              if (upsertError) {
+                console.error('[Cache Save] Failed to upsert:', upsertError);
+              } else {
+                console.log('[Cache Save] Successfully cached synthesized curriculum');
+              }
+            } catch (cacheError) {
+              console.error('[Cache Save] Exception:', cacheError);
+            }
+          }
+
+          return new Response(
+            JSON.stringify({ 
+              discipline,
+              modules,
+              source: syllabusSource,
+              sourceUrl,
+              rawSources,
+              fromCache: false,
+              timestamp: new Date().toISOString(),
+              pruningStats,
+              learningPathSettings: learningConstraints,
+              isAdHoc: true,
+              compositionType,
+              derivedFrom,
+              searchTerm: searchTerm || discipline,
+              topicPillars,
+              narrativeFlow,
+              synthesisRationale
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
+      // For NON-AD-HOC topics: Use traditional merge (aggregation approach)
       console.log('[Merge] Merging extracted syllabi into comprehensive structure...');
       const mergedModules = await mergeSyllabi(validExtractions, discipline, PERPLEXITY_API_KEY);
       
@@ -216,7 +314,7 @@ serve(async (req) => {
         // Deduplicate modules to remove duplicates
         modules = deduplicateModules(modules);
         
-        // Ensure ALL discovered sources appear in final syllabus
+        // Ensure ALL discovered sources appear in final syllabus (only for non-ad-hoc)
         modules = ensureAllSourcesAppear(modules, sourcesWithContent);
         
         // Weave in capstone milestones
@@ -239,7 +337,7 @@ serve(async (req) => {
               .from('community_syllabi')
               .upsert({
                 discipline,
-                discipline_path: null, // Will be set from frontend when available
+                discipline_path: null,
                 modules,
                 raw_sources: rawSources,
                 source: syllabusSource
@@ -254,7 +352,6 @@ serve(async (req) => {
             }
           } catch (cacheError) {
             console.error('[Cache Save] Exception:', cacheError);
-            // Don't fail the request if caching fails
           }
         }
 
