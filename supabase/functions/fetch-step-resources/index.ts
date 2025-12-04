@@ -79,6 +79,137 @@ async function verifyYouTubeVideo(videoId: string): Promise<boolean> {
   }
 }
 
+// PRIMARY VIDEO DISCOVERY: YouTube Data API v3
+async function searchYouTubeAPI(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+  const apiKey = Deno.env.get('YOUTUBE_API_KEY');
+  if (!apiKey) {
+    console.log('YOUTUBE_API_KEY not configured, skipping YouTube API search');
+    return [];
+  }
+
+  console.log('🎬 Searching YouTube Data API for:', stepTitle);
+
+  try {
+    // Build search query with discipline context
+    const searchQuery = `${stepTitle} ${discipline} tutorial OR lecture OR explained`;
+    
+    // Search for videos - request 15 to filter down to 5-10 quality results
+    const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search');
+    searchUrl.searchParams.set('part', 'snippet');
+    searchUrl.searchParams.set('q', searchQuery);
+    searchUrl.searchParams.set('type', 'video');
+    searchUrl.searchParams.set('maxResults', '15');
+    searchUrl.searchParams.set('videoDuration', 'medium'); // 4-20 minutes
+    searchUrl.searchParams.set('videoEmbeddable', 'true');
+    searchUrl.searchParams.set('relevanceLanguage', 'en');
+    searchUrl.searchParams.set('safeSearch', 'strict');
+    searchUrl.searchParams.set('order', 'relevance');
+    searchUrl.searchParams.set('key', apiKey);
+
+    const searchResponse = await fetch(searchUrl.toString());
+    
+    if (!searchResponse.ok) {
+      const errorText = await searchResponse.text();
+      console.error('YouTube API search failed:', searchResponse.status, errorText);
+      return [];
+    }
+
+    const searchData = await searchResponse.json();
+    
+    if (!searchData.items || searchData.items.length === 0) {
+      console.log('No videos found in YouTube API search');
+      return [];
+    }
+
+    console.log(`YouTube API returned ${searchData.items.length} results`);
+
+    // Get video IDs for details lookup
+    const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
+
+    // Fetch video details (duration, view count, etc.)
+    const detailsUrl = new URL('https://www.googleapis.com/youtube/v3/videos');
+    detailsUrl.searchParams.set('part', 'contentDetails,statistics,snippet');
+    detailsUrl.searchParams.set('id', videoIds);
+    detailsUrl.searchParams.set('key', apiKey);
+
+    const detailsResponse = await fetch(detailsUrl.toString());
+    
+    if (!detailsResponse.ok) {
+      console.error('YouTube API details fetch failed');
+      // Fall back to search results without details
+      return searchData.items.slice(0, 10).map((item: any) => ({
+        url: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+        title: item.snippet.title,
+        author: item.snippet.channelTitle,
+        thumbnailUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || '',
+        duration: '',
+        whyThisVideo: `Found via YouTube search for "${stepTitle}"`,
+        verified: true,
+        keyMoments: []
+      }));
+    }
+
+    const detailsData = await detailsResponse.json();
+
+    // Filter and format videos
+    const videos = detailsData.items
+      .filter((video: any) => {
+        const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
+        // Filter out blacklisted videos
+        if (blacklist.some(url => url.includes(video.id))) {
+          return false;
+        }
+        // Parse duration (PT#M#S format)
+        const duration = video.contentDetails?.duration || '';
+        const minutes = parseInt(duration.match(/(\d+)M/)?.[1] || '0');
+        // Keep videos between 3 and 25 minutes for optimal learning
+        return minutes >= 3 && minutes <= 25;
+      })
+      .slice(0, 10) // Take top 10
+      .map((video: any) => {
+        // Parse ISO 8601 duration
+        const duration = video.contentDetails?.duration || '';
+        const hours = parseInt(duration.match(/(\d+)H/)?.[1] || '0');
+        const minutes = parseInt(duration.match(/(\d+)M/)?.[1] || '0');
+        const seconds = parseInt(duration.match(/(\d+)S/)?.[1] || '0');
+        
+        let durationStr = '';
+        if (hours > 0) {
+          durationStr = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        } else {
+          durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        const viewCount = parseInt(video.statistics?.viewCount || '0');
+        const viewStr = viewCount > 1000000 
+          ? `${(viewCount / 1000000).toFixed(1)}M views`
+          : viewCount > 1000 
+            ? `${(viewCount / 1000).toFixed(0)}K views`
+            : `${viewCount} views`;
+
+        return {
+          url: `https://www.youtube.com/watch?v=${video.id}`,
+          title: video.snippet.title,
+          author: video.snippet.channelTitle,
+          thumbnailUrl: video.snippet.thumbnails?.maxres?.url || 
+                       video.snippet.thumbnails?.high?.url || 
+                       video.snippet.thumbnails?.medium?.url || '',
+          duration: durationStr,
+          whyThisVideo: `${viewStr} • Educational video on ${stepTitle}`,
+          verified: true,
+          keyMoments: []
+        };
+      });
+
+    console.log(`✓ YouTube API returned ${videos.length} filtered videos`);
+    return videos;
+
+  } catch (error) {
+    console.error('YouTube API search error:', error);
+    return [];
+  }
+}
+
 async function callPerplexityAPI(prompt: string, model: string = 'sonar', maxTokens: number = 4000): Promise<any> {
   const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!perplexityApiKey) {
@@ -767,65 +898,81 @@ RESPONSE FORMAT - CRITICAL:
   ]
 }`;
 
-    // HUNTER-SEEKER LOOP: Keep trying until we find a verified video
-    let verifiedVideos: any[] = [];
-    let attempts = 0;
-    const maxAttempts = 3;
-    let allRawVideos: any[] = [];
-
+    // PRIMARY VIDEO DISCOVERY: YouTube Data API (most reliable)
+    console.log('🎬 Starting video discovery with YouTube API...');
+    
     // Start resource discovery in parallel while hunting for videos
     const resourcePromise = callPerplexityAPI(prompt);
+    
+    // Try YouTube API first - this is the most reliable method
+    let videos = await searchYouTubeAPI(stepTitle, discipline, blacklist);
+    
+    // If YouTube API returns videos, we're done!
+    if (videos.length >= 3) {
+      console.log(`✓ YouTube API returned ${videos.length} verified videos`);
+    } else {
+      // FALLBACK: Use Perplexity hunter-seeker loop only if YouTube API fails
+      console.log('YouTube API returned < 3 videos, falling back to Perplexity...');
+      
+      let verifiedVideos: any[] = [...videos]; // Keep any YouTube API results
+      let attempts = 0;
+      const maxAttempts = 3;
+      let allRawVideos: any[] = [];
 
-    while (verifiedVideos.length === 0 && attempts < maxAttempts) {
-      attempts++;
-      console.log(`🎯 Video Hunt Attempt ${attempts}/${maxAttempts}...`);
-      
-      let rawVideos: any[] = [];
-      
-      if (attempts === 1) {
-        // Standard search
-        rawVideos = await callPerplexityForVideos(stepTitle, discipline, blacklist);
-      } else if (attempts === 2) {
-        // Brute force - famous channels
-        console.log('Escalating to brute force search (famous channels)...');
-        rawVideos = await searchBruteForceVideos(stepTitle, discipline, blacklist);
-      } else {
-        // Hail Mary - any lecture
-        console.log('Escalating to hail mary search (any lecture)...');
-        rawVideos = await searchHailMaryVideos(stepTitle, discipline, blacklist);
-      }
-      
-      allRawVideos = [...allRawVideos, ...rawVideos];
-      
-      // Validate immediately
-      if (rawVideos.length > 0) {
-        for (const video of rawVideos) {
-          const videoId = video.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
-          if (videoId && await verifyYouTubeVideo(videoId)) {
-            verifiedVideos.push({
-              ...video,
-              thumbnailUrl: generateYouTubeThumbnail(video.url),
-              verified: true
-            });
-            console.log(`✓ Found verified video: ${video.title}`);
+      while (verifiedVideos.length < 3 && attempts < maxAttempts) {
+        attempts++;
+        console.log(`🎯 Perplexity Video Hunt Attempt ${attempts}/${maxAttempts}...`);
+        
+        let rawVideos: any[] = [];
+        
+        if (attempts === 1) {
+          rawVideos = await callPerplexityForVideos(stepTitle, discipline, blacklist);
+        } else if (attempts === 2) {
+          console.log('Escalating to brute force search (famous channels)...');
+          rawVideos = await searchBruteForceVideos(stepTitle, discipline, blacklist);
+        } else {
+          console.log('Escalating to hail mary search (any lecture)...');
+          rawVideos = await searchHailMaryVideos(stepTitle, discipline, blacklist);
+        }
+        
+        allRawVideos = [...allRawVideos, ...rawVideos];
+        
+        // Validate immediately
+        if (rawVideos.length > 0) {
+          for (const video of rawVideos) {
+            const videoId = video.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
+            if (videoId && await verifyYouTubeVideo(videoId)) {
+              // Avoid duplicates
+              if (!verifiedVideos.some(v => v.url === video.url)) {
+                verifiedVideos.push({
+                  ...video,
+                  thumbnailUrl: generateYouTubeThumbnail(video.url),
+                  verified: true
+                });
+                console.log(`✓ Found verified video: ${video.title}`);
+              }
+            }
           }
         }
+        
+        if (verifiedVideos.length >= 3) {
+          console.log(`✓ Hunt successful after ${attempts} attempt(s)`);
+          break;
+        }
       }
-      
-      if (verifiedVideos.length > 0) {
-        console.log(`✓ Hunt successful after ${attempts} attempt(s)`);
-        break;
-      }
+
+      // Merge results - prioritize verified
+      videos = verifiedVideos.length > 0 
+        ? verifiedVideos 
+        : allRawVideos.map(v => ({
+            ...v,
+            thumbnailUrl: generateYouTubeThumbnail(v.url),
+            verified: false
+          }));
     }
 
-    // Use verified videos, or all raw videos (unverified) as last resort
-    const perplexityVideos = verifiedVideos.length > 0 ? verifiedVideos : allRawVideos.map(v => ({
-      ...v,
-      thumbnailUrl: generateYouTubeThumbnail(v.url),
-      verified: false
-    }));
-
-    console.log(`Video hunt complete: ${verifiedVideos.length} verified, ${allRawVideos.length} total`);
+    const perplexityVideos = videos;
+    console.log(`Video discovery complete: ${perplexityVideos.length} videos found`);
 
     // Wait for resource discovery to complete
     const perplexityData = await resourcePromise;
