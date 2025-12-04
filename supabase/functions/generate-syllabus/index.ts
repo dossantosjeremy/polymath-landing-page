@@ -150,8 +150,9 @@ serve(async (req) => {
       console.log(`[Magistrate] Found ${discoveredAuthorities.length} authorities: ${discoveredAuthorities.map(a => a.name).join(', ')}`);
     }
 
-    // Check community cache first (unless regenerating with selected sources or force refresh)
-    if (!selectedSourceUrls && !forceRefresh) {
+    // Check community cache first (unless regenerating with selected sources, force refresh, or AI-enhanced mode)
+    // AI-Enhanced mode bypasses cache to always use Magistrate authority discovery
+    if (!selectedSourceUrls && !forceRefresh && !useAIEnhanced) {
       console.log('[Cache Check] Checking community_syllabi cache...');
       const { data: cachedSyllabus, error: cacheError } = await supabase
         .from('community_syllabi')
@@ -173,6 +174,8 @@ serve(async (req) => {
         });
       }
       console.log('[Cache Miss] No cached syllabus found, proceeding with generation');
+    } else if (useAIEnhanced) {
+      console.log('[AI-Enhanced] Bypassing cache to use Magistrate authority discovery');
     }
 
     // Step 0: Discover all available sources first (unless regenerating with selected sources)
