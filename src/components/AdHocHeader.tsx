@@ -1,12 +1,27 @@
-import { Sparkles, Globe, BookMarked, ChevronRight, Layers } from 'lucide-react';
+import { Sparkles, Globe, BookMarked, ChevronRight, Layers, Trophy } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { AuthorityBadge, AuthorityType } from '@/components/AuthorityBadge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface TopicPillar {
   name: string;
   searchTerms: string[];
   recommendedSources: string[];
   priority: 'core' | 'important' | 'nice-to-have';
+}
+
+export interface DomainAuthority {
+  name: string;
+  domain: string;
+  authorityType: AuthorityType;
+  authorityReason: string;
+  focusAreas: string[];
 }
 
 interface AdHocHeaderProps {
@@ -18,6 +33,7 @@ interface AdHocHeaderProps {
   synthesisRationale?: string;
   sourceCount: number;
   sourceNames: string[];
+  discoveredAuthorities?: DomainAuthority[];
 }
 
 // Icon mapping for pillars (based on common pillar names)
@@ -51,7 +67,8 @@ export function AdHocHeader({
   narrativeFlow,
   synthesisRationale,
   sourceCount,
-  sourceNames
+  sourceNames,
+  discoveredAuthorities = []
 }: AdHocHeaderProps) {
   const compositionLabel = compositionType === 'composite_program' 
     ? '🧩 Composite Program' 
@@ -118,6 +135,44 @@ export function AdHocHeader({
           )}
         </div>
       </div>
+      
+      {/* "TITANS" - Curriculum Authorities Section */}
+      {discoveredAuthorities && discoveredAuthorities.length > 0 && (
+        <div className="bg-slate-800/50 border-t border-white/10 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Trophy className="h-4 w-4 text-[hsl(var(--gold))]" />
+            <span className="text-sm font-semibold text-white">Curriculum Authorities</span>
+            <span className="text-xs text-slate-400">({discoveredAuthorities.length} industry leaders)</span>
+          </div>
+          <p className="text-xs text-slate-400 mb-3">
+            This curriculum was synthesized using standards from industry leaders
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <TooltipProvider>
+              {discoveredAuthorities.map((auth, idx) => (
+                <Tooltip key={idx}>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-full cursor-help hover:bg-white/15 transition-colors">
+                      <AuthorityBadge type={auth.authorityType} showLabel={false} />
+                      <span className="text-sm text-white">{auth.name}</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p className="font-medium mb-1">{auth.name}</p>
+                    <p className="text-xs text-muted-foreground">{auth.authorityReason}</p>
+                    {auth.focusAreas && auth.focusAreas.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Focus: {auth.focusAreas.join(', ')}
+                      </p>
+                    )}
+                    <p className="text-xs text-blue-400 mt-1">{auth.domain}</p>
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </TooltipProvider>
+          </div>
+        </div>
+      )}
       
       {/* Pillar "Ingredients" Section */}
       {topicPillars && topicPillars.length > 0 && (

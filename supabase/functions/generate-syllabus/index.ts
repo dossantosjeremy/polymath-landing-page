@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { analyzeTopicComposition } from "./analyzeTopicComposition.ts";
 import { synthesizeCurriculum } from "./synthesizeCurriculum.ts";
+import { identifyDomainAuthorities, DomainAuthority } from "./identifyDomainAuthorities.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,6 +20,8 @@ interface Module {
   priority?: 'core' | 'important' | 'nice-to-have';
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
+  authorityType?: 'industry_standard' | 'academic' | 'practitioner' | 'standard_body';
+  authorityReason?: string;
 }
 
 interface DiscoveredSource {
@@ -28,6 +31,9 @@ interface DiscoveredSource {
   type: string; // "University Course", "Great Books Program", "MOOC", etc.
   content?: string; // NEW: Full original syllabus text
   moduleCount?: number; // NEW: Number of modules in the syllabus
+  authorityType?: 'industry_standard' | 'academic' | 'practitioner' | 'standard_body';
+  authorityReason?: string;
+  isDiscoveredAuthority?: boolean;
 }
 
 interface LearningPathConstraints {
@@ -114,6 +120,7 @@ serve(async (req) => {
     let narrativeFlow = 'Foundations → Core Concepts → Advanced Topics → Application';
     let vocationalFirst = false;
     let synthesisRationale = '';
+    let discoveredAuthorities: DomainAuthority[] = [];
     
     if (isAdHoc) {
       console.log('[Topic Analysis] Analyzing topic composition with Curriculum Architect...');
@@ -125,6 +132,12 @@ serve(async (req) => {
       vocationalFirst = compositionAnalysis.vocationalFirst || false;
       console.log(`[Topic Analysis] Type: ${compositionType}, Pillars: ${topicPillars.map(p => p.name).join(', ')}`);
       console.log(`[Topic Analysis] Vocational First: ${vocationalFirst}, Narrative: ${narrativeFlow}`);
+      
+      // THE MAGISTRATE: Identify domain authorities BEFORE searching
+      console.log('[Magistrate] Identifying domain authorities...');
+      const authorityResult = await identifyDomainAuthorities(discipline, LOVABLE_API_KEY);
+      discoveredAuthorities = authorityResult.authorities;
+      console.log(`[Magistrate] Found ${discoveredAuthorities.length} authorities: ${discoveredAuthorities.map(a => a.name).join(', ')}`);
     }
 
     // Check community cache first (unless regenerating with selected sources or force refresh)
@@ -166,8 +179,14 @@ serve(async (req) => {
       }));
     } else {
       // Initial generation - discover sources
-      console.log('[Discovery] Finding all available syllabi sources...');
-      discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY, customSources, enabledSources);
+      // For ad-hoc topics with authorities, use TARGETED search
+      if (isAdHoc && discoveredAuthorities.length > 0) {
+        console.log('[Discovery] Using Magistrate-guided targeted search...');
+        discoveredSources = await discoverSourcesWithAuthorities(discipline, PERPLEXITY_API_KEY, discoveredAuthorities, customSources);
+      } else {
+        console.log('[Discovery] Finding all available syllabi sources...');
+        discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY, customSources, enabledSources);
+      }
       console.log(`[Discovery] Found ${discoveredSources.length} source(s)`);
     }
 
@@ -295,7 +314,8 @@ serve(async (req) => {
               searchTerm: searchTerm || discipline,
               topicPillars,
               narrativeFlow,
-              synthesisRationale
+              synthesisRationale,
+              discoveredAuthorities
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
@@ -613,6 +633,104 @@ Find as many real, authoritative syllabi as possible. Include exact URLs. Return
     return [];
   } catch (error) {
     console.error('[Discovery] Exception:', error);
+    return [];
+  }
+}
+
+// THE MAGISTRATE: Discover sources using identified domain authorities
+async function discoverSourcesWithAuthorities(
+  discipline: string,
+  apiKey: string,
+  authorities: DomainAuthority[],
+  customSources?: Array<{name: string, url: string, type: string}>
+): Promise<DiscoveredSource[]> {
+  try {
+    console.log(`[Magistrate Discovery] Searching ${authorities.length} authoritative domains...`);
+    
+    // Build site-specific search query
+    const authorityDomains = authorities.map(a => `site:${a.domain}`).join(' OR ');
+    const authorityList = authorities.map(a => `- ${a.name} (${a.domain}): ${a.focusAreas.join(', ')}`).join('\n');
+    
+    const customSection = customSources && customSources.length > 0
+      ? `\n**User Custom Sources:**\n${customSources.map(s => `- ${s.name} (${s.url})`).join('\n')}\n`
+      : '';
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a syllabus researcher. Find syllabi, curriculum guides, and course content ONLY from the specified authoritative domains. Return valid JSON only.'
+          },
+          {
+            role: 'user',
+            content: `Find ALL available syllabi, curriculum guides, courses, and learning resources for "${discipline}".
+
+CRITICAL: Search ONLY these AUTHORITATIVE DOMAINS (these are the industry standard-bearers):
+${authorityList}
+
+Search query hint: ${authorityDomains} "${discipline}" syllabus OR curriculum OR course OR guide
+${customSection}
+Return ONLY valid JSON with discovered sources. Tag each with its authority type:
+
+{
+  "sources": [
+    {
+      "institution": "Organization Name",
+      "courseName": "Exact Course/Guide Title",
+      "url": "https://exact-url...",
+      "type": "Industry Standard" | "Standard Body" | "Elite Practitioner" | "Academic",
+      "authorityType": "industry_standard" | "standard_body" | "practitioner" | "academic",
+      "authorityReason": "Why this source is authoritative"
+    }
+  ]
+}
+
+Find as many REAL resources as possible from these authoritative domains. Return ONLY the JSON, no other text.`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 3000,
+        return_citations: true,
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok || !data.choices?.[0]?.message?.content) {
+      console.error('[Magistrate Discovery] Failed to find sources');
+      return [];
+    }
+
+    const content = data.choices[0].message.content;
+    const parsed = extractJSON(content);
+    
+    if (parsed?.sources && Array.isArray(parsed.sources)) {
+      // Tag sources with authority info
+      const taggedSources = parsed.sources.map((source: DiscoveredSource) => {
+        // Find matching authority to add reason if not provided
+        const matchingAuth = authorities.find(a => source.url?.includes(a.domain));
+        return {
+          ...source,
+          isDiscoveredAuthority: true,
+          authorityType: source.authorityType || matchingAuth?.authorityType || 'academic',
+          authorityReason: source.authorityReason || matchingAuth?.authorityReason || ''
+        };
+      });
+      
+      console.log(`[Magistrate Discovery] ✓ Found ${taggedSources.length} authoritative sources`);
+      return taggedSources;
+    }
+
+    return [];
+  } catch (error) {
+    console.error('[Magistrate Discovery] Exception:', error);
     return [];
   }
 }
