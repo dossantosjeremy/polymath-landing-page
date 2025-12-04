@@ -87,11 +87,17 @@ async function searchYouTubeAPI(stepTitle: string, discipline: string, blacklist
     return [];
   }
 
-  console.log('🎬 Searching YouTube Data API for:', stepTitle);
+  // Clean step title: remove number prefix like "1. " or "3. "
+  const cleanedTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
+  
+  console.log('🎬 Searching YouTube Data API for:', cleanedTitle, 'in', discipline);
 
   try {
-    // Build search query with discipline context
-    const searchQuery = `${stepTitle} ${discipline} tutorial OR lecture OR explained`;
+    // Build focused search query - use quotes for exact topic match
+    // Example: "Planning UX Research" tutorial lecture
+    const searchQuery = `"${cleanedTitle}" ${discipline}`;
+    
+    console.log('📹 YouTube search query:', searchQuery);
     
     // Search for videos - request 15 to filter down to 5-10 quality results
     const searchUrl = new URL('https://www.googleapis.com/youtube/v3/search');
@@ -143,7 +149,7 @@ async function searchYouTubeAPI(stepTitle: string, discipline: string, blacklist
         author: item.snippet.channelTitle,
         thumbnailUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || '',
         duration: '',
-        whyThisVideo: `Found via YouTube search for "${stepTitle}"`,
+        whyThisVideo: `Found via YouTube search for "${cleanedTitle}"`,
         verified: true,
         keyMoments: []
       }));
@@ -195,7 +201,7 @@ async function searchYouTubeAPI(stepTitle: string, discipline: string, blacklist
                        video.snippet.thumbnails?.high?.url || 
                        video.snippet.thumbnails?.medium?.url || '',
           duration: durationStr,
-          whyThisVideo: `${viewStr} • Educational video on ${stepTitle}`,
+          whyThisVideo: `${viewStr} • Educational video on ${cleanedTitle}`,
           verified: true,
           keyMoments: []
         };
