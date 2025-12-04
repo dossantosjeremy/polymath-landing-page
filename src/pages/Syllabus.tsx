@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles } from "lucide-react";
+import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,8 @@ import { StepSummary } from "@/components/StepSummary";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
 import { LearningPathSettings, LearningPathConstraints, PruningStats } from "@/components/LearningPathSettings";
 import { CurriculumAuditCard } from "@/components/CurriculumAuditCard";
-import { AdHocHeader } from "@/components/AdHocHeader";
+import { AdHocHeader, DomainAuthority } from "@/components/AdHocHeader";
+import { AuthorityBadge } from "@/components/AuthorityBadge";
 
 interface Module {
   title: string;
@@ -60,6 +61,151 @@ interface SyllabusData {
   }>;
   narrativeFlow?: string;
   synthesisRationale?: string;
+  discoveredAuthorities?: Array<{
+    name: string;
+    domain: string;
+    authorityType: 'industry_standard' | 'academic' | 'practitioner' | 'standard_body';
+    authorityReason: string;
+    focusAreas: string[];
+  }>;
+}
+
+// New Authorities Discovered Section Component
+interface NewAuthoritiesSectionProps {
+  authorities: Array<{
+    name: string;
+    domain: string;
+    authorityType: 'industry_standard' | 'academic' | 'practitioner' | 'standard_body';
+    authorityReason: string;
+    focusAreas: string[];
+  }>;
+  discipline: string;
+}
+
+function NewAuthoritiesSection({ authorities, discipline }: NewAuthoritiesSectionProps) {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [addingAuthority, setAddingAuthority] = useState<string | null>(null);
+  const [addedAuthorities, setAddedAuthorities] = useState<Set<string>>(new Set());
+
+  const handleAddToSources = async (authority: NewAuthoritiesSectionProps['authorities'][0]) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to save authorities to your sources.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setAddingAuthority(authority.domain);
+    
+    try {
+      // Get current custom sources
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('custom_sources')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const currentSources = (profile?.custom_sources as Array<{name: string, url: string, type: string}>) || [];
+      
+      // Check if already exists
+      if (currentSources.some(s => s.url.includes(authority.domain))) {
+        toast({
+          title: "Already added",
+          description: `${authority.name} is already in your sources.`
+        });
+        setAddedAuthorities(prev => new Set([...prev, authority.domain]));
+        setAddingAuthority(null);
+        return;
+      }
+
+      // Add new source
+      const newSource = {
+        name: authority.name,
+        url: `https://${authority.domain}`,
+        type: authority.authorityType === 'industry_standard' ? 'Industry Standard' :
+              authority.authorityType === 'standard_body' ? 'Standard Body' :
+              authority.authorityType === 'practitioner' ? 'Elite Practitioner' : 'Academic'
+      };
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          custom_sources: [...currentSources, newSource],
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAddedAuthorities(prev => new Set([...prev, authority.domain]));
+      toast({
+        title: "Source added",
+        description: `${authority.name} has been added to your custom sources.`
+      });
+    } catch (error) {
+      console.error('Failed to add authority:', error);
+      toast({
+        title: "Failed to add",
+        description: "Could not add authority to your sources. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setAddingAuthority(null);
+    }
+  };
+
+  return (
+    <div className="p-6 border-2 border-dashed border-[hsl(var(--gold))]/30 rounded-lg bg-[hsl(var(--gold))]/5">
+      <div className="flex items-center gap-2 mb-4">
+        <Lightbulb className="h-5 w-5 text-[hsl(var(--gold))]" />
+        <h3 className="font-semibold">New Authorities Discovered</h3>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        These industry leaders were identified as authoritative for "{discipline}". 
+        Add them to your sources to use them in future searches.
+      </p>
+      <div className="space-y-3">
+        {authorities.map((auth, idx) => (
+          <div key={idx} className="flex items-center justify-between p-3 bg-card border rounded-lg">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium">{auth.name}</span>
+                <AuthorityBadge type={auth.authorityType} size="sm" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{auth.authorityReason}</p>
+              <p className="text-xs text-blue-500 mt-1">{auth.domain}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-shrink-0 ml-3"
+              onClick={() => handleAddToSources(auth)}
+              disabled={addingAuthority === auth.domain || addedAuthorities.has(auth.domain)}
+            >
+              {addingAuthority === auth.domain ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : addedAuthorities.has(auth.domain) ? (
+                <>
+                  <BookmarkCheck className="h-3 w-3 mr-1" />
+                  Added
+                </>
+              ) : (
+                <>
+                  <Plus className="h-3 w-3 mr-1" />
+                  Add to Sources
+                </>
+              )}
+            </Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 const Syllabus = () => {
@@ -782,6 +928,7 @@ const Syllabus = () => {
               synthesisRationale={syllabusData.synthesisRationale}
               sourceCount={syllabusData.rawSources?.length || 0}
               sourceNames={(syllabusData.rawSources || []).map(s => getDomainShortName(s.url)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5)}
+              discoveredAuthorities={syllabusData.discoveredAuthorities}
             />
           )}
 
@@ -1080,6 +1227,14 @@ const Syllabus = () => {
                   Capstone checkpoints are woven throughout to ensure progressive skill building.
                 </p>
               </div>
+
+              {/* New Authorities Discovered Section - Only for Ad-Hoc syllabi with discovered authorities */}
+              {syllabusData.isAdHoc && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
+                <NewAuthoritiesSection 
+                  authorities={syllabusData.discoveredAuthorities}
+                  discipline={discipline}
+                />
+              )}
 
               {/* Modules List */}
               <div className="space-y-6">
