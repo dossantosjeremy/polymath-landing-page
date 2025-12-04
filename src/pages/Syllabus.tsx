@@ -239,6 +239,7 @@ const Syllabus = () => {
   const useCache = searchParams.get("useCache") === "true";
   const isAdHoc = searchParams.get("isAdHoc") === "true";
   const searchTerm = searchParams.get("searchTerm") || discipline;
+  const useAIEnhanced = searchParams.get("useAIEnhanced") === "true";
   
   // Parse pre-generation constraints from URL
   const urlDepth = searchParams.get("depth") as 'overview' | 'standard' | 'detailed' | null;
@@ -704,7 +705,8 @@ const Syllabus = () => {
           forceRefresh: forceRefresh === true || !!selectedSourceUrls,
           learningConstraints: constraintsOverride || learningSettings,
           isAdHoc,
-          searchTerm
+          searchTerm,
+          useAIEnhanced
         }
       });
 
@@ -930,6 +932,30 @@ const Syllabus = () => {
               sourceNames={(syllabusData.rawSources || []).map(s => getDomainShortName(s.url)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5)}
               discoveredAuthorities={syllabusData.discoveredAuthorities}
             />
+          )}
+
+          {/* AI-Enhanced Mode Banner for database disciplines */}
+          {!loading && !syllabusData?.isAdHoc && useAIEnhanced && syllabusData?.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="h-5 w-5 text-purple-500" />
+                <span className="font-semibold">AI-Enhanced Search Active</span>
+              </div>
+              <p className="text-sm text-muted-foreground mb-3">
+                Combining academic sources with industry authorities discovered for "{discipline}"
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {syllabusData.discoveredAuthorities.slice(0, 5).map((auth, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-700 dark:text-purple-300">
+                    {auth.authorityType === 'industry_standard' && '🏆'}
+                    {auth.authorityType === 'practitioner' && '⭐'}
+                    {auth.authorityType === 'standard_body' && '📋'}
+                    {auth.authorityType === 'academic' && '🎓'}
+                    {auth.name}
+                  </span>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Header */}
