@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, BookOpen, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,7 @@ export const SearchResults = ({
     return discipline.l6 || discipline.l5 || discipline.l4 || discipline.l3 || discipline.l2 || discipline.l1;
   }
 
-  const handleGenerateSyllabus = (discipline: Discipline) => {
+  const handleGenerateSyllabus = (discipline: Discipline, useAIEnhanced: boolean = false) => {
     const disciplineName = getLastLevel(discipline);
     const path = getDisciplinePath(discipline).join(" > ");
     const params = new URLSearchParams({
@@ -76,8 +76,13 @@ export const SearchResults = ({
       params.set('goalDate', globalConstraints.goalDate.toISOString());
     }
     
-    // Check if cached version exists - if so, add useCache parameter
-    if (cachedSyllabus) {
+    // Pass AI-enhanced flag if true
+    if (useAIEnhanced) {
+      params.set('useAIEnhanced', 'true');
+    }
+    
+    // Check if cached version exists - if so, add useCache parameter (only for traditional)
+    if (cachedSyllabus && !useAIEnhanced) {
       params.set('useCache', 'true');
     }
     
@@ -152,27 +157,53 @@ export const SearchResults = ({
                         </div>)}
                     </div>
 
-                    {isExpanded && <div className="flex gap-2 mt-4" onClick={e => e.stopPropagation()}>
+                    {isExpanded && <div className="flex flex-col gap-3 mt-4" onClick={e => e.stopPropagation()}>
                         {cachedSyllabus ? <>
-                            <div className="flex-1">
-                              <Button onClick={() => handleLoadCachedSyllabus(discipline)} className="w-full mb-2">
+                            <div>
+                              <Button onClick={() => handleLoadCachedSyllabus(discipline)} className="w-full">
                                 Load Cached Syllabus
                               </Button>
-                              {cacheDate && <p className="text-xs text-muted-foreground text-center">
+                              {cacheDate && <p className="text-xs text-muted-foreground text-center mt-1">
                                   Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
                                 </p>}
                             </div>
-                            <Button onClick={() => handleGenerateSyllabus(discipline)} variant="outline" className="flex-1">
-                              Generate Fresh
-                            </Button>
-                            <Button onClick={() => onBrowseInContext(discipline)} variant="outline" className="flex-1">
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-2">Generate Fresh:</p>
+                              <div className="flex gap-2">
+                                <Button onClick={() => handleGenerateSyllabus(discipline, false)} variant="outline" className="flex-1">
+                                  <BookOpen className="mr-2 h-4 w-4" />
+                                  Traditional
+                                </Button>
+                                <Button onClick={() => handleGenerateSyllabus(discipline, true)} variant="outline" className="flex-1 border-purple-500/30 hover:bg-purple-500/10">
+                                  <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
+                                  AI-Enhanced
+                                </Button>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground text-center mt-1">
+                                Traditional: Academic sources • AI-Enhanced: + Industry authorities
+                              </p>
+                            </div>
+                            <Button onClick={() => onBrowseInContext(discipline)} variant="ghost" size="sm">
                               Browse in Context
                             </Button>
                           </> : <>
-                            <Button onClick={() => handleGenerateSyllabus(discipline)} className="flex-1">
-                              Generate Syllabus
-                            </Button>
-                            <Button onClick={() => onBrowseInContext(discipline)} variant="outline" className="flex-1">
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-2">Choose generation method:</p>
+                              <div className="flex gap-2">
+                                <Button onClick={() => handleGenerateSyllabus(discipline, false)} variant="outline" className="flex-1">
+                                  <BookOpen className="mr-2 h-4 w-4" />
+                                  Traditional
+                                </Button>
+                                <Button onClick={() => handleGenerateSyllabus(discipline, true)} className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
+                                  <Sparkles className="mr-2 h-4 w-4" />
+                                  AI-Enhanced
+                                </Button>
+                              </div>
+                              <p className="text-[10px] text-muted-foreground text-center mt-1">
+                                Traditional: MIT, Yale, Coursera • AI-Enhanced: + Industry authorities
+                              </p>
+                            </div>
+                            <Button onClick={() => onBrowseInContext(discipline)} variant="ghost" size="sm">
                               Browse in Context
                             </Button>
                           </>}

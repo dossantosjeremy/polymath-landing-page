@@ -76,10 +76,13 @@ serve(async (req) => {
   }
 
   try {
-    const { discipline, selectedSourceUrls, customSources, enabledSources, forceRefresh, learningConstraints, isAdHoc, searchTerm } = await req.json();
+    const { discipline, selectedSourceUrls, customSources, enabledSources, forceRefresh, learningConstraints, isAdHoc, searchTerm, useAIEnhanced } = await req.json();
     console.log('Generating syllabus for:', discipline);
     if (isAdHoc) {
       console.log('[Ad-Hoc] Generating custom syllabus for web-sourced topic');
+    }
+    if (useAIEnhanced) {
+      console.log('[AI-Enhanced] Using Magistrate authority discovery for database discipline');
     }
     if (selectedSourceUrls) {
       console.log('Using selected sources:', selectedSourceUrls.length);
@@ -122,6 +125,11 @@ serve(async (req) => {
     let synthesisRationale = '';
     let discoveredAuthorities: DomainAuthority[] = [];
     
+    // Determine if we should use Magistrate authority discovery
+    // - Always for ad-hoc topics
+    // - For database disciplines when user explicitly chose AI-Enhanced
+    const shouldUseAuthorities = isAdHoc || useAIEnhanced;
+    
     if (isAdHoc) {
       console.log('[Topic Analysis] Analyzing topic composition with Curriculum Architect...');
       const compositionAnalysis = await analyzeTopicComposition(discipline, LOVABLE_API_KEY);
@@ -132,8 +140,10 @@ serve(async (req) => {
       vocationalFirst = compositionAnalysis.vocationalFirst || false;
       console.log(`[Topic Analysis] Type: ${compositionType}, Pillars: ${topicPillars.map(p => p.name).join(', ')}`);
       console.log(`[Topic Analysis] Vocational First: ${vocationalFirst}, Narrative: ${narrativeFlow}`);
-      
-      // THE MAGISTRATE: Identify domain authorities BEFORE searching
+    }
+    
+    // THE MAGISTRATE: Identify domain authorities for ad-hoc OR AI-enhanced searches
+    if (shouldUseAuthorities) {
       console.log('[Magistrate] Identifying domain authorities...');
       const authorityResult = await identifyDomainAuthorities(discipline, LOVABLE_API_KEY);
       discoveredAuthorities = authorityResult.authorities;
@@ -179,10 +189,28 @@ serve(async (req) => {
       }));
     } else {
       // Initial generation - discover sources
-      // For ad-hoc topics with authorities, use TARGETED search
-      if (isAdHoc && discoveredAuthorities.length > 0) {
+      // For ad-hoc OR AI-enhanced, use authority-guided search
+      if (shouldUseAuthorities && discoveredAuthorities.length > 0) {
         console.log('[Discovery] Using Magistrate-guided targeted search...');
-        discoveredSources = await discoverSourcesWithAuthorities(discipline, PERPLEXITY_API_KEY, discoveredAuthorities, customSources);
+        // For AI-enhanced database disciplines, combine authorities with traditional sources
+        if (useAIEnhanced && !isAdHoc) {
+          console.log('[Discovery] AI-Enhanced mode: combining authorities with academic sources...');
+          const [authorityResults, traditionalResults] = await Promise.all([
+            discoverSourcesWithAuthorities(discipline, PERPLEXITY_API_KEY, discoveredAuthorities, customSources),
+            discoverSources(discipline, PERPLEXITY_API_KEY, customSources, enabledSources)
+          ]);
+          // Combine and deduplicate by URL
+          const urlSet = new Set<string>();
+          discoveredSources = [];
+          for (const source of [...authorityResults, ...traditionalResults]) {
+            if (!urlSet.has(source.url)) {
+              urlSet.add(source.url);
+              discoveredSources.push(source);
+            }
+          }
+        } else {
+          discoveredSources = await discoverSourcesWithAuthorities(discipline, PERPLEXITY_API_KEY, discoveredAuthorities, customSources);
+        }
       } else {
         console.log('[Discovery] Finding all available syllabi sources...');
         discoveredSources = await discoverSources(discipline, PERPLEXITY_API_KEY, customSources, enabledSources);
@@ -385,7 +413,9 @@ serve(async (req) => {
             fromCache: false,
             timestamp: new Date().toISOString(),
             pruningStats,
-            learningPathSettings: learningConstraints
+            learningPathSettings: learningConstraints,
+            // Include discovered authorities for AI-enhanced mode
+            ...(useAIEnhanced && discoveredAuthorities.length > 0 ? { discoveredAuthorities } : {})
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
