@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb } from "lucide-react";
+import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -1207,18 +1207,34 @@ const Syllabus = () => {
                 if (usedSources.length === 0) return null;
                 
                 return (
-                  <CurriculumAuditCard
-                    rawSources={usedSources}
-                    pruningStats={pruningStats || syllabusData.pruningStats}
-                    onRestoreAll={() => handleApplyConstraints({ 
-                      depth: 'detailed',
-                      hoursPerWeek: learningSettings.hoursPerWeek,
-                      skillLevel: learningSettings.skillLevel
-                    })}
-                    getDomainShortName={getDomainShortName}
-                    extractCourseCode={extractCourseCode}
-                    getSourceColorByUrl={getSourceColorByUrl}
-                  />
+                  <Collapsible defaultOpen={false}>
+                    <CollapsibleTrigger asChild>
+                      <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className="h-5 w-5 text-primary" />
+                          <h3 className="font-semibold">Optimization Report</h3>
+                          <span className="text-sm text-muted-foreground">
+                            ({usedSources.length} sources)
+                          </span>
+                        </div>
+                        <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <CurriculumAuditCard
+                        rawSources={usedSources}
+                        pruningStats={pruningStats || syllabusData.pruningStats}
+                        onRestoreAll={() => handleApplyConstraints({ 
+                          depth: 'detailed',
+                          hoursPerWeek: learningSettings.hoursPerWeek,
+                          skillLevel: learningSettings.skillLevel
+                        })}
+                        getDomainShortName={getDomainShortName}
+                        extractCourseCode={extractCourseCode}
+                        getSourceColorByUrl={getSourceColorByUrl}
+                      />
+                    </CollapsibleContent>
+                  </Collapsible>
                 );
               })()}
             </div>
