@@ -137,22 +137,24 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
 
             return (
               <CarouselItem key={index} className="pl-4" style={{ flex: '0 0 100%', minWidth: 0 }}>
-                <Card className="border-2 border-border p-4 space-y-3 max-w-3xl mx-auto">
-                  {/* Embedded Video */}
-                  <div className="relative w-full aspect-video">
-                    {embedUrl ? (
-                      <iframe
-                        src={embedUrl}
-                        title={video.title}
-                        className="w-full h-full rounded"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-muted rounded flex items-center justify-center">
-                        <p className="text-sm text-muted-foreground">Unable to embed video</p>
-                      </div>
-                    )}
+                <Card className="border-2 border-border p-4 space-y-3">
+                  {/* Embedded Video - constrained width */}
+                  <div className="w-full max-w-2xl mx-auto">
+                    <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                      {embedUrl ? (
+                        <iframe
+                          src={embedUrl}
+                          title={video.title}
+                          className="absolute inset-0 w-full h-full rounded"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div className="absolute inset-0 w-full h-full bg-muted rounded flex items-center justify-center">
+                          <p className="text-sm text-muted-foreground">Unable to embed video</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Video Info */}
