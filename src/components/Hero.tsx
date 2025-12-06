@@ -19,17 +19,9 @@ export const Hero = () => {
       <div className="text-center space-y-8">
         <h1 className="text-5xl md:text-7xl font-serif font-bold tracking-tight">What do you want to master today?</h1>
 
-        <div className="flex items-center justify-center gap-3 text-muted-foreground">
-          <span className="text-xl">✦</span>
-          
-          <span className="text-xl">◆</span>
-          <span className="h-px w-12 bg-border"></span>
-          <span className="text-xl">✦</span>
-        </div>
+        
 
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          A platform for self-directed learners focusing on project-based learning and creating written artifacts.
-        </p>
+        
 
         <form onSubmit={handleSearch} className="max-w-2xl mx-auto relative">
           <div className="relative flex items-center">
