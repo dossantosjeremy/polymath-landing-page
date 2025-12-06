@@ -17,6 +17,7 @@ import { LearningPathSettings, LearningPathConstraints, PruningStats } from "@/c
 import { CurriculumAuditCard } from "@/components/CurriculumAuditCard";
 import { AdHocHeader, DomainAuthority } from "@/components/AdHocHeader";
 import { AuthorityBadge } from "@/components/AuthorityBadge";
+import { SyllabusMissionControl } from "@/components/SyllabusMissionControl";
 
 interface Module {
   title: string;
@@ -232,6 +233,7 @@ const Syllabus = () => {
   });
   const [applyingConstraints, setApplyingConstraints] = useState(false);
   const [pruningStats, setPruningStats] = useState<PruningStats | undefined>();
+  const [useMissionControl, setUseMissionControl] = useState(true); // Enable by default
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -1190,71 +1192,6 @@ const Syllabus = () => {
                 );
               })()}
 
-              {/* Module Sources (kept for backward compatibility) */}
-              {(!syllabusData.rawSources || syllabusData.rawSources.length === 0) && (
-                <Collapsible open={sourcesOpen} onOpenChange={setSourcesOpen}>
-                  <CollapsibleTrigger asChild>
-                    <button className="w-full border p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-semibold">Raw Syllabus Sources</h3>
-                        <span className="text-sm text-muted-foreground">
-                          ({(() => {
-                            const urls = new Set<string>();
-                            syllabusData.modules.forEach(m => {
-                              if (m.sourceUrl && !m.isCapstone) urls.add(m.sourceUrl);
-                            });
-                            return urls.size;
-                          })()})
-                        </span>
-                      </div>
-                      <ChevronDown className={cn(
-                        "h-5 w-5 text-muted-foreground transition-transform",
-                        sourcesOpen && "rotate-180"
-                      )} />
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <div className="border border-t-0 p-4 bg-muted/20">
-                      <div className="space-y-2">
-                        {(() => {
-                          const urls = new Set<string>();
-                          const sourcesList: { url: string; source: string }[] = [];
-                          syllabusData.modules.forEach(m => {
-                            if (m.sourceUrl && !m.isCapstone && !urls.has(m.sourceUrl)) {
-                              urls.add(m.sourceUrl);
-                              sourcesList.push({ url: m.sourceUrl, source: m.source });
-                            }
-                          });
-                          return sourcesList.map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-2 py-2 border-b last:border-b-0">
-                              <span className="text-sm font-mono text-muted-foreground min-w-[100px]">{item.source}</span>
-                              <a
-                                href={item.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-sm text-primary hover:underline inline-flex items-center gap-1 flex-1 truncate"
-                              >
-                                <ExternalLink className="h-3 w-3 flex-shrink-0" />
-                                {item.url}
-                              </a>
-                            </div>
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
-
-              {/* Capstone Thread Explanation */}
-              <div className="bg-muted/50 border p-4">
-                <h3 className="font-semibold mb-2">About This Syllabus</h3>
-                <p className="text-sm text-muted-foreground">
-                  This course structure integrates project-based learning with theoretical foundations. 
-                  Capstone checkpoints are woven throughout to ensure progressive skill building.
-                </p>
-              </div>
-
               {/* New Authorities Discovered Section - For Ad-Hoc or AI-Enhanced syllabi with discovered authorities */}
               {(syllabusData.isAdHoc || syllabusData.isAIEnhanced) && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
                 <NewAuthoritiesSection 
@@ -1263,249 +1200,25 @@ const Syllabus = () => {
                 />
               )}
 
-              {/* Modules List */}
-              <div className="space-y-6">
+              {/* Mission Control Split-Screen Interface */}
+              <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
-                {parseModuleGroups(syllabusData.modules.filter(m => !m.isHiddenForTime && !m.isHiddenForDepth)).map((moduleGroup) => (
-                  <Collapsible 
-                    key={moduleGroup.moduleNumber}
-                    open={expandedModuleGroups.has(moduleGroup.moduleNumber)}
-                    onOpenChange={() => toggleModuleGroup(moduleGroup.moduleNumber)}
-                  >
-                    {/* Module Header - Collapsible Trigger */}
-                    <CollapsibleTrigger asChild>
-                      {(() => {
-                        const isCapstoneModule = moduleGroup.steps.some(s => s.isCapstone || s.tag === "Capstone Integration");
-                        return (
-                          <button className={cn(
-                            "w-full p-4 flex items-center gap-3 justify-between hover:bg-muted transition-colors border-l-4",
-                            isCapstoneModule 
-                              ? "bg-[hsl(var(--gold))]/5 border-l-[hsl(var(--gold))]" 
-                              : "bg-primary/5 border-l-primary"
-                          )}>
-                            {isCapstoneModule ? (
-                              <Award className="h-5 w-5 text-[hsl(var(--gold))] flex-shrink-0" />
-                            ) : (
-                              <BookOpen className="h-5 w-5 text-primary flex-shrink-0" />
-                            )}
-                            <div className="flex-1 text-left">
-                              <h3 className="font-bold text-lg">{moduleGroup.moduleName}</h3>
-                              {moduleGroup.moduleSubtitle && (
-                                <p className="text-sm text-muted-foreground font-normal mt-0.5">
-                                  {moduleGroup.moduleSubtitle}
-                                </p>
-                              )}
-                            </div>
-                            <ChevronDown className={cn(
-                              "h-5 w-5 text-muted-foreground transition-transform flex-shrink-0",
-                              expandedModuleGroups.has(moduleGroup.moduleNumber) && "rotate-180"
-                            )} />
-                          </button>
-                        );
-                      })()}
-                    </CollapsibleTrigger>
-                    
-                    {/* Steps within the module - Collapsible Content */}
-                    <CollapsibleContent>
-                       {(() => {
-                         const isCapstoneModule = moduleGroup.steps.some(s => s.isCapstone || s.tag === "Capstone Integration");
-                         const isSingleStepCapstone = isCapstoneModule && moduleGroup.steps.length === 1;
-                         
-                         // For single-step capstone modules, render content directly without nested collapsible
-                          if (isSingleStepCapstone) {
-                            const step = moduleGroup.steps[0];
-                            return (
-                              <div 
-                                id={`step-${step.originalIndex}`}
-                                className="ml-4 mt-2"
-                              >
-                                <div className={cn(
-                                  "border overflow-hidden",
-                                  "bg-[hsl(var(--gold))]/5 border-accent"
-                                )}>
-                                  <div className="p-4">
-                                   {step.description && (
-                                     <p className="text-sm text-muted-foreground mb-3">{step.description}</p>
-                                   )}
-                                   
-                                   {/* Multiple source badges with color matching pills */}
-                                   <div className="flex flex-wrap items-center gap-2 mb-4">
-                                     {(() => {
-                                       const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
-                                       const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                                       
-                                       return urls.filter(Boolean).map((url, idx) => {
-                                         const source = rawSources.find(s => s.url === url);
-                                         const baseName = getDomainShortName(url);
-                                         const courseSuffix = extractCourseCode(url, source?.courseName || '');
-                                         const label = courseSuffix ? `${baseName} (${courseSuffix})` : baseName;
-                                         
-                                         return (
-                                           <a
-                                             key={idx}
-                                             href={url}
-                                             target="_blank"
-                                             rel="noopener noreferrer"
-                                             className={cn(
-                                               "text-xs px-2 py-1 border inline-flex items-center gap-1 hover:opacity-80 transition-opacity",
-                                               getSourceColorByUrl(url)
-                                             )}
-                                           >
-                                             {label}
-                                             <ExternalLink className="h-3 w-3" />
-                                           </a>
-                                         );
-                                       });
-                                     })()}
-                                   </div>
-                                   
-                                   <CapstoneAssignment
-                                     stepTitle={step.stepTitle}
-                                     discipline={syllabusData.discipline}
-                                     syllabusUrls={originalSources.length > 0 
-                                       ? originalSources.map(s => s.url) 
-                                       : syllabusData.rawSources?.map(s => s.url) || []}
-                                   />
-                                 </div>
-                               </div>
-                             </div>
-                           );
-                         }
-                         
-                         // For regular modules with multiple steps, render as before
-                         return (
-                            <div className="space-y-2 ml-4 mt-2">
-                              {moduleGroup.steps.map((step) => {
-                                return (
-                                  <div
-                                     id={`step-${step.originalIndex}`}
-                                     key={step.originalIndex}
-                                     className={cn(
-                                       "border overflow-hidden transition-all",
-                                       step.isCapstone ? "bg-[hsl(var(--gold))]/5 border-accent" : "bg-primary/5"
-                                     )}
-                                   >
-                                   <button
-                                     onClick={() => toggleModule(step.originalIndex)}
-                                     className={cn(
-                                       "w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors text-left border-l-4",
-                                       step.tag === "Capstone Integration" 
-                                         ? "border-l-[hsl(var(--gold))]" 
-                                         : "border-l-primary"
-                                     )}
-                                   >
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-1">
-                                          {step.tag === "Capstone Integration" ? (
-                                            <Award className="h-5 w-5 text-[hsl(var(--gold))]" />
-                                          ) : (
-                                            <BookOpen className="h-5 w-5 text-primary" />
-                                          )}
-                                          <h4 className="font-semibold">{step.stepNumber}. {step.stepTitle}</h4>
-                                          <span className={cn(
-                                            "text-xs px-2 py-1",
-                                            step.tag === "Capstone Integration" 
-                                              ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]" 
-                                              : "bg-primary/10 text-primary"
-                                          )}>
-                                            {step.tag}
-                                          </span>
-                                        </div>
-                                       
-                                       {/* Step description from original syllabi */}
-                                       {step.description && (
-                                         <p className="text-sm text-muted-foreground mb-2">{step.description}</p>
-                                       )}
-                                       
-                                        {/* Multiple source badges with color matching pills */}
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          {(() => {
-                                            const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
-                                            const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                                            
-                                            return urls.filter(Boolean).map((url, idx) => {
-                                              const source = rawSources.find(s => s.url === url);
-                                              const baseName = getDomainShortName(url);
-                                              const courseSuffix = extractCourseCode(url, source?.courseName || '');
-                                              const label = courseSuffix ? `${baseName} (${courseSuffix})` : baseName;
-                                              
-                                              return (
-                                                <a
-                                                  key={idx}
-                                                  href={url}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  className={cn(
-                                                    "text-xs px-2 py-1 border inline-flex items-center gap-1 hover:opacity-80 transition-opacity",
-                                                    getSourceColorByUrl(url)
-                                                  )}
-                                                  onClick={(e) => e.stopPropagation()}
-                                                >
-                                                  {label}
-                                                  <ExternalLink className="h-3 w-3" />
-                                                </a>
-                                              );
-                                            });
-                                          })()}
-                                        </div>
-                                     </div>
-                                     <ChevronRight className={cn(
-                                      "h-5 w-5 text-muted-foreground transition-transform",
-                                      expandedModules.has(step.originalIndex) && "rotate-90"
-                                    )} />
-                                  </button>
-                              
-                              {expandedModules.has(step.originalIndex) && (
-                                <div className="px-4 pb-4 border-t">
-                                  {!step.isCapstone && (
-                                    <StepSummary
-                                      stepTitle={step.stepTitle}
-                                      discipline={discipline || ""}
-                                      stepDescription={step.description || ""}
-                                      sourceContent={(() => {
-                                        // Extract relevant source content from rawSources
-                                        const urls = step.sourceUrls || (step.sourceUrl ? [step.sourceUrl] : []);
-                                        const rawSources = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                                        const relevantSources = rawSources.filter(s => urls.includes(s.url));
-                                        return relevantSources
-                                          .map(s => s.content && s.content !== '[[EXTRACTION_FAILED]]' ? s.content : '')
-                                          .filter(Boolean)
-                                          .join('\n\n---\n\n');
-                                      })()}
-                                    />
-                                  )}
-                                  <LearningPlayer 
-                                    stepTitle={step.stepTitle}
-                                    discipline={discipline || ""}
-                                    syllabusUrls={syllabusData?.rawSources?.map(s => s.url) || []}
-                                    isCapstone={step.isCapstone}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })()}
-                    </CollapsibleContent>
-                   </Collapsible>
-                ))}
-              </div>
-
-              {/* Action Button */}
-              <div className="sticky bottom-6 pt-6">
-                <Button size="lg" className="w-full" onClick={() => {
-                  toast({
-                    title: "Feature Coming Soon",
-                    description: "Resource population will be implemented next!"
-                  });
-                }}>
-                  Approve Structure & Generate Resources
-                </Button>
-                <p className="text-center text-sm text-muted-foreground mt-2">
-                  We'll search 10,000+ sources to find the best videos and materials for these topics
-                </p>
+                <SyllabusMissionControl
+                  modules={syllabusData.modules}
+                  discipline={discipline}
+                  rawSources={originalSources.length > 0 ? originalSources : syllabusData.rawSources}
+                  onConfirm={async (selectedIndices) => {
+                    // This callback is called when the user confirms their path selection
+                    // The content is generated lazily in the StagePanel
+                    toast({
+                      title: "Path Confirmed",
+                      description: `Your personalized learning path with ${selectedIndices.length} steps is ready.`,
+                    });
+                  }}
+                  getDomainShortName={getDomainShortName}
+                  extractCourseCode={extractCourseCode}
+                  getSourceColorByUrl={getSourceColorByUrl}
+                />
               </div>
             </div>
           ) : null}
