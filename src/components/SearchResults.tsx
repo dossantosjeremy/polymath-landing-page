@@ -140,7 +140,7 @@ export const SearchResults = ({
         const isExpanded = expandedId === discipline.id;
         return <Card key={discipline.id} className="hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setExpandedId(isExpanded ? null : discipline.id)}>
               <CardContent className="pt-6 rounded-sm">
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-4 mb-2">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-medium px-2 py-1 bg-accent text-accent-foreground rounded-full">
@@ -148,7 +148,7 @@ export const SearchResults = ({
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-2 flex-wrap text-sm mb-2">
+                    <div className="flex items-center gap-2 flex-wrap text-sm">
                       {path.map((segment, index) => <div key={index} className="flex items-center gap-2">
                           <span className={index === path.length - 1 ? "font-semibold" : "text-muted-foreground"}>
                             {segment}
@@ -158,6 +158,7 @@ export const SearchResults = ({
                     </div>
                   </div>
                   <ChevronDown className={`h-5 w-5 text-primary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                </div>
 
                     {isExpanded && <div className="flex flex-col gap-3 mt-4" onClick={e => e.stopPropagation()}>
                         {cachedSyllabus ? <>
@@ -210,7 +211,6 @@ export const SearchResults = ({
                             </Button>
                           </>}
                       </div>}
-                </div>
               </CardContent>
             </Card>;
       })}
