@@ -110,11 +110,11 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
   };
 
   return (
-    <div className="space-y-4">
-      <Carousel className="w-full px-12">
-        <CarouselContent>
+    <div className="space-y-4 w-full overflow-hidden">
+      <Carousel className="w-full">
+        <CarouselContent className="-ml-2 md:-ml-4">
           {validMOOCs.map((mooc, index) => (
-            <CarouselItem key={index}>
+            <CarouselItem key={index} className="pl-2 md:pl-4 basis-full">
               <Card className="border-2 border-border p-6 space-y-4">
                 {/* Header */}
                 <div className="space-y-3">
@@ -171,8 +171,8 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
         </CarouselContent>
         {validMOOCs.length > 1 && (
           <>
-            <CarouselPrevious className="left-2 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
-            <CarouselNext className="right-2 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
+            <CarouselPrevious className="-left-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
+            <CarouselNext className="-right-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
           </>
         )}
       </Carousel>
