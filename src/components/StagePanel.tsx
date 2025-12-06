@@ -94,8 +94,8 @@ export function StagePanel({
 
   // Active Mode: Show current step content
   return (
-    <ScrollArea className="h-full w-full">
-      <div className="p-6 space-y-6 w-full min-w-0 overflow-hidden">
+    <ScrollArea className="h-full w-full max-w-full">
+      <div className="p-6 space-y-6 w-full max-w-full min-w-0 overflow-hidden">
         {/* Step Header */}
         <div className={cn(
           "p-6 rounded-lg border-l-4",
