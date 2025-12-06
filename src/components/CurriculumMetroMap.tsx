@@ -108,15 +108,10 @@ export function CurriculumMetroMap({
                               : "bg-primary"
                             : "bg-muted border-2 border-border"
                         )}>
-                          {isCapstone ? (
+                          {isCapstone && (
                             <Award className={cn(
                               "h-3 w-3",
                               isSelected ? "text-white" : "text-muted-foreground"
-                            )} />
-                          ) : (
-                            <Circle className={cn(
-                              "h-3 w-3",
-                              isSelected ? "text-primary-foreground fill-current" : "text-muted-foreground"
                             )} />
                           )}
                         </div>
