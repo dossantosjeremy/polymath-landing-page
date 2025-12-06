@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, BookOpen, Sparkles } from "lucide-react";
+import { ChevronRight, ChevronDown, BookOpen, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -138,7 +138,7 @@ export const SearchResults = ({
         const path = getDisciplinePath(discipline);
         const level = getLevel(discipline);
         const isExpanded = expandedId === discipline.id;
-        return <Card key={discipline.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : discipline.id)}>
+        return <Card key={discipline.id} className="hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setExpandedId(isExpanded ? null : discipline.id)}>
               <CardContent className="pt-6 rounded-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
@@ -156,6 +156,8 @@ export const SearchResults = ({
                           {index < path.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                         </div>)}
                     </div>
+                  </div>
+                  <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 group-hover:text-foreground ${isExpanded ? 'rotate-180' : ''}`} />
 
                     {isExpanded && <div className="flex flex-col gap-3 mt-4" onClick={e => e.stopPropagation()}>
                         {cachedSyllabus ? <>
@@ -208,7 +210,6 @@ export const SearchResults = ({
                             </Button>
                           </>}
                       </div>}
-                  </div>
                 </div>
               </CardContent>
             </Card>;
