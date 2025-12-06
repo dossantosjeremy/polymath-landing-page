@@ -156,8 +156,8 @@ export function SyllabusMissionControl({
         <ResizableHandle withHandle />
 
         {/* Right Panel - Stage (70%) */}
-        <ResizablePanel defaultSize={70} className="min-w-0">
-          <div className="h-full w-full min-w-0 overflow-hidden">
+        <ResizablePanel defaultSize={70} className="min-w-0 overflow-hidden">
+          <div className="h-full w-full max-w-full min-w-0 overflow-x-hidden">
             {stagePanel}
           </div>
         </ResizablePanel>
