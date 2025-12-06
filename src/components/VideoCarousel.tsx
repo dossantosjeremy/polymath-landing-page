@@ -129,14 +129,14 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
   };
 
   return (
-    <div className="space-y-4">
-      <Carousel className="w-full px-12">
-        <CarouselContent>
+    <div className="space-y-4 w-full overflow-hidden">
+      <Carousel className="w-full">
+        <CarouselContent className="-ml-2 md:-ml-4">
           {validVideos.map((video, index) => {
             const embedUrl = getYouTubeEmbedUrl(video.url);
 
             return (
-              <CarouselItem key={index}>
+              <CarouselItem key={index} className="pl-2 md:pl-4 basis-full">
                 <Card className="border-2 border-border p-4 space-y-3">
                   {/* Embedded Video */}
                   <div className="aspect-video">
@@ -229,8 +229,8 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
         </CarouselContent>
         {validVideos.length > 1 && (
           <>
-            <CarouselPrevious className="left-2 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
-            <CarouselNext className="right-2 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
+            <CarouselPrevious className="-left-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
+            <CarouselNext className="-right-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
           </>
         )}
       </Carousel>
