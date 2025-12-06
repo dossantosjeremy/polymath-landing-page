@@ -189,9 +189,7 @@ export function CurriculumMetroMap({
                             )} />
                           ) : isFuture ? (
                             <Lock className="h-3 w-3 text-muted-foreground" />
-                          ) : (
-                            <Circle className="h-3 w-3 text-primary-foreground fill-current" />
-                          )}
+                          ) : null}
                         </div>
                       </div>
 
