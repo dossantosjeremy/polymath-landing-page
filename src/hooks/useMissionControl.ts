@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
 export type ViewMode = 'draft' | 'active';
 
@@ -32,17 +32,12 @@ interface UseMissionControlProps {
 
 export function useMissionControl({ steps, onConfirm }: UseMissionControlProps) {
   const [mode, setMode] = useState<ViewMode>('draft');
-  const [selectedSteps, setSelectedSteps] = useState<Set<number>>(new Set());
+  const [selectedSteps, setSelectedSteps] = useState<Set<number>>(() => 
+    new Set(steps.map((_, idx) => idx))
+  );
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmedSteps, setConfirmedSteps] = useState<MissionControlStep[]>([]);
-
-  // Sync selectedSteps when steps change
-  useEffect(() => {
-    if (steps.length > 0 && selectedSteps.size === 0 && mode === 'draft') {
-      setSelectedSteps(new Set(steps.map((_, idx) => idx)));
-    }
-  }, [steps, mode]);
 
   // Reset selected steps when steps change
   const resetSelection = useCallback(() => {

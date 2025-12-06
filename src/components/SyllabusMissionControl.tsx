@@ -1,4 +1,4 @@
-
+import { useEffect } from "react";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { CurriculumMetroMap } from "@/components/CurriculumMetroMap";
 import { StagePanel } from "@/components/StagePanel";
