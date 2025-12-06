@@ -110,12 +110,12 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
   };
 
   return (
-    <div className="space-y-4 w-full overflow-hidden">
-      <Carousel className="w-full">
+    <div className="space-y-4 w-full max-w-full min-w-0 overflow-hidden">
+      <Carousel className="w-full max-w-full overflow-hidden">
         <CarouselContent className="-ml-2 md:-ml-4">
           {validMOOCs.map((mooc, index) => (
-            <CarouselItem key={index} className="pl-2 md:pl-4 basis-full">
-              <Card className="border-2 border-border p-6 space-y-4">
+            <CarouselItem key={index} className="pl-2 md:pl-4 basis-full min-w-0 w-full max-w-full">
+              <Card className="border-2 border-border p-6 space-y-4 w-full max-w-full min-w-0 overflow-hidden">
                 {/* Header */}
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">

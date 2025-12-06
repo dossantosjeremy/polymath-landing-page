@@ -143,16 +143,16 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
   };
 
   return (
-    <div className="space-y-4 w-full overflow-hidden">
-      <Carousel setApi={setApi} className="w-full">
+    <div className="space-y-4 w-full max-w-full min-w-0 overflow-hidden">
+      <Carousel setApi={setApi} className="w-full max-w-full overflow-hidden">
         <CarouselContent className="-ml-2 md:-ml-4">
           {validReadings.map((reading, index) => {
             const isExpanded = expandedContent.has(index);
             const hasEmbeddedContent = reading.embeddedContent && reading.contentExtractionStatus === 'success';
 
             return (
-              <CarouselItem key={index} className="pl-2 md:pl-4 basis-full">
-                <Card className="border-2 border-border p-6 space-y-4">
+            <CarouselItem key={index} className="pl-2 md:pl-4 basis-full min-w-0 w-full max-w-full">
+              <Card className="border-2 border-border p-6 space-y-4 w-full max-w-full min-w-0 overflow-hidden">
                   {/* Header */}
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
