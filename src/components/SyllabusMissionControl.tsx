@@ -1,12 +1,12 @@
-import { useEffect } from "react";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { useState, useEffect } from "react";
 import { CurriculumMetroMap } from "@/components/CurriculumMetroMap";
 import { StagePanel } from "@/components/StagePanel";
 import { useMissionControl, MissionControlStep } from "@/hooks/useMissionControl";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Map } from "lucide-react";
+import { Map, PanelLeftClose, PanelLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Module {
   title: string;
@@ -142,26 +142,57 @@ export function SyllabusMissionControl({
     );
   }
 
-  // Desktop Layout: Split-Screen with Resizable Panels
+  // Desktop Layout: Collapsible Sidebar
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   return (
-    <div className="h-[calc(100vh-120px)] min-h-[700px] border rounded-lg overflow-hidden bg-card">
-      <ResizablePanelGroup direction="horizontal">
-        {/* Left Panel - Metro Map (30%) */}
-        <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-          <div className="h-full border-r overflow-hidden">
-            {metroMap}
-          </div>
-        </ResizablePanel>
+    <div className="h-[calc(100vh-120px)] min-h-[700px] border rounded-lg overflow-hidden bg-card flex">
+      {/* Left Panel - Collapsible Metro Map */}
+      <div 
+        className={cn(
+          "h-full border-r transition-all duration-300 ease-in-out overflow-hidden flex-shrink-0",
+          isCollapsed ? "w-0" : "w-[320px]"
+        )}
+      >
+        <div className="h-full w-[320px]">
+          {metroMap}
+        </div>
+      </div>
 
-        <ResizableHandle withHandle />
-
-        {/* Right Panel - Stage (70%) */}
-        <ResizablePanel defaultSize={70} className="min-w-0 overflow-hidden">
-          <div className="h-full w-full max-w-full min-w-0 overflow-x-hidden">
-            {stagePanel}
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+      {/* Right Panel - Stage (expands when collapsed) */}
+      <div className="flex-1 h-full min-w-0 overflow-hidden flex flex-col">
+        {/* Toggle Button */}
+        <div className="flex items-center gap-2 p-2 border-b bg-muted/30">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="gap-2"
+          >
+            {isCollapsed ? (
+              <>
+                <PanelLeft className="h-4 w-4" />
+                <span className="text-xs">Show Map</span>
+              </>
+            ) : (
+              <>
+                <PanelLeftClose className="h-4 w-4" />
+                <span className="text-xs">Hide Map</span>
+              </>
+            )}
+          </Button>
+          {isCollapsed && mode === 'active' && (
+            <span className="text-xs text-muted-foreground">
+              Step {(activeStepIndex ?? 0) + 1} of {confirmedSteps.length}
+            </span>
+          )}
+        </div>
+        
+        {/* Content */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          {stagePanel}
+        </div>
+      </div>
     </div>
   );
 }
