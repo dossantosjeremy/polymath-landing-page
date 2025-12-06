@@ -136,10 +136,10 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
             const embedUrl = getYouTubeEmbedUrl(video.url);
 
             return (
-              <CarouselItem key={index} className="pl-2 md:pl-4 basis-full">
-                <Card className="border-2 border-border p-4 space-y-3">
+              <CarouselItem key={index} className="pl-2 md:pl-4 basis-full min-w-0">
+                <Card className="border-2 border-border p-4 space-y-3 w-full min-w-0">
                   {/* Embedded Video */}
-                  <div className="aspect-video">
+                  <div className="aspect-video w-full min-w-0">
                     {embedUrl ? (
                       <iframe
                         src={embedUrl}
