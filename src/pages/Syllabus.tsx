@@ -1005,37 +1005,6 @@ const Syllabus = () => {
             </div>
           ) : syllabusData ? (
             <div className="space-y-6">
-              {/* Curriculum Audit Card - Ivy League Benchmark Widget */}
-              {(() => {
-                const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
-                
-                // Compute sources actually used in the syllabus
-                const usedSourceUrls = new Set<string>();
-                syllabusData.modules.forEach(m => {
-                  if (m.sourceUrl) usedSourceUrls.add(m.sourceUrl);
-                  if (m.sourceUrls) m.sourceUrls.forEach(url => usedSourceUrls.add(url));
-                });
-                
-                // Show ALL used sources (not deduplicated by domain)
-                const usedSources = sourcesToDisplay.filter(source => usedSourceUrls.has(source.url));
-                
-                if (usedSources.length === 0) return null;
-                
-                return (
-                  <CurriculumAuditCard
-                    rawSources={usedSources}
-                    pruningStats={pruningStats || syllabusData.pruningStats}
-                    onRestoreAll={() => handleApplyConstraints({ 
-                      depth: 'detailed',
-                      hoursPerWeek: learningSettings.hoursPerWeek,
-                      skillLevel: learningSettings.skillLevel
-                    })}
-                    getDomainShortName={getDomainShortName}
-                    extractCourseCode={extractCourseCode}
-                    getSourceColorByUrl={getSourceColorByUrl}
-                  />
-                );
-              })()}
 
               {/* Source Syllabi Section */}
               {((originalSources.length > 0) || (syllabusData.rawSources && syllabusData.rawSources.length > 0)) && (() => {
@@ -1220,6 +1189,38 @@ const Syllabus = () => {
                   getSourceColorByUrl={getSourceColorByUrl}
                 />
               </div>
+
+              {/* Curriculum Audit Card - Ivy League Benchmark Widget (at bottom) */}
+              {(() => {
+                const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
+                
+                // Compute sources actually used in the syllabus
+                const usedSourceUrls = new Set<string>();
+                syllabusData.modules.forEach(m => {
+                  if (m.sourceUrl) usedSourceUrls.add(m.sourceUrl);
+                  if (m.sourceUrls) m.sourceUrls.forEach(url => usedSourceUrls.add(url));
+                });
+                
+                // Show ALL used sources (not deduplicated by domain)
+                const usedSources = sourcesToDisplay.filter(source => usedSourceUrls.has(source.url));
+                
+                if (usedSources.length === 0) return null;
+                
+                return (
+                  <CurriculumAuditCard
+                    rawSources={usedSources}
+                    pruningStats={pruningStats || syllabusData.pruningStats}
+                    onRestoreAll={() => handleApplyConstraints({ 
+                      depth: 'detailed',
+                      hoursPerWeek: learningSettings.hoursPerWeek,
+                      skillLevel: learningSettings.skillLevel
+                    })}
+                    getDomainShortName={getDomainShortName}
+                    extractCourseCode={extractCourseCode}
+                    getSourceColorByUrl={getSourceColorByUrl}
+                  />
+                );
+              })()}
             </div>
           ) : null}
         </div>
