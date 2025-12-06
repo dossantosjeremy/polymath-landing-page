@@ -153,7 +153,7 @@ export const LearningPlayer = ({
   const booksList = displayResources.books || (displayResources.book ? [displayResources.book] : []);
 
   return (
-    <div className="space-y-3 py-6">
+    <div className="space-y-3 py-6 w-full min-w-0">
       {/* Video Carousel */}
       {displayResources.videos && displayResources.videos.length > 0 && (() => {
         const verifiedVideos = displayResources.videos.filter(v => v.url && v.verified !== false);
@@ -165,7 +165,7 @@ export const LearningPlayer = ({
               <Video className="h-4 w-4" />
               <span className="font-semibold text-sm">Educational Videos {label}</span>
             </CollapsibleTrigger>
-            <CollapsibleContent className="pt-3">
+            <CollapsibleContent className="pt-3 w-full min-w-0 overflow-hidden">
               <VideoCarousel 
                 videos={displayResources.videos}
                 stepTitle={stepTitle}

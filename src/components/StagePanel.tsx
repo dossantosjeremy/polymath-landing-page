@@ -94,8 +94,8 @@ export function StagePanel({
 
   // Active Mode: Show current step content
   return (
-    <ScrollArea className="h-full">
-      <div className="p-6 space-y-6 max-w-full overflow-hidden">
+    <ScrollArea className="h-full w-full">
+      <div className="p-6 space-y-6 w-full min-w-0 overflow-hidden">
         {/* Step Header */}
         <div className={cn(
           "p-6 rounded-lg border-l-4",
@@ -167,7 +167,7 @@ export function StagePanel({
         </div>
 
         {/* Content Area */}
-        <div className="overflow-hidden">
+        <div className="w-full min-w-0 overflow-hidden">
           {isCapstone ? (
             <CapstoneAssignment
               stepTitle={currentStep.title}
