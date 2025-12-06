@@ -144,11 +144,11 @@ export function SyllabusMissionControl({
 
   // Desktop Layout: Split-Screen with Resizable Panels
   return (
-    <div className="h-[calc(100vh-200px)] min-h-[600px] border rounded-lg overflow-hidden bg-card">
+    <div className="h-[calc(100vh-120px)] min-h-[700px] border rounded-lg overflow-hidden bg-card">
       <ResizablePanelGroup direction="horizontal">
         {/* Left Panel - Metro Map (30%) */}
         <ResizablePanel defaultSize={30} minSize={20} maxSize={40}>
-          <div className="h-full border-r">
+          <div className="h-full border-r overflow-hidden">
             {metroMap}
           </div>
         </ResizablePanel>
@@ -157,7 +157,7 @@ export function SyllabusMissionControl({
 
         {/* Right Panel - Stage (70%) */}
         <ResizablePanel defaultSize={70}>
-          <div className="h-full">
+          <div className="h-full overflow-hidden">
             {stagePanel}
           </div>
         </ResizablePanel>

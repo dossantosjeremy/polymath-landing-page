@@ -95,7 +95,7 @@ export function StagePanel({
   // Active Mode: Show current step content
   return (
     <ScrollArea className="h-full">
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 max-w-full overflow-hidden">
         {/* Step Header */}
         <div className={cn(
           "p-6 rounded-lg border-l-4",
@@ -109,10 +109,10 @@ export function StagePanel({
             ) : (
               <BookOpen className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
             )}
-            <div>
-              <h1 className="text-2xl font-bold mb-1">{currentStep.title}</h1>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-bold mb-1 break-words">{currentStep.title}</h1>
               <span className={cn(
-                "text-xs px-2 py-1 rounded",
+                "text-xs px-2 py-1 rounded inline-block",
                 isCapstone
                   ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]"
                   : "bg-primary/10 text-primary"
@@ -123,7 +123,7 @@ export function StagePanel({
           </div>
 
           {currentStep.description && (
-            <p className="text-muted-foreground mb-4">{currentStep.description}</p>
+            <p className="text-muted-foreground mb-4 break-words">{currentStep.description}</p>
           )}
 
           {/* Source Badges */}
@@ -157,7 +157,7 @@ export function StagePanel({
 
         {/* Progress Indicator */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>Step {(activeStepIndex ?? 0) + 1} of {confirmedSteps.length}</span>
+          <span className="whitespace-nowrap">Step {(activeStepIndex ?? 0) + 1} of {confirmedSteps.length}</span>
           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
             <div 
               className="h-full bg-primary transition-all" 
@@ -167,34 +167,36 @@ export function StagePanel({
         </div>
 
         {/* Content Area */}
-        {isCapstone ? (
-          <CapstoneAssignment
-            stepTitle={currentStep.title}
-            discipline={discipline}
-            syllabusUrls={syllabusUrls}
-          />
-        ) : (
-          <>
-            <StepSummary
-              stepTitle={currentStep.title}
-              discipline={discipline}
-              stepDescription={currentStep.description || ""}
-              sourceContent={(() => {
-                const relevantSources = rawSources.filter(s => urls.includes(s.url));
-                return relevantSources
-                  .map(s => s.content && s.content !== '[[EXTRACTION_FAILED]]' ? s.content : '')
-                  .filter(Boolean)
-                  .join('\n\n---\n\n');
-              })()}
-            />
-            <LearningPlayer 
+        <div className="overflow-hidden">
+          {isCapstone ? (
+            <CapstoneAssignment
               stepTitle={currentStep.title}
               discipline={discipline}
               syllabusUrls={syllabusUrls}
-              isCapstone={false}
             />
-          </>
-        )}
+          ) : (
+            <>
+              <StepSummary
+                stepTitle={currentStep.title}
+                discipline={discipline}
+                stepDescription={currentStep.description || ""}
+                sourceContent={(() => {
+                  const relevantSources = rawSources.filter(s => urls.includes(s.url));
+                  return relevantSources
+                    .map(s => s.content && s.content !== '[[EXTRACTION_FAILED]]' ? s.content : '')
+                    .filter(Boolean)
+                    .join('\n\n---\n\n');
+                })()}
+              />
+              <LearningPlayer 
+                stepTitle={currentStep.title}
+                discipline={discipline}
+                syllabusUrls={syllabusUrls}
+                isCapstone={false}
+              />
+            </>
+          )}
+        </div>
       </div>
     </ScrollArea>
   );
