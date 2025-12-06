@@ -129,27 +129,27 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
   };
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <Carousel className="w-full">
-        <CarouselContent className="-ml-2 md:-ml-4">
+    <div className="w-full overflow-hidden">
+      <Carousel className="w-full overflow-hidden">
+        <CarouselContent className="-ml-4">
           {validVideos.map((video, index) => {
             const embedUrl = getYouTubeEmbedUrl(video.url);
 
             return (
-              <CarouselItem key={index} className="pl-2 md:pl-4 basis-full">
+              <CarouselItem key={index} className="pl-4" style={{ flex: '0 0 100%', minWidth: 0 }}>
                 <Card className="border-2 border-border p-4 space-y-3">
                   {/* Embedded Video */}
-                  <div className="aspect-video w-full overflow-hidden rounded">
+                  <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
                     {embedUrl ? (
                       <iframe
                         src={embedUrl}
                         title={video.title}
-                        className="w-full h-full rounded"
+                        className="absolute top-0 left-0 w-full h-full rounded"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                         allowFullScreen
                       />
                     ) : (
-                      <div className="w-full h-full bg-muted rounded flex items-center justify-center">
+                      <div className="absolute top-0 left-0 w-full h-full bg-muted rounded flex items-center justify-center">
                         <p className="text-sm text-muted-foreground">Unable to embed video</p>
                       </div>
                     )}
