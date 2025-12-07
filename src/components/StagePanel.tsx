@@ -189,6 +189,7 @@ export function StagePanel({
                 })()}
               />
               <LearningPlayer 
+                key={currentStep.title}
                 stepTitle={currentStep.title}
                 discipline={discipline}
                 syllabusUrls={syllabusUrls}
