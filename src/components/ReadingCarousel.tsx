@@ -144,7 +144,7 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
 
   return (
     <div className="space-y-4 w-full max-w-full min-w-0 overflow-hidden">
-      <Carousel setApi={setApi} className="w-full max-w-full overflow-hidden">
+      <Carousel setApi={setApi} className="w-full max-w-full min-w-0 overflow-hidden">
         <CarouselContent className="-ml-2 md:-ml-4">
           {validReadings.map((reading, index) => {
             const isExpanded = expandedContent.has(index);

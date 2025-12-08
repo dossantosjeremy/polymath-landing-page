@@ -155,12 +155,12 @@ export const AlternativeResources = ({ alternatives, isCapstone = false, stepTit
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 w-full max-w-full min-w-0 overflow-hidden">
       <h4 className="font-semibold text-sm flex items-center gap-2">
         <span>🔄 Alternative Resources</span>
       </h4>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 w-full max-w-full min-w-0">
         {alternatives.map((resource, idx) => (
           <ResourceCard 
             key={idx}
