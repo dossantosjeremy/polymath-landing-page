@@ -127,19 +127,21 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
   };
 
   return (
-    <div className="w-full overflow-hidden">
-      <Carousel className="w-full overflow-hidden">
+    <div className="w-full max-w-full min-w-0 overflow-hidden">
+      <Carousel className="w-full max-w-full min-w-0" opts={{ align: "start" }}>
         <CarouselContent className="-ml-4">
           {validVideos.map((video, index) => {
             const embedUrl = getYouTubeEmbedUrl(video.url);
 
             return (
-              <CarouselItem key={index} className="pl-4" style={{ flex: '0 0 100%', minWidth: 0 }}>
+              <CarouselItem key={index} className="pl-4 basis-full min-w-0">
                 <Card className="border-2 border-border p-4 space-y-3">
-                  {/* The Container Cage - strict max width constraint */}
-                  <div className="w-full max-w-[800px] mx-auto">
-                    {/* Padding Hack: pb-[56.25%] forces 16:9 ratio (9/16 = 0.5625) */}
-                    <div className="relative w-full h-0 pb-[56.25%] bg-black rounded-xl overflow-hidden shadow-lg border border-border">
+                  {/* Flex blowout prevention wrapper */}
+                  <div className="w-full max-w-full min-w-0">
+                    {/* The Container Cage - strict max width constraint */}
+                    <div className="w-full max-w-[800px] mx-auto">
+                      {/* Padding Hack: pb-[56.25%] forces 16:9 ratio (9/16 = 0.5625) */}
+                      <div className="relative w-full h-0 pb-[56.25%] bg-black rounded-xl overflow-hidden shadow-lg border border-border">
                       {embedUrl ? (
                         <iframe
                           src={embedUrl}
@@ -156,6 +158,7 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
                       )}
                     </div>
                   </div>
+                </div>
 
                   {/* Video Info */}
                   <div className="space-y-2">
