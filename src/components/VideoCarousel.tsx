@@ -32,6 +32,7 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
   const { findMore, isSearching } = useFindMoreResource();
   const { toast } = useToast();
   const [localVideos, setLocalVideos] = useState(videos);
+  const [isRetrying, setIsRetrying] = useState(false); // Moved to top level to fix React hook violation
   
   // Filter to only show verified videos
   const validVideos = localVideos.filter(v => v.url && v.verified !== false);
@@ -95,17 +96,14 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
       });
     }
   };
+
+  const handleRetry = () => {
+    setIsRetrying(true);
+    window.location.reload();
+  };
   
   // If no valid videos, show retry UI
   if (validVideos.length === 0) {
-    const [isRetrying, setIsRetrying] = useState(false);
-    
-    const handleRetry = () => {
-      setIsRetrying(true);
-      // Reload the page to trigger a fresh video hunt
-      window.location.reload();
-    };
-    
     return (
       <Card className="p-8 text-center border-dashed">
         <AlertTriangle className="h-12 w-12 mx-auto text-amber-500 mb-4" />
@@ -137,22 +135,24 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
 
             return (
               <CarouselItem key={index} className="pl-4" style={{ flex: '0 0 100%', minWidth: 0 }}>
-                <Card className="border-2 border-border p-4 space-y-3 max-w-xl mx-auto">
-                  {/* Embedded Video - constrained size */}
-                  <div className="relative w-full aspect-video bg-muted rounded overflow-hidden">
-                    {embedUrl ? (
-                      <iframe
-                        src={embedUrl}
-                        title={video.title}
-                        className="absolute inset-0 w-full h-full"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-                        <p className="text-sm text-muted-foreground">Unable to embed video</p>
-                      </div>
-                    )}
+                <Card className="border-2 border-border p-4 space-y-3">
+                  {/* The Container Cage - strict max width constraint */}
+                  <div className="w-full max-w-[850px] mx-auto">
+                    <div className="aspect-video relative rounded-xl overflow-hidden bg-black shadow-lg">
+                      {embedUrl ? (
+                        <iframe
+                          src={embedUrl}
+                          title={video.title}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                          Video unavailable
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Video Info */}
