@@ -189,7 +189,7 @@ export const LearningPlayer = ({
               <FileText className="h-4 w-4" />
               <span className="font-semibold text-sm">Authority Readings {label}</span>
             </CollapsibleTrigger>
-            <CollapsibleContent className="pt-3">
+            <CollapsibleContent className="pt-3 w-full max-w-full min-w-0 overflow-hidden">
               <ReadingCarousel 
                 readings={displayResources.readings}
                 stepTitle={stepTitle}
@@ -207,7 +207,7 @@ export const LearningPlayer = ({
             {openSections.has('books') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="font-semibold text-sm">📚 Recommended Books ({booksList.length})</span>
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3 space-y-3">
+          <CollapsibleContent className="pt-3 space-y-3 w-full max-w-full min-w-0 overflow-hidden">
             {booksList.map((book, index) => (
               <BookCard 
                 key={index}
@@ -230,7 +230,7 @@ export const LearningPlayer = ({
             <GraduationCap className="h-4 w-4" />
             <span className="font-semibold text-sm">Online Courses (MOOCs) ({Math.min(moocs.length, 3)})</span>
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
+          <CollapsibleContent className="pt-3 w-full max-w-full min-w-0 overflow-hidden">
             <MOOCCarousel 
               moocs={moocs}
               stepTitle={stepTitle}
@@ -247,7 +247,7 @@ export const LearningPlayer = ({
             {openSections.has('podcasts') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="font-semibold text-sm">🎧 Podcasts ({podcasts.length})</span>
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
+          <CollapsibleContent className="pt-3 w-full max-w-full min-w-0 overflow-hidden">
             <AlternativeResources 
               alternatives={podcasts} 
               isCapstone={isCapstone}
@@ -266,7 +266,7 @@ export const LearningPlayer = ({
             {openSections.has('additional') ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="font-semibold text-sm">🎓 Additional Resources ({otherAlternatives.length})</span>
           </CollapsibleTrigger>
-          <CollapsibleContent className="pt-3">
+          <CollapsibleContent className="pt-3 w-full max-w-full min-w-0 overflow-hidden">
             <AlternativeResources 
               alternatives={otherAlternatives} 
               isCapstone={isCapstone}

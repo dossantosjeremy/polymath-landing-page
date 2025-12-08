@@ -128,7 +128,7 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <Carousel className="w-full max-w-full min-w-0" opts={{ align: "start" }}>
+      <Carousel className="w-full max-w-full min-w-0 overflow-hidden" opts={{ align: "start" }}>
         <CarouselContent className="-ml-4">
           {validVideos.map((video, index) => {
             const embedUrl = getYouTubeEmbedUrl(video.url);

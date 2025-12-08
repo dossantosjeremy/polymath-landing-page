@@ -53,7 +53,7 @@ export const BookCard = ({
 
   return (
     <div 
-      className="border p-6 space-y-4"
+      className="border p-6 space-y-4 w-full max-w-full min-w-0 overflow-hidden"
       style={{
         borderLeftWidth: '4px',
         borderLeftColor: accentColor,
