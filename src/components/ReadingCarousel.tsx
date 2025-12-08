@@ -152,7 +152,7 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
 
             return (
             <CarouselItem key={index} className="pl-2 md:pl-4 basis-full min-w-0 w-full max-w-full">
-              <Card className="border-2 border-border p-6 space-y-4 w-full max-w-full min-w-0 overflow-hidden">
+              <Card className="border-2 border-border p-6 space-y-4 w-full max-w-full min-w-0 overflow-hidden break-words">
                   {/* Header */}
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">

@@ -160,7 +160,7 @@ export function SyllabusMissionControl({
       </div>
 
       {/* Right Panel - Stage (expands when collapsed) */}
-      <div className="flex-1 h-full min-w-0 overflow-hidden flex flex-col">
+      <div className="flex-1 h-full min-w-0 overflow-hidden flex flex-col" style={{ contain: 'inline-size' }}>
         {/* Toggle Button */}
         <div className="flex items-center gap-2 p-2 border-b bg-muted/30">
           <Button
@@ -189,7 +189,7 @@ export function SyllabusMissionControl({
         </div>
         
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden w-full max-w-full" style={{ contain: 'inline-size' }}>
           {stagePanel}
         </div>
       </div>
