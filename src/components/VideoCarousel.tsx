@@ -137,18 +137,20 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
               <CarouselItem key={index} className="pl-4" style={{ flex: '0 0 100%', minWidth: 0 }}>
                 <Card className="border-2 border-border p-4 space-y-3">
                   {/* The Container Cage - strict max width constraint */}
-                  <div className="w-full max-w-[850px] mx-auto">
-                    <div className="aspect-video relative rounded-xl overflow-hidden bg-black shadow-lg">
+                  <div className="w-full max-w-[800px] mx-auto">
+                    {/* Padding Hack: pb-[56.25%] forces 16:9 ratio (9/16 = 0.5625) */}
+                    <div className="relative w-full h-0 pb-[56.25%] bg-black rounded-xl overflow-hidden shadow-lg border border-border">
                       {embedUrl ? (
                         <iframe
                           src={embedUrl}
                           title={video.title}
-                          className="absolute inset-0 w-full h-full object-cover"
+                          className="absolute top-0 left-0 w-full h-full"
+                          frameBorder={0}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
                         />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-muted-foreground">
                           Video unavailable
                         </div>
                       )}
