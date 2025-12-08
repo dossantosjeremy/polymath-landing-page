@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BookOpen, Loader2, ChevronDown, ChevronRight, Video, FileText, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { VideoCarousel } from './VideoCarousel';
@@ -28,10 +28,12 @@ export const LearningPlayer = ({
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
   const [currentResources, setCurrentResources] = useState<any>(null);
 
-  // Sync currentResources with fetched resources
-  if (resources && !currentResources) {
-    setCurrentResources(resources);
-  }
+  // Properly sync currentResources when resources change
+  useEffect(() => {
+    if (resources) {
+      setCurrentResources(resources);
+    }
+  }, [resources]);
 
   const handleLoadResources = () => {
     setHasLoaded(true);
