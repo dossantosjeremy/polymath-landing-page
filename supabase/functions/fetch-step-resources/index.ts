@@ -7,6 +7,75 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Authority domains for scoring
+const AUTHORITY_DOMAINS: Record<string, { type: string; reason: string }> = {
+  'nngroup.com': { type: 'industry_standard', reason: 'Nielsen Norman Group - UX authority' },
+  'hbr.org': { type: 'industry_standard', reason: 'Harvard Business Review' },
+  'stanford.edu': { type: 'academic', reason: 'Stanford University' },
+  'plato.stanford.edu': { type: 'academic', reason: 'Stanford Encyclopedia of Philosophy' },
+  'mit.edu': { type: 'academic', reason: 'MIT' },
+  'ocw.mit.edu': { type: 'academic', reason: 'MIT OpenCourseWare' },
+  'harvard.edu': { type: 'academic', reason: 'Harvard University' },
+  'yale.edu': { type: 'academic', reason: 'Yale University' },
+  'coursera.org': { type: 'academic', reason: 'Coursera - Top university courses' },
+  'edx.org': { type: 'academic', reason: 'edX - University courses' },
+  'khanacademy.org': { type: 'academic', reason: 'Khan Academy' },
+  'investopedia.com': { type: 'industry_standard', reason: 'Finance authority' },
+  'w3.org': { type: 'standard_body', reason: 'W3C Standards' },
+  'iso.org': { type: 'standard_body', reason: 'ISO Standards' },
+  'wikipedia.org': { type: 'academic', reason: 'Wikipedia - General reference' },
+  'gutenberg.org': { type: 'academic', reason: 'Project Gutenberg - Public domain texts' },
+  'archive.org': { type: 'academic', reason: 'Internet Archive' },
+};
+
+interface ScoreBreakdown {
+  syllabusMatch: number;
+  authorityMatch: number;
+  atomicScope: number;
+  total: number;
+}
+
+interface CuratedResource {
+  url: string;
+  title: string;
+  author?: string;
+  duration?: string;
+  thumbnailUrl?: string;
+  domain?: string;
+  snippet?: string;
+  type?: string;
+  priority: 'mandatory' | 'optional_expansion';
+  origin: 'syllabus_cited' | 'authority_domain' | 'ai_selected';
+  scoreBreakdown: ScoreBreakdown;
+  rationale: string;
+  consumptionTime: string;
+  coveragePercent?: number;
+  verified?: boolean;
+  whyThisVideo?: string;
+  focusHighlight?: string;
+  keyMoments?: { time: string; label: string }[];
+  archivedUrl?: string;
+}
+
+interface CuratedStepResources {
+  coreVideo: CuratedResource | null;
+  coreReading: CuratedResource | null;
+  learningObjective: string;
+  totalCoreTime: string;
+  totalExpandedTime: string;
+  deepDive: CuratedResource[];
+  expansionPack: CuratedResource[];
+  knowledgeCheck?: {
+    question: string;
+    supplementalResourceId?: string;
+  };
+  // Legacy compatibility
+  videos: any[];
+  readings: any[];
+  books: any[];
+  alternatives: any[];
+}
+
 interface StepResources {
   videos: Array<{
     url: string;
@@ -65,6 +134,245 @@ interface StepResources {
     verified?: boolean;
     archivedUrl?: string;
   }>;
+}
+
+// Scoring function for resources
+function scoreResource(
+  resource: any, 
+  syllabusContent: string,
+  resourceType: 'video' | 'reading' | 'book' | 'alternative'
+): { score: ScoreBreakdown; origin: 'syllabus_cited' | 'authority_domain' | 'ai_selected' } {
+  let syllabusMatch = 0;
+  let authorityMatch = 0;
+  let atomicScope = 0;
+  let origin: 'syllabus_cited' | 'authority_domain' | 'ai_selected' = 'ai_selected';
+
+  // Criterion A: Syllabus Match (50 points)
+  if (syllabusContent) {
+    const syllabusLower = syllabusContent.toLowerCase();
+    const titleLower = (resource.title || '').toLowerCase();
+    const authorLower = (resource.author || '').toLowerCase();
+    
+    // Check if title or author appears in syllabus content
+    if (titleLower && syllabusLower.includes(titleLower.substring(0, 30))) {
+      syllabusMatch = 50;
+      origin = 'syllabus_cited';
+    } else if (authorLower && authorLower.length > 3 && syllabusLower.includes(authorLower)) {
+      syllabusMatch = 50;
+      origin = 'syllabus_cited';
+    }
+  }
+
+  // Criterion B: Authority Match (30 points)
+  if (resource.url) {
+    try {
+      const urlObj = new URL(resource.url);
+      const domain = urlObj.hostname.replace('www.', '');
+      
+      // Check against known authority domains
+      for (const [authDomain, info] of Object.entries(AUTHORITY_DOMAINS)) {
+        if (domain.includes(authDomain) || authDomain.includes(domain)) {
+          authorityMatch = 30;
+          if (origin !== 'syllabus_cited') {
+            origin = 'authority_domain';
+          }
+          break;
+        }
+      }
+    } catch (e) {
+      // Invalid URL
+    }
+  }
+
+  // Criterion C: Atomic Scope (20 points or -50 penalty)
+  const url = resource.url || '';
+  const isLandingPage = 
+    (url.includes('/learn/') && !url.includes('/lecture/') && !url.includes('/video/')) ||
+    (url.includes('coursera.org') && !url.includes('/lecture')) ||
+    (url.includes('edx.org') && url.endsWith('/course'));
+  const isBookSalesPage = url.includes('amazon.com') || url.includes('/buy') || url.includes('/purchase');
+  const isSpecificContent = 
+    url.includes('youtube.com/watch') ||
+    url.includes('youtu.be/') ||
+    url.includes('.pdf') ||
+    url.includes('/article/') ||
+    url.includes('/entry/') ||
+    url.includes('/wiki/');
+
+  if (isLandingPage || isBookSalesPage) {
+    atomicScope = -50; // Penalty for container pages
+  } else if (isSpecificContent) {
+    atomicScope = 20; // Reward for atomic content
+  } else {
+    atomicScope = 10; // Neutral
+  }
+
+  const total = Math.max(0, syllabusMatch + authorityMatch + atomicScope);
+
+  return {
+    score: { syllabusMatch, authorityMatch, atomicScope, total },
+    origin
+  };
+}
+
+// Generate learning objective for a step
+function generateLearningObjective(stepTitle: string, discipline: string): string {
+  const cleanTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
+  return `By the end of this step, you will understand the key concepts of ${cleanTitle} and be able to apply them in ${discipline}.`;
+}
+
+// Generate knowledge check question
+function generateKnowledgeCheck(stepTitle: string): { question: string; supplementalResourceId?: string } {
+  const cleanTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
+  return {
+    question: `Can you explain the main concepts of ${cleanTitle} in your own words?`,
+    supplementalResourceId: '0'
+  };
+}
+
+// Calculate total time from resources
+function calculateTotalTime(resources: any[]): string {
+  let totalMinutes = 0;
+  
+  for (const r of resources) {
+    if (!r) continue;
+    const time = r.consumptionTime || r.duration || '';
+    const match = time.match(/(\d+)/);
+    const mins = match ? parseInt(match[1]) : 10;
+    totalMinutes += mins;
+  }
+  
+  if (totalMinutes >= 60) {
+    const hours = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+  }
+  return `${totalMinutes} mins`;
+}
+
+// Transform legacy resource to curated format
+function transformToCuratedResource(
+  resource: any, 
+  type: string, 
+  syllabusContent: string
+): CuratedResource {
+  const { score, origin } = scoreResource(resource, syllabusContent, type as any);
+  
+  let domain = '';
+  try {
+    domain = new URL(resource.url || '').hostname.replace('www.', '');
+  } catch (e) {}
+
+  // Generate rationale based on origin
+  let rationale = resource.whyThisVideo || resource.why || resource.focusHighlight || '';
+  if (!rationale) {
+    if (origin === 'syllabus_cited') {
+      rationale = `Cited in authoritative university syllabi for ${type === 'video' ? 'this topic' : 'deep understanding'}.`;
+    } else if (origin === 'authority_domain') {
+      const authInfo = Object.entries(AUTHORITY_DOMAINS).find(([d]) => domain.includes(d));
+      rationale = authInfo ? `From ${authInfo[1].reason}.` : `From a recognized authority in the field.`;
+    } else {
+      rationale = `Selected for relevance and clarity on this topic.`;
+    }
+  }
+
+  // Estimate consumption time
+  let consumptionTime = resource.duration || '';
+  if (!consumptionTime) {
+    if (type === 'video') consumptionTime = '10 mins';
+    else if (type === 'reading') consumptionTime = '15 mins read';
+    else if (type === 'book') consumptionTime = '30 mins';
+    else consumptionTime = '10 mins';
+  }
+
+  return {
+    url: resource.url || '',
+    title: resource.title || '',
+    author: resource.author,
+    duration: resource.duration,
+    thumbnailUrl: resource.thumbnailUrl,
+    domain,
+    snippet: resource.snippet,
+    type,
+    priority: score.total >= 50 ? 'mandatory' : 'optional_expansion',
+    origin,
+    scoreBreakdown: score,
+    rationale,
+    consumptionTime,
+    coveragePercent: score.total >= 70 ? 90 : score.total >= 50 ? 80 : 70,
+    verified: resource.verified,
+    whyThisVideo: resource.whyThisVideo,
+    focusHighlight: resource.focusHighlight,
+    keyMoments: resource.keyMoments,
+    archivedUrl: resource.archivedUrl
+  };
+}
+
+// Curate resources into MED format
+function curateResources(
+  resources: StepResources, 
+  stepTitle: string, 
+  discipline: string,
+  syllabusContent: string
+): CuratedStepResources {
+  // Transform and score all resources
+  const scoredVideos = (resources.videos || [])
+    .filter(v => v.url && v.verified !== false)
+    .map(v => transformToCuratedResource(v, 'video', syllabusContent))
+    .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+
+  const scoredReadings = (resources.readings || [])
+    .filter(r => r.url && r.verified !== false)
+    .map(r => transformToCuratedResource(r, 'reading', syllabusContent))
+    .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+
+  const scoredBooks = (resources.books || [])
+    .filter(b => b.url)
+    .map(b => transformToCuratedResource(b, 'book', syllabusContent))
+    .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+
+  const scoredAlternatives = (resources.alternatives || [])
+    .filter(a => a.url && a.verified !== false)
+    .map(a => transformToCuratedResource(a, a.type || 'article', syllabusContent))
+    .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+
+  // Select core resources (highest scoring)
+  const coreVideo = scoredVideos[0] || null;
+  const coreReading = scoredReadings[0] || null;
+
+  // Deep dive: next 2-3 best resources
+  const deepDive: CuratedResource[] = [
+    ...scoredVideos.slice(1, 2),
+    ...scoredReadings.slice(1, 3)
+  ];
+
+  // Expansion pack: everything else
+  const expansionPack: CuratedResource[] = [
+    ...scoredVideos.slice(2),
+    ...scoredReadings.slice(3),
+    ...scoredBooks,
+    ...scoredAlternatives
+  ];
+
+  // Mark core resources
+  if (coreVideo) coreVideo.priority = 'mandatory';
+  if (coreReading) coreReading.priority = 'mandatory';
+
+  return {
+    coreVideo,
+    coreReading,
+    learningObjective: generateLearningObjective(stepTitle, discipline),
+    totalCoreTime: calculateTotalTime([coreVideo, coreReading].filter(Boolean)),
+    totalExpandedTime: calculateTotalTime([...deepDive, ...expansionPack]),
+    deepDive,
+    expansionPack,
+    knowledgeCheck: generateKnowledgeCheck(stepTitle),
+    // Legacy compatibility
+    videos: resources.videos || [],
+    readings: resources.readings || [],
+    books: resources.books || [],
+    alternatives: resources.alternatives || []
+  };
 }
 
 async function verifyYouTubeVideo(videoId: string): Promise<boolean> {
@@ -766,9 +1074,9 @@ serve(async (req) => {
   }
 
   try {
-    const { stepTitle, discipline, syllabusUrls = [], forceRefresh = false } = await req.json();
+    const { stepTitle, discipline, syllabusUrls = [], rawSourcesContent = '', userTimeBudget, forceRefresh = false } = await req.json();
     
-    console.log('Fetching resources for:', { stepTitle, discipline, syllabusUrlsCount: syllabusUrls.length, forceRefresh });
+    console.log('Fetching resources for:', { stepTitle, discipline, syllabusUrlsCount: syllabusUrls.length, forceRefresh, hasRawSources: !!rawSourcesContent });
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -1060,7 +1368,18 @@ RESPONSE FORMAT - CRITICAL:
       // Continue even if caching fails
     }
 
-    return new Response(JSON.stringify(resources), {
+    // Curate resources into MED format
+    const syllabusContent = rawSourcesContent || '';
+    const curatedResources = curateResources(resources, stepTitle, discipline, syllabusContent);
+    
+    console.log('✓ Curated resources:', {
+      hasCoreVideo: !!curatedResources.coreVideo,
+      hasCoreReading: !!curatedResources.coreReading,
+      deepDiveCount: curatedResources.deepDive.length,
+      expansionCount: curatedResources.expansionPack.length
+    });
+
+    return new Response(JSON.stringify(curatedResources), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
@@ -1068,6 +1387,13 @@ RESPONSE FORMAT - CRITICAL:
     console.error('Error in fetch-step-resources:', error);
     return new Response(JSON.stringify({ 
       error: error instanceof Error ? error.message : 'Unknown error',
+      coreVideo: null,
+      coreReading: null,
+      learningObjective: '',
+      totalCoreTime: '0 mins',
+      totalExpandedTime: '0 mins',
+      deepDive: [],
+      expansionPack: [],
       videos: [],
       readings: [],
       books: [],
