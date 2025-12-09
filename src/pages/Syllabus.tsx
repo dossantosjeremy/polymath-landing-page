@@ -718,14 +718,34 @@ const Syllabus = () => {
       if (error) throw error;
 
       // Preserve original sources when regenerating
-      setSyllabusData({
+      const updatedData = {
         ...data,
         rawSources: originalSources.length > 0 ? originalSources : data.rawSources
-      });
+      };
+      setSyllabusData(updatedData);
       
       // Update pruning stats if provided
       if (data.pruningStats) {
         setPruningStats(data.pruningStats);
+      }
+      
+      // If this is a saved syllabus and we're regenerating with constraints, persist the updated modules
+      if (savedId && isRegenerating && constraintsOverride) {
+        try {
+          const { error: updateError } = await supabase
+            .from('saved_syllabi')
+            .update({
+              modules: updatedData.modules as any,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', savedId);
+          
+          if (updateError) {
+            console.error('Failed to persist updated syllabus:', updateError);
+          }
+        } catch (persistError) {
+          console.error('Error persisting syllabus update:', persistError);
+        }
       }
       
       if (isRegenerating) {
