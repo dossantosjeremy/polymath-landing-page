@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrustBadge, ScoreBreakdownBadge, ResourceOrigin } from './TrustBadge';
-import { ExternalLink, Clock, Target, Play, FileText } from 'lucide-react';
+import { ExternalLink, Clock, Target, Play, FileText, Flag, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useReportResource } from '@/hooks/useReportResource';
 
 interface CuratedResource {
   url: string;
@@ -32,6 +33,8 @@ interface CriticalPathProps {
   coreReading: CuratedResource | null;
   totalCoreTime: string;
   discipline?: string;
+  stepTitle?: string;
+  onResourceReplace?: (type: 'video' | 'reading', newResource: CuratedResource) => void;
   className?: string;
 }
 
@@ -41,6 +44,8 @@ export function CriticalPath({
   coreReading,
   totalCoreTime,
   discipline,
+  stepTitle,
+  onResourceReplace,
   className
 }: CriticalPathProps) {
   const coveragePercent = Math.max(
@@ -81,6 +86,8 @@ export function CriticalPath({
             type="video"
             resource={coreVideo}
             discipline={discipline}
+            stepTitle={stepTitle}
+            onReplace={onResourceReplace ? (r) => onResourceReplace('video', r) : undefined}
           />
         )}
         
@@ -90,6 +97,8 @@ export function CriticalPath({
             type="reading"
             resource={coreReading}
             discipline={discipline}
+            stepTitle={stepTitle}
+            onReplace={onResourceReplace ? (r) => onResourceReplace('reading', r) : undefined}
           />
         )}
         
@@ -107,14 +116,33 @@ interface CoreResourceCardProps {
   type: 'video' | 'reading';
   resource: CuratedResource;
   discipline?: string;
+  stepTitle?: string;
+  onReplace?: (newResource: CuratedResource) => void;
 }
 
-function CoreResourceCard({ type, resource, discipline }: CoreResourceCardProps) {
+function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: CoreResourceCardProps) {
   const isVideo = type === 'video';
   const Icon = isVideo ? Play : FileText;
+  const { reportAndReplace, isReporting } = useReportResource();
   
   // Extract video ID for embed
   const videoId = resource.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
+
+  const handleReport = async () => {
+    if (!stepTitle || !discipline) return;
+    
+    const result = await reportAndReplace({
+      brokenUrl: resource.url,
+      resourceType: type,
+      stepTitle,
+      discipline,
+      reportReason: 'Not relevant or broken'
+    });
+    
+    if (result?.replacement && onReplace) {
+      onReplace(result.replacement);
+    }
+  };
 
   return (
     <div className="border rounded-lg bg-background overflow-hidden">
@@ -186,14 +214,29 @@ function CoreResourceCard({ type, resource, discipline }: CoreResourceCardProps)
             <Clock className="h-3 w-3" />
             <span>{resource.consumptionTime}</span>
           </div>
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => window.open(resource.url, '_blank')}
-          >
-            <ExternalLink className="h-3 w-3 mr-1" />
-            {isVideo ? 'Watch' : 'Read'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              size="sm" 
+              variant="ghost"
+              onClick={handleReport}
+              disabled={isReporting || !stepTitle}
+              title="Report & find replacement"
+            >
+              {isReporting ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Flag className="h-3 w-3" />
+              )}
+            </Button>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => window.open(resource.url, '_blank')}
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              {isVideo ? 'Watch' : 'Read'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

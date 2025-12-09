@@ -100,7 +100,7 @@ export const useCuratedResources = () => {
   const findMoreResources = async (
     stepTitle: string,
     discipline: string,
-    type: 'video' | 'reading',
+    type: 'video' | 'reading' | 'podcast',
     existingUrls: string[]
   ) => {
     try {

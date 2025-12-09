@@ -4,8 +4,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrustBadge, ResourceOrigin } from './TrustBadge';
-import { ChevronDown, Plus, ExternalLink, Clock, Video, FileText, BookOpen, Headphones, GraduationCap } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { ChevronDown, Plus, ExternalLink, Clock, Video, FileText, BookOpen, Headphones, GraduationCap, Search, Flag, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useReportResource } from '@/hooks/useReportResource';
 
 interface CuratedResource {
   url: string;
@@ -30,8 +32,11 @@ interface ExpansionPackProps {
   deepDive: CuratedResource[];
   expansionPack: CuratedResource[];
   totalExpandedTime: string;
-  onFindMore?: (type: 'video' | 'reading') => void;
+  onFindMore?: (type: 'video' | 'reading' | 'podcast') => void;
   isExpanded?: boolean;
+  stepTitle?: string;
+  discipline?: string;
+  onResourceReplace?: (index: number, section: 'deepDive' | 'expansionPack', newResource: CuratedResource) => void;
   className?: string;
 }
 
@@ -41,6 +46,9 @@ export function ExpansionPack({
   totalExpandedTime,
   onFindMore,
   isExpanded: initialExpanded = false,
+  stepTitle,
+  discipline,
+  onResourceReplace,
   className
 }: ExpansionPackProps) {
   const [isOpen, setIsOpen] = useState(initialExpanded);
@@ -82,7 +90,13 @@ export function ExpansionPack({
             </h4>
             <div className="grid gap-2">
               {deepDive.map((resource, index) => (
-                <ExpansionResourceCard key={index} resource={resource} />
+                <ExpansionResourceCard 
+                  key={index} 
+                  resource={resource}
+                  stepTitle={stepTitle}
+                  discipline={discipline}
+                  onReplace={onResourceReplace ? (r) => onResourceReplace(index, 'deepDive', r) : undefined}
+                />
               ))}
             </div>
           </div>
@@ -96,33 +110,43 @@ export function ExpansionPack({
             </h4>
             <div className="grid gap-2">
               {expansionPack.map((resource, index) => (
-                <ExpansionResourceCard key={index} resource={resource} />
+                <ExpansionResourceCard 
+                  key={index} 
+                  resource={resource}
+                  stepTitle={stepTitle}
+                  discipline={discipline}
+                  onReplace={onResourceReplace ? (r) => onResourceReplace(index, 'expansionPack', r) : undefined}
+                />
               ))}
             </div>
           </div>
         )}
         
-        {/* Find More Buttons */}
+        {/* Find More Dropdown */}
         {onFindMore && (
-          <div className="flex gap-2 pt-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onFindMore('video')}
-              className="flex-1"
-            >
-              <Video className="h-3 w-3 mr-1" />
-              Find More Videos
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onFindMore('reading')}
-              className="flex-1"
-            >
-              <FileText className="h-3 w-3 mr-1" />
-              Find More Readings
-            </Button>
+          <div className="pt-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Search className="h-3 w-3 mr-1" />
+                  Find More...
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="bg-popover">
+                <DropdownMenuItem onClick={() => onFindMore('video')}>
+                  <Video className="h-4 w-4 mr-2" />
+                  Videos
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFindMore('reading')}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Readings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onFindMore('podcast')}>
+                  <Headphones className="h-4 w-4 mr-2" />
+                  Podcasts
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </CollapsibleContent>
@@ -132,9 +156,15 @@ export function ExpansionPack({
 
 interface ExpansionResourceCardProps {
   resource: CuratedResource;
+  stepTitle?: string;
+  discipline?: string;
+  onReplace?: (newResource: CuratedResource) => void;
 }
 
-function ExpansionResourceCard({ resource }: ExpansionResourceCardProps) {
+function ExpansionResourceCard({ resource, stepTitle, discipline, onReplace }: ExpansionResourceCardProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { reportAndReplace, isReporting } = useReportResource();
+  
   const getIcon = () => {
     const type = resource.type?.toLowerCase() || '';
     if (type === 'video' || resource.url?.includes('youtube')) return Video;
@@ -145,46 +175,107 @@ function ExpansionResourceCard({ resource }: ExpansionResourceCardProps) {
   };
   
   const Icon = getIcon();
+  const isVideo = resource.type?.toLowerCase() === 'video' || resource.url?.includes('youtube');
+  const videoId = isVideo ? resource.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1] : null;
+
+  const handleReport = async () => {
+    if (!stepTitle || !discipline) return;
+    
+    const result = await reportAndReplace({
+      brokenUrl: resource.url,
+      resourceType: resource.type || 'reading',
+      stepTitle,
+      discipline,
+      reportReason: 'Not relevant or broken'
+    });
+    
+    if (result?.replacement && onReplace) {
+      onReplace(result.replacement);
+    }
+  };
 
   return (
-    <Card className="border hover:border-primary/30 transition-colors">
-      <CardContent className="p-3">
-        <div className="flex items-start gap-3">
-          <div className="p-2 bg-muted rounded shrink-0">
-            <Icon className="h-4 w-4 text-muted-foreground" />
-          </div>
-          
-          <div className="flex-1 min-w-0 space-y-1">
-            <div className="flex items-start justify-between gap-2">
-              <h5 className="text-sm font-medium line-clamp-1">{resource.title}</h5>
-              <TrustBadge origin={resource.origin} className="shrink-0" />
-            </div>
-            
-            {resource.author && (
-              <p className="text-xs text-muted-foreground">by {resource.author}</p>
-            )}
-            
-            <p className="text-xs text-muted-foreground italic line-clamp-1">
-              "{resource.rationale}"
-            </p>
-            
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="h-3 w-3" />
-                <span>{resource.consumptionTime}</span>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card className="border hover:border-primary/30 transition-colors">
+        <CardContent className="p-0">
+          <CollapsibleTrigger className="w-full p-3">
+            <div className="flex items-start gap-3">
+              <div className="p-2 bg-muted rounded shrink-0">
+                <Icon className="h-4 w-4 text-muted-foreground" />
               </div>
-              <Button 
-                size="sm" 
-                variant="ghost"
-                className="h-6 px-2"
-                onClick={() => window.open(resource.url, '_blank')}
-              >
-                <ExternalLink className="h-3 w-3" />
-              </Button>
+              
+              <div className="flex-1 min-w-0 space-y-1 text-left">
+                <div className="flex items-start justify-between gap-2">
+                  <h5 className="text-sm font-medium line-clamp-1">{resource.title}</h5>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <TrustBadge origin={resource.origin} />
+                    <ChevronDown className={cn(
+                      "h-4 w-4 transition-transform text-muted-foreground",
+                      isOpen && "rotate-180"
+                    )} />
+                  </div>
+                </div>
+                
+                {resource.author && (
+                  <p className="text-xs text-muted-foreground">by {resource.author}</p>
+                )}
+                
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>{resource.consumptionTime}</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          </CollapsibleTrigger>
+          
+          <CollapsibleContent>
+            <div className="px-3 pb-3 space-y-3 border-t pt-3">
+              {/* Video Embed */}
+              {isVideo && videoId && (
+                <div className="relative w-full h-0 pb-[56.25%] bg-black rounded-lg overflow-hidden">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${videoId}`}
+                    className="absolute inset-0 w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    title={resource.title}
+                  />
+                </div>
+              )}
+              
+              {/* Rationale */}
+              <div className="p-2 bg-muted/50 rounded text-xs italic text-muted-foreground">
+                "{resource.rationale}"
+              </div>
+              
+              {/* Actions */}
+              <div className="flex items-center justify-between">
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  onClick={handleReport}
+                  disabled={isReporting || !stepTitle}
+                  title="Report & find replacement"
+                >
+                  {isReporting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Flag className="h-3 w-3" />
+                  )}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => window.open(resource.url, '_blank')}
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  {isVideo ? 'Watch' : 'Read'}
+                </Button>
+              </div>
+            </div>
+          </CollapsibleContent>
+        </CardContent>
+      </Card>
+    </Collapsible>
   );
 }

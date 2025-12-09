@@ -74,7 +74,7 @@ export const LearningPlayer = ({
     });
   };
 
-  const handleFindMore = async (type: 'video' | 'reading') => {
+  const handleFindMore = async (type: 'video' | 'reading' | 'podcast') => {
     if (!curatedResources) return;
     
     const existingUrls = [
@@ -243,6 +243,7 @@ export const LearningPlayer = ({
                   coreReading={curatedResources.coreReading}
                   totalCoreTime={curatedResources.totalCoreTime}
                   discipline={discipline}
+                  stepTitle={stepTitle}
                 />
               )}
 
@@ -263,6 +264,8 @@ export const LearningPlayer = ({
                   totalExpandedTime={curatedResources.totalExpandedTime}
                   onFindMore={handleFindMore}
                   isExpanded={showExpansion}
+                  stepTitle={stepTitle}
+                  discipline={discipline}
                 />
               )}
             </>
