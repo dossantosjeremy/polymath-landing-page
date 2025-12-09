@@ -236,6 +236,7 @@ const Syllabus = () => {
   const [applyingConstraints, setApplyingConstraints] = useState(false);
   const [pruningStats, setPruningStats] = useState<PruningStats | undefined>();
   const [useMissionControl, setUseMissionControl] = useState(true); // Enable by default
+  const [regenerationKey, setRegenerationKey] = useState(0); // Forces SyllabusMissionControl remount
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -749,6 +750,9 @@ const Syllabus = () => {
       }
       
       if (isRegenerating) {
+        // Force SyllabusMissionControl to remount with new data
+        setRegenerationKey(prev => prev + 1);
+        
         if (constraintsOverride) {
           toast({
             title: "Syllabus Adjusted",
@@ -1255,7 +1259,7 @@ const Syllabus = () => {
               <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
                 <SyllabusMissionControl
-                  key={`mission-control-${syllabusData.modules.length}-${syllabusData.timestamp || Date.now()}`}
+                  key={`mission-control-${regenerationKey}`}
                   modules={syllabusData.modules}
                   discipline={discipline}
                   rawSources={originalSources.length > 0 ? originalSources : syllabusData.rawSources}
@@ -1270,6 +1274,7 @@ const Syllabus = () => {
                   getDomainShortName={getDomainShortName}
                   extractCourseCode={extractCourseCode}
                   getSourceColorByUrl={getSourceColorByUrl}
+                  regenerationKey={regenerationKey}
                 />
               </div>
 

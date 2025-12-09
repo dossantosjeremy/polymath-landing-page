@@ -1151,13 +1151,25 @@ function estimateStepTime(module: Module, skillLevel: string, depth: string): nu
 }
 
 // Helper function to classify module priority (enhanced)
+// CRITICAL: Only FINAL capstone is core. Intermediate capstones are important.
+// This ensures overview mode shows foundational content, not just checkpoints.
 function classifyPriority(module: Module, moduleIndex: number, totalModules: number): 'core' | 'important' | 'nice-to-have' {
-  // Core: foundational topics, prerequisites, final capstone, first few modules
-  if (module.isCapstone) return 'core';
+  // Capstone handling: Only the FINAL capstone is core
+  // Intermediate capstones are important (appear in standard mode, not overview)
+  if (module.isCapstone) {
+    // Final capstone: last 2 modules or if it's the only capstone
+    const isNearEnd = moduleIndex >= totalModules - 3;
+    const isFinalCapstone = isNearEnd || module.title.toLowerCase().includes('final');
+    return isFinalCapstone ? 'core' : 'important';
+  }
+  
+  // Foundations and Introduction are always core
   if (module.tag === 'Foundations' || module.tag === 'Introduction') return 'core';
   
-  // First 2-3 modules are typically foundational
-  if (moduleIndex < 3) return 'core';
+  // First 4-5 modules are typically foundational for overview
+  // Use ~30% of total modules, minimum 4, maximum 6
+  const coreThreshold = Math.min(6, Math.max(4, Math.ceil(totalModules * 0.3)));
+  if (moduleIndex < coreThreshold) return 'core';
   
   // Nice-to-have: historical context, advanced tangents, extra examples
   if (module.tag === 'Historical Context' || 

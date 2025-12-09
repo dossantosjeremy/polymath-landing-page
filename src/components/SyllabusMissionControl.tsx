@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { CurriculumMetroMap } from "@/components/CurriculumMetroMap";
 import { StagePanel } from "@/components/StagePanel";
 import { useMissionControl, MissionControlStep } from "@/hooks/useMissionControl";
@@ -39,6 +39,7 @@ interface SyllabusMissionControlProps {
   getDomainShortName: (url: string) => string;
   extractCourseCode: (url: string, courseName?: string) => string;
   getSourceColorByUrl: (url: string) => string;
+  regenerationKey?: number; // Forces remount on regeneration
 }
 
 export function SyllabusMissionControl({
@@ -49,16 +50,19 @@ export function SyllabusMissionControl({
   getDomainShortName,
   extractCourseCode,
   getSourceColorByUrl,
+  regenerationKey = 0,
 }: SyllabusMissionControlProps) {
   const isMobile = useIsMobile();
 
-  // Transform modules to MissionControlStep format
-  const steps: MissionControlStep[] = modules
-    .filter(m => !m.isHiddenForTime && !m.isHiddenForDepth)
-    .map((module, idx) => ({
-      ...module,
-      originalIndex: idx,
-    }));
+  // Transform modules to MissionControlStep format - memoize to detect changes
+  const steps: MissionControlStep[] = useMemo(() => {
+    return modules
+      .filter(m => !m.isHiddenForTime && !m.isHiddenForDepth)
+      .map((module, idx) => ({
+        ...module,
+        originalIndex: idx,
+      }));
+  }, [modules, regenerationKey]); // Include regenerationKey as dependency
 
   const {
     mode,
