@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,11 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
+  
+  // Get return URL from query params (default to home)
+  const returnUrl = searchParams.get('returnUrl') || '/';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +71,7 @@ const Auth = () => {
             title: "Welcome back!",
             description: "You've successfully logged in."
           });
-          navigate("/");
+          navigate(returnUrl);
         }
       } else {
         const { error } = await signUp(email, password, fullName);
@@ -91,7 +95,7 @@ const Auth = () => {
             title: "Account Created!",
             description: "Welcome to Polymath. Let's start learning!"
           });
-          navigate("/");
+          navigate(returnUrl);
         }
       }
     } catch (error) {

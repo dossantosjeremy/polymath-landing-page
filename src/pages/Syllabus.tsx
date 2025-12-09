@@ -18,6 +18,8 @@ import { CurriculumAuditCard } from "@/components/CurriculumAuditCard";
 import { AdHocHeader, DomainAuthority } from "@/components/AdHocHeader";
 import { AuthorityBadge } from "@/components/AuthorityBadge";
 import { SyllabusMissionControl } from "@/components/SyllabusMissionControl";
+import { GenerationProgressIndicator } from "@/components/GenerationProgressIndicator";
+import { setPendingAction, getPendingAction, clearPendingAction } from "@/lib/pendingActions";
 
 interface Module {
   title: string;
@@ -835,13 +837,30 @@ const Syllabus = () => {
   };
 
   const saveSyllabus = async () => {
+    if (!syllabusData) return;
+
     if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please login to save syllabi for later.",
-        variant: "destructive"
+      // Store pending action and redirect to auth
+      const currentUrl = window.location.pathname + window.location.search;
+      setPendingAction({
+        type: 'save_syllabus',
+        payload: {
+          discipline: syllabusData.discipline,
+          path,
+          modules: syllabusData.modules,
+          source: syllabusData.source,
+          rawSources: syllabusData.rawSources || []
+        },
+        returnUrl: currentUrl,
+        timestamp: Date.now()
       });
-      navigate('/auth');
+      
+      toast({
+        title: "Sign in to save",
+        description: "You'll be returned here after signing in, and your syllabus will be saved automatically."
+      });
+      
+      navigate(`/auth?returnUrl=${encodeURIComponent(currentUrl)}`);
       return;
     }
 
@@ -856,8 +875,6 @@ const Syllabus = () => {
       navigate('/auth');
       return;
     }
-
-    if (!syllabusData) return;
 
     setSaving(true);
     try {
@@ -889,6 +906,52 @@ const Syllabus = () => {
       setSaving(false);
     }
   };
+
+  // Execute pending action after login (auto-save)
+  useEffect(() => {
+    const executePendingAction = async () => {
+      if (!user || !syllabusData || isSaved) return;
+      
+      const pendingAction = getPendingAction();
+      if (!pendingAction || pendingAction.type !== 'save_syllabus') return;
+      
+      // Clear immediately to prevent double execution
+      clearPendingAction();
+      
+      // Auto-save
+      setSaving(true);
+      try {
+        const { error } = await supabase.from('saved_syllabi').insert({
+          user_id: user.id,
+          discipline: syllabusData.discipline,
+          discipline_path: path,
+          modules: syllabusData.modules as any,
+          source: syllabusData.source,
+          source_url: syllabusData.modules[0]?.sourceUrl || null,
+          raw_sources: (syllabusData.rawSources || []) as any
+        });
+
+        if (error) throw error;
+
+        setIsSaved(true);
+        toast({
+          title: "Syllabus Saved!",
+          description: "Your syllabus was automatically saved after signing in."
+        });
+      } catch (error) {
+        console.error('Error auto-saving syllabus:', error);
+        toast({
+          title: "Auto-save Failed",
+          description: "Please try saving again manually.",
+          variant: "destructive"
+        });
+      } finally {
+        setSaving(false);
+      }
+    };
+    
+    executePendingAction();
+  }, [user, syllabusData, isSaved]);
 
   const pathArray = path ? path.split(' > ') : [];
 
@@ -996,13 +1059,11 @@ const Syllabus = () => {
           )}
 
           {loading ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center space-y-4">
-                <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-                <p className="text-muted-foreground">Generating comprehensive syllabus...</p>
-                <p className="text-sm text-muted-foreground">Searching MIT, Yale, Harvard, and online courses</p>
-              </div>
-            </div>
+            <GenerationProgressIndicator 
+              discipline={discipline}
+              isAdHoc={isAdHoc}
+              useAIEnhanced={useAIEnhanced}
+            />
           ) : syllabusData ? (
             <div className="space-y-6">
 
