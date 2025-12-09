@@ -36,7 +36,7 @@ export const StepSummary = ({
           <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors">
             {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <BookOpen className="h-4 w-4" />
-            <span>Teaching Reference</span>
+            <span>AI Notes Summary</span>
           </CollapsibleTrigger>
           
           <div className="flex items-center gap-2">
