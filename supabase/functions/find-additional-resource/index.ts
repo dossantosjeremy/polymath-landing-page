@@ -81,6 +81,55 @@ function generateYouTubeThumbnail(url: string): string {
   return '';
 }
 
+async function tryFetchArticleContent(url: string): Promise<string | null> {
+  try {
+    // Skip non-article URLs
+    if (url.includes('youtube.com') || url.includes('amazon.com') || url.includes('spotify.com')) {
+      return null;
+    }
+    
+    const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY');
+    if (!firecrawlKey) {
+      console.log('FIRECRAWL_API_KEY not configured, skipping content extraction');
+      return null;
+    }
+    
+    console.log('Attempting to fetch article content from:', url);
+    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${firecrawlKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        url,
+        formats: ['markdown'],
+        onlyMainContent: true,
+        waitFor: 2000
+      }),
+    });
+    
+    if (!response.ok) {
+      console.log('Firecrawl request failed:', response.status);
+      return null;
+    }
+    
+    const data = await response.json();
+    const markdown = data?.markdown || data?.data?.markdown;
+    
+    if (markdown && markdown.length > 100) {
+      console.log('Successfully extracted article content, length:', markdown.length);
+      // Truncate very long content
+      return markdown.length > 5000 ? markdown.substring(0, 5000) + '\n\n[Content truncated...]' : markdown;
+    }
+    
+    return null;
+  } catch (err) {
+    console.error('Error fetching article content:', err);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -185,7 +234,41 @@ Return ONLY valid JSON:
       const readings = extractJSON(data.choices[0]?.message?.content);
       
       if (Array.isArray(readings) && readings.length > 0) {
-        newResource = { ...readings[0], verified: true };
+        const reading = readings[0];
+        // Try to fetch and embed article content
+        const embeddedContent = await tryFetchArticleContent(reading.url);
+        newResource = { 
+          ...reading, 
+          verified: true,
+          embeddedContent,
+          type: 'reading'
+        };
+      }
+    } else if (resourceType === 'podcast') {
+      const blacklistConstraint = blacklist.length > 0
+        ? `DO NOT return these URLs: ${blacklist.join(', ')}`
+        : '';
+
+      const prompt = `SEARCH for ONE podcast episode about "${stepTitle}" in ${discipline}.
+
+${blacklistConstraint}
+
+Search platforms: Spotify, Apple Podcasts, podcast directories
+
+Return ONLY valid JSON:
+[{
+  "type": "podcast",
+  "url": "REAL podcast URL",
+  "title": "Episode title",
+  "source": "Podcast name",
+  "duration": "Duration if available"
+}]`;
+
+      const data = await callPerplexityAPI(prompt, 'sonar-pro', 1500);
+      const podcasts = extractJSON(data.choices[0]?.message?.content);
+      
+      if (Array.isArray(podcasts) && podcasts.length > 0) {
+        newResource = { ...podcasts[0], verified: true };
       }
     } else if (resourceType === 'mooc') {
       const blacklistConstraint = blacklist.length > 0

@@ -10,6 +10,7 @@ export interface CuratedResource {
   thumbnailUrl?: string;
   domain?: string;
   snippet?: string;
+  embeddedContent?: string;
   type?: string;
   priority: 'mandatory' | 'optional_expansion';
   origin: ResourceOrigin;
@@ -103,40 +104,55 @@ export const useCuratedResources = () => {
     type: 'video' | 'reading' | 'podcast',
     existingUrls: string[]
   ) => {
-    try {
-      const { data, error: functionError } = await supabase.functions.invoke('find-additional-resource', {
-        body: { stepTitle, discipline, resourceType: type, existingUrls }
+    const { data, error: functionError } = await supabase.functions.invoke('find-additional-resource', {
+      body: { stepTitle, discipline, resourceType: type, existingUrls }
+    });
+
+    if (functionError) throw functionError;
+    
+    // Check if API returned an error message instead of resource
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    // Validate we have a proper resource with URL
+    if (!data?.url) {
+      throw new Error('No resource found');
+    }
+
+    if (resources) {
+      // Add new resource to expansion pack
+      const newResource: CuratedResource = {
+        url: data.url,
+        title: data.title || 'Untitled',
+        author: data.author,
+        duration: data.duration,
+        thumbnailUrl: data.thumbnailUrl,
+        domain: data.domain || extractDomain(data.url),
+        snippet: data.snippet,
+        type: type,
+        priority: 'optional_expansion',
+        origin: data.origin || 'ai_selected',
+        scoreBreakdown: data.scoreBreakdown || {
+          syllabusMatch: 0,
+          authorityMatch: 0,
+          atomicScope: 20,
+          total: 20
+        },
+        rationale: data.rationale || data.whyThisVideo || data.focusHighlight || `Additional ${type} found via search`,
+        consumptionTime: data.consumptionTime || data.duration || '10 mins',
+        verified: data.verified
+      };
+
+      setResources({
+        ...resources,
+        expansionPack: [...resources.expansionPack, newResource]
       });
 
-      if (functionError) throw functionError;
-
-      if (data && resources) {
-        // Add new resource to expansion pack
-        const newResource: CuratedResource = {
-          ...data,
-          priority: 'optional_expansion',
-          origin: data.origin || 'ai_selected',
-          scoreBreakdown: data.scoreBreakdown || {
-            syllabusMatch: 0,
-            authorityMatch: 0,
-            atomicScope: 20,
-            total: 20
-          },
-          rationale: data.rationale || `Additional ${type} found via search`,
-          consumptionTime: data.consumptionTime || data.duration || '10 mins'
-        };
-
-        setResources({
-          ...resources,
-          expansionPack: [...resources.expansionPack, newResource]
-        });
-
-        return newResource;
-      }
-    } catch (err) {
-      console.error('Error finding more resources:', err);
-      throw err;
+      return newResource;
     }
+    
+    return null;
   };
 
   return { 
@@ -253,7 +269,8 @@ function transformResource(resource: any, type: string): CuratedResource {
   };
 }
 
-function extractDomain(url: string): string {
+// Export for use in findMoreResources
+export function extractDomain(url: string): string {
   try {
     return new URL(url).hostname.replace('www.', '');
   } catch {
