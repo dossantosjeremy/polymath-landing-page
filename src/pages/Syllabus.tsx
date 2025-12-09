@@ -830,6 +830,7 @@ const Syllabus = () => {
     setLearningSettings(constraints);
     setApplyingConstraints(true);
     try {
+      // Pass constraints directly (not learningSettings) since state update is async
       await generateSyllabus(undefined, constraints, true);
     } finally {
       setApplyingConstraints(false);
