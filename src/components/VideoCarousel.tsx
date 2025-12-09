@@ -39,7 +39,7 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
   
   const handleReport = async (videoIndex: number) => {
     const video = validVideos[videoIndex];
-    const replacement = await reportAndReplace({
+    const result = await reportAndReplace({
       brokenUrl: video.url,
       resourceType: 'video',
       stepTitle,
@@ -47,18 +47,18 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
       reportReason: 'Video not working'
     });
     
-    if (replacement?.url) {
+    if (result?.replacement?.url) {
       // Replace the broken video with the new one
       const newVideos = [...localVideos];
       const originalIndex = localVideos.findIndex(v => v.url === video.url);
       if (originalIndex !== -1) {
         newVideos[originalIndex] = {
-          url: replacement.url,
-          title: replacement.title || 'Replacement Video',
-          author: replacement.author || 'YouTube',
-          thumbnailUrl: replacement.thumbnailUrl || `https://img.youtube.com/vi/${replacement.url.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1]}/maxresdefault.jpg`,
-          duration: replacement.duration || '',
-          whyThisVideo: replacement.whyThisVideo || 'Replacement educational video',
+          url: result.replacement.url,
+          title: result.replacement.title || 'Replacement Video',
+          author: result.replacement.author || 'YouTube',
+          thumbnailUrl: result.replacement.thumbnailUrl || `https://img.youtube.com/vi/${result.replacement.url.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1]}/maxresdefault.jpg`,
+          duration: result.replacement.duration || '',
+          whyThisVideo: result.replacement.whyThisVideo || 'Replacement educational video',
           verified: true
         };
         setLocalVideos(newVideos);

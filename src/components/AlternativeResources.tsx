@@ -141,7 +141,7 @@ export const AlternativeResources = ({ alternatives, isCapstone = false, stepTit
   const accentColor = isCapstone ? 'hsl(var(--gold))' : 'hsl(var(--primary))';
 
   const handleReport = async (resource: AlternativeResource, index: number) => {
-    const replacement = await reportAndReplace({
+    const result = await reportAndReplace({
       brokenUrl: resource.url,
       resourceType: resource.type,
       stepTitle,
@@ -149,8 +149,8 @@ export const AlternativeResources = ({ alternatives, isCapstone = false, stepTit
       reportReason: `${resource.type} not accessible`
     });
 
-    if (replacement && onReplace) {
-      onReplace(index, replacement);
+    if (result?.replacement && onReplace) {
+      onReplace(index, result.replacement);
     }
   };
 

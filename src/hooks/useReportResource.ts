@@ -42,7 +42,8 @@ export function useReportResource() {
         description: "We've found a new resource for you.",
       });
 
-      return data;
+      // Edge function returns replacement directly, not wrapped
+      return { replacement: data };
     } catch (error) {
       console.error('Error reporting resource:', error);
       toast({

@@ -38,7 +38,7 @@ export const BookCard = ({
   const showWarning = verified === false;
 
   const handleReport = async () => {
-    const replacement = await reportAndReplace({
+    const result = await reportAndReplace({
       brokenUrl: url,
       resourceType: 'book',
       stepTitle,
@@ -46,8 +46,8 @@ export const BookCard = ({
       reportReason: 'Book link not accessible'
     });
 
-    if (replacement && onReplace) {
-      onReplace(replacement);
+    if (result?.replacement && onReplace) {
+      onReplace(result.replacement);
     }
   };
 

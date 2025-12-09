@@ -49,7 +49,7 @@ export const ReadingCard = ({
   const showWarning = verified === false;
 
   const handleReport = async () => {
-    const replacement = await reportAndReplace({
+    const result = await reportAndReplace({
       brokenUrl: url,
       resourceType: 'reading',
       stepTitle,
@@ -57,8 +57,8 @@ export const ReadingCard = ({
       reportReason: 'Reading not accessible'
     });
 
-    if (replacement && onReplace) {
-      onReplace(replacement);
+    if (result?.replacement && onReplace) {
+      onReplace(result.replacement);
     }
   };
 
