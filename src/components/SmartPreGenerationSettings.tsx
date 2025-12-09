@@ -174,9 +174,11 @@ export const SmartPreGenerationSettings = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge className={cn("cursor-help", getDepthBadgeColor(depthResult.depth))}>
-                  {depthResult.depth ? depthResult.depth.charAt(0).toUpperCase() + depthResult.depth.slice(1) : 'N/A'}
-                </Badge>
+                <span className="cursor-help">
+                  <Badge className={cn(getDepthBadgeColor(depthResult.depth))}>
+                    {depthResult.depth ? depthResult.depth.charAt(0).toUpperCase() + depthResult.depth.slice(1) : 'N/A'}
+                  </Badge>
+                </span>
               </TooltipTrigger>
               <TooltipContent>
                 <p className="text-xs">
@@ -295,9 +297,11 @@ export const SmartPreGenerationSettings = ({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Badge className={cn("cursor-help", getDepthBadgeColor(depthResult.depth))}>
-                  {depthResult.depth ? depthResult.depth.charAt(0).toUpperCase() + depthResult.depth.slice(1) : 'Insufficient'}
-                </Badge>
+                <span className="cursor-help">
+                  <Badge className={cn(getDepthBadgeColor(depthResult.depth))}>
+                    {depthResult.depth ? depthResult.depth.charAt(0).toUpperCase() + depthResult.depth.slice(1) : 'Insufficient'}
+                  </Badge>
+                </span>
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 <p>{depthResult.depth ? DEPTH_DESCRIPTIONS[depthResult.depth] : 'Not enough time for any coverage level'}</p>
