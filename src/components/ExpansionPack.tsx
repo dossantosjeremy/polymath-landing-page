@@ -16,6 +16,8 @@ interface CuratedResource {
   duration?: string;
   domain?: string;
   type?: string;
+  snippet?: string;
+  embeddedContent?: string;
   priority: 'mandatory' | 'optional_expansion';
   origin: ResourceOrigin;
   scoreBreakdown: {
@@ -240,6 +242,20 @@ function ExpansionResourceCard({ resource, stepTitle, discipline, onReplace }: E
                     allowFullScreen
                     title={resource.title}
                   />
+                </div>
+              )}
+              
+              {/* Embedded Reading Content */}
+              {!isVideo && resource.embeddedContent && (
+                <div className="p-3 bg-muted/30 rounded-lg max-h-64 overflow-y-auto text-sm prose prose-sm dark:prose-invert">
+                  <pre className="whitespace-pre-wrap font-sans text-foreground">{resource.embeddedContent}</pre>
+                </div>
+              )}
+              
+              {/* Snippet fallback if no embedded content */}
+              {!isVideo && !resource.embeddedContent && resource.snippet && (
+                <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                  {resource.snippet}
                 </div>
               )}
               

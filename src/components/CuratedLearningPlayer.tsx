@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { CriticalPath } from './CriticalPath';
 import { KnowledgeCheck } from './KnowledgeCheck';
 import { ExpansionPack } from './ExpansionPack';
@@ -17,6 +18,14 @@ interface CuratedLearningPlayerProps {
   isCapstone?: boolean;
 }
 
+const LOADING_STAGES = [
+  'Checking cache...',
+  'Discovering videos...',
+  'Finding readings...',
+  'Verifying resources...',
+  'Curating results...'
+];
+
 export const CuratedLearningPlayer = ({ 
   stepTitle, 
   discipline, 
@@ -29,7 +38,31 @@ export const CuratedLearningPlayer = ({
   const [hasLoaded, setHasLoaded] = useState(false);
   const [showExpansion, setShowExpansion] = useState(false);
   const [coreCompleted, setCoreCompleted] = useState(false);
+  const [loadingStage, setLoadingStage] = useState(0);
+  const [elapsedTime, setElapsedTime] = useState(0);
   const { toast } = useToast();
+  
+  // Simulate loading stages
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingStage(0);
+      setElapsedTime(0);
+      return;
+    }
+    
+    const stageInterval = setInterval(() => {
+      setLoadingStage(prev => (prev < LOADING_STAGES.length - 1 ? prev + 1 : prev));
+    }, 2500);
+    
+    const timeInterval = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
+    
+    return () => {
+      clearInterval(stageInterval);
+      clearInterval(timeInterval);
+    };
+  }, [isLoading]);
 
   // For capstone steps, show the assignment interface
   if (isCapstone) {
@@ -112,12 +145,22 @@ export const CuratedLearningPlayer = ({
   }
 
   if (isLoading) {
+    const progressPercent = ((loadingStage + 1) / LOADING_STAGES.length) * 100;
+    const estimatedTotal = 15; // seconds
+    const remainingTime = Math.max(0, estimatedTotal - elapsedTime);
+    
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-center space-y-3">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Curating your learning resources...</p>
-          <p className="text-xs text-muted-foreground">Finding the minimum effective dose...</p>
+        <div className="text-center space-y-4 w-full max-w-sm">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <div className="space-y-2">
+            <p className="text-sm font-medium">{LOADING_STAGES[loadingStage]}</p>
+            <Progress value={progressPercent} className="h-2" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Step {loadingStage + 1} of {LOADING_STAGES.length}</span>
+              <span>{elapsedTime}s elapsed • ~{remainingTime}s remaining</span>
+            </div>
+          </div>
         </div>
       </div>
     );
