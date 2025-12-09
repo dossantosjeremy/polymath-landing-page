@@ -5,7 +5,7 @@ export const useFindMoreResource = () => {
   const [isSearching, setIsSearching] = useState(false);
 
   const findMore = async (
-    resourceType: 'video' | 'reading' | 'mooc',
+    resourceType: 'video' | 'reading' | 'mooc' | 'podcast',
     stepTitle: string,
     discipline: string,
     existingUrls: string[]
