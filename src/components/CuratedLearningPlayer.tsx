@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Loader2 } from 'lucide-react';
+import { BookOpen, Loader2, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { CriticalPath } from './CriticalPath';
@@ -8,6 +8,7 @@ import { ExpansionPack } from './ExpansionPack';
 import { CapstoneAssignment } from './CapstoneAssignment';
 import { useCuratedResources } from '@/hooks/useCuratedResources';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface CuratedLearningPlayerProps {
   stepTitle: string;
@@ -18,13 +19,26 @@ interface CuratedLearningPlayerProps {
   isCapstone?: boolean;
 }
 
-const LOADING_STAGES = [
-  'Checking cache...',
-  'Discovering videos...',
-  'Finding readings...',
-  'Verifying resources...',
-  'Curating results...'
+interface LoadingStage {
+  id: string;
+  label: string;
+  description: string;
+  estimatedSeconds: number;
+}
+
+const LOADING_STAGES: LoadingStage[] = [
+  { id: 'cache', label: 'Checking Cache', description: 'Looking for cached resources...', estimatedSeconds: 2 },
+  { id: 'videos', label: 'Discovering Videos', description: 'Searching YouTube for educational content...', estimatedSeconds: 5 },
+  { id: 'readings', label: 'Finding Readings', description: 'Locating authoritative articles...', estimatedSeconds: 4 },
+  { id: 'verify', label: 'Verifying Resources', description: 'Validating links and quality...', estimatedSeconds: 3 },
+  { id: 'curate', label: 'Curating Results', description: 'Selecting the best resources for you...', estimatedSeconds: 2 },
 ];
+
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `0:${secs.toString().padStart(2, '0')}`;
+};
 
 export const CuratedLearningPlayer = ({ 
   stepTitle, 
@@ -42,7 +56,7 @@ export const CuratedLearningPlayer = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const { toast } = useToast();
   
-  // Simulate loading stages
+  // Progress through stages based on elapsed time
   useEffect(() => {
     if (!isLoading) {
       setLoadingStage(0);
@@ -50,19 +64,33 @@ export const CuratedLearningPlayer = ({
       return;
     }
     
-    const stageInterval = setInterval(() => {
-      setLoadingStage(prev => (prev < LOADING_STAGES.length - 1 ? prev + 1 : prev));
-    }, 2500);
-    
     const timeInterval = setInterval(() => {
       setElapsedTime(prev => prev + 1);
     }, 1000);
     
     return () => {
-      clearInterval(stageInterval);
       clearInterval(timeInterval);
     };
   }, [isLoading]);
+
+  // Update stage based on elapsed time
+  useEffect(() => {
+    if (!isLoading) return;
+    
+    let accumulatedTime = 0;
+    for (let i = 0; i < LOADING_STAGES.length; i++) {
+      accumulatedTime += LOADING_STAGES[i].estimatedSeconds;
+      if (elapsedTime < accumulatedTime) {
+        setLoadingStage(i);
+        break;
+      }
+    }
+    // If we've exceeded total time, stay on last stage
+    const totalEstimatedTime = LOADING_STAGES.reduce((sum, s) => sum + s.estimatedSeconds, 0);
+    if (elapsedTime >= totalEstimatedTime) {
+      setLoadingStage(LOADING_STAGES.length - 1);
+    }
+  }, [elapsedTime, isLoading]);
 
   // For capstone steps, show the assignment interface
   if (isCapstone) {
@@ -145,21 +173,69 @@ export const CuratedLearningPlayer = ({
   }
 
   if (isLoading) {
-    const progressPercent = ((loadingStage + 1) / LOADING_STAGES.length) * 100;
-    const estimatedTotal = 15; // seconds
-    const remainingTime = Math.max(0, estimatedTotal - elapsedTime);
+    const totalEstimatedTime = LOADING_STAGES.reduce((sum, s) => sum + s.estimatedSeconds, 0);
+    const isOvertime = elapsedTime > totalEstimatedTime;
+    const overallProgress = isOvertime 
+      ? 95 + (4 * (1 - Math.exp(-(elapsedTime - totalEstimatedTime) / 30)))
+      : Math.min(95, (elapsedTime / totalEstimatedTime) * 100);
+    const estimatedRemaining = Math.max(0, totalEstimatedTime - elapsedTime);
+    const currentStage = LOADING_STAGES[loadingStage];
     
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-center space-y-4 w-full max-w-sm">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <div className="space-y-2">
-            <p className="text-sm font-medium">{LOADING_STAGES[loadingStage]}</p>
-            <Progress value={progressPercent} className="h-2" />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Step {loadingStage + 1} of {LOADING_STAGES.length}</span>
-              <span>{elapsedTime}s elapsed • ~{remainingTime}s remaining</span>
+      <div className="flex flex-col items-center justify-center py-12 space-y-6">
+        {/* Stage steps indicator */}
+        <div className="flex items-center gap-1 md:gap-2">
+          {LOADING_STAGES.map((stage, idx) => (
+            <div key={stage.id} className="flex items-center">
+              <div 
+                className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-300",
+                  idx < loadingStage 
+                    ? "bg-primary text-primary-foreground" 
+                    : idx === loadingStage 
+                      ? "bg-primary text-primary-foreground ring-4 ring-primary/20" 
+                      : "bg-muted text-muted-foreground"
+                )}
+              >
+                {idx < loadingStage ? (
+                  <Check className="h-4 w-4" />
+                ) : idx === loadingStage ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  idx + 1
+                )}
+              </div>
+              {idx < LOADING_STAGES.length - 1 && (
+                <div 
+                  className={cn(
+                    "w-4 md:w-6 h-0.5 transition-colors duration-300",
+                    idx < loadingStage ? "bg-primary" : "bg-muted"
+                  )} 
+                />
+              )}
             </div>
+          ))}
+        </div>
+
+        {/* Current stage info */}
+        <div className="text-center space-y-2 max-w-md">
+          <span className="text-xs text-muted-foreground">
+            Step {loadingStage + 1} of {LOADING_STAGES.length}
+          </span>
+          <h3 className="text-lg font-semibold">{currentStage.label}</h3>
+          <p className="text-sm text-muted-foreground">{currentStage.description}</p>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full max-w-sm space-y-2">
+          <Progress value={overallProgress} className="h-2" />
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Elapsed: {formatTime(elapsedTime)}</span>
+            {isOvertime ? (
+              <span className="animate-pulse">Still working...</span>
+            ) : (
+              <span>Est. remaining: ~{formatTime(estimatedRemaining)}</span>
+            )}
           </div>
         </div>
       </div>
