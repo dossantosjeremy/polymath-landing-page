@@ -88,39 +88,69 @@ async function tryFetchArticleContent(url: string): Promise<string | null> {
       return null;
     }
     
-    const firecrawlKey = Deno.env.get('FIRECRAWL_API_KEY');
-    if (!firecrawlKey) {
-      console.log('FIRECRAWL_API_KEY not configured, skipping content extraction');
-      return null;
-    }
-    
     console.log('Attempting to fetch article content from:', url);
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
-      method: 'POST',
+    
+    // Try direct fetch with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    
+    const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${firecrawlKey}`,
-        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (compatible; EducationalBot/1.0)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
-      body: JSON.stringify({
-        url,
-        formats: ['markdown'],
-        onlyMainContent: true,
-        waitFor: 2000
-      }),
+      signal: controller.signal,
     });
     
+    clearTimeout(timeoutId);
+    
     if (!response.ok) {
-      console.log('Firecrawl request failed:', response.status);
+      console.log('Failed to fetch URL:', response.status);
       return null;
     }
     
-    const data = await response.json();
-    const markdown = data?.markdown || data?.data?.markdown;
+    const html = await response.text();
     
-    if (markdown && markdown.length > 100) {
-      console.log('Successfully extracted article content, length:', markdown.length);
-      // Truncate very long content
-      return markdown.length > 5000 ? markdown.substring(0, 5000) + '\n\n[Content truncated...]' : markdown;
+    // Extract main content from HTML - simple extraction
+    let content = html;
+    
+    // Remove script and style tags
+    content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+    content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+    content = content.replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '');
+    content = content.replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '');
+    content = content.replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '');
+    content = content.replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '');
+    
+    // Try to find main content area
+    const mainMatch = content.match(/<main[^>]*>([\s\S]*?)<\/main>/i) ||
+                      content.match(/<article[^>]*>([\s\S]*?)<\/article>/i) ||
+                      content.match(/<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+    
+    if (mainMatch) {
+      content = mainMatch[1];
+    }
+    
+    // Convert to plain text
+    content = content.replace(/<h[1-6][^>]*>/gi, '\n## ');
+    content = content.replace(/<\/h[1-6]>/gi, '\n');
+    content = content.replace(/<p[^>]*>/gi, '\n');
+    content = content.replace(/<\/p>/gi, '\n');
+    content = content.replace(/<br\s*\/?>/gi, '\n');
+    content = content.replace(/<li[^>]*>/gi, '\n• ');
+    content = content.replace(/<[^>]+>/g, ''); // Remove remaining tags
+    content = content.replace(/&nbsp;/g, ' ');
+    content = content.replace(/&amp;/g, '&');
+    content = content.replace(/&lt;/g, '<');
+    content = content.replace(/&gt;/g, '>');
+    content = content.replace(/&quot;/g, '"');
+    content = content.replace(/&#39;/g, "'");
+    content = content.replace(/\n{3,}/g, '\n\n'); // Collapse multiple newlines
+    content = content.trim();
+    
+    if (content.length > 200) {
+      console.log('Successfully extracted article content, length:', content.length);
+      return content.length > 5000 ? content.substring(0, 5000) + '\n\n[Content truncated...]' : content;
     }
     
     return null;
