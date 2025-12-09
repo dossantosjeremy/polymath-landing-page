@@ -43,6 +43,7 @@ interface CuratedResource {
   thumbnailUrl?: string;
   domain?: string;
   snippet?: string;
+  embeddedContent?: string;
   type?: string;
   priority: 'mandatory' | 'optional_expansion';
   origin: 'syllabus_cited' | 'authority_domain' | 'ai_selected';
@@ -293,6 +294,7 @@ function transformToCuratedResource(
     thumbnailUrl: resource.thumbnailUrl,
     domain,
     snippet: resource.snippet,
+    embeddedContent: resource.embeddedContent,
     type,
     priority: score.total >= 50 ? 'mandatory' : 'optional_expansion',
     origin,

@@ -56,7 +56,7 @@ export const VideoPlayer = ({
   const showWarning = verified === false;
 
   const handleReport = async () => {
-    const replacement = await reportAndReplace({
+    const result = await reportAndReplace({
       brokenUrl: url,
       resourceType: 'video',
       stepTitle,
@@ -64,8 +64,8 @@ export const VideoPlayer = ({
       reportReason: 'Video not accessible'
     });
 
-    if (replacement && onReplace) {
-      onReplace(replacement);
+    if (result?.replacement && onReplace) {
+      onReplace(result.replacement);
     }
   };
 

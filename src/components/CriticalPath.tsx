@@ -2,10 +2,12 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrustBadge, ScoreBreakdownBadge, ResourceOrigin } from './TrustBadge';
-import { ExternalLink, Clock, Target, Play, FileText, Flag, Loader2 } from 'lucide-react';
+import { ExternalLink, Clock, Target, Play, FileText, Flag, Loader2, ChevronDown, ChevronUp, LinkIcon, Ban } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useReportResource } from '@/hooks/useReportResource';
-
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useState } from 'react';
 interface CuratedResource {
   url: string;
   title: string;
@@ -14,6 +16,7 @@ interface CuratedResource {
   thumbnailUrl?: string;
   domain?: string;
   snippet?: string;
+  embeddedContent?: string;
   priority: 'mandatory' | 'optional_expansion';
   origin: ResourceOrigin;
   scoreBreakdown: {
@@ -124,23 +127,26 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
   const isVideo = type === 'video';
   const Icon = isVideo ? Play : FileText;
   const { reportAndReplace, isReporting } = useReportResource();
+  const [isContentExpanded, setIsContentExpanded] = useState(false);
   
   // Extract video ID for embed
   const videoId = resource.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
 
-  const handleReport = async () => {
+  const handleReport = async (reason: 'broken' | 'not_relevant') => {
     if (!stepTitle || !discipline) return;
+    
+    const reportReason = reason === 'broken' ? 'Broken link' : 'Not relevant to topic';
     
     const result = await reportAndReplace({
       brokenUrl: resource.url,
       resourceType: type,
       stepTitle,
       discipline,
-      reportReason: 'Not relevant or broken'
+      reportReason
     });
     
     if (result?.replacement && onReplace) {
-      onReplace(result.replacement);
+      onReplace(result.replacement as CuratedResource);
     }
   };
 
@@ -196,8 +202,24 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
           )}
         </div>
         
-        {/* Snippet for readings */}
-        {!isVideo && resource.snippet && (
+        {/* Embedded content for readings */}
+        {!isVideo && resource.embeddedContent && (
+          <Collapsible open={isContentExpanded} onOpenChange={setIsContentExpanded}>
+            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-primary hover:underline">
+              {isContentExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+              {isContentExpanded ? 'Hide article content' : 'Show article content'}
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <div 
+                className="prose prose-sm max-w-none text-xs text-muted-foreground max-h-60 overflow-y-auto border rounded p-3 bg-muted/30"
+                dangerouslySetInnerHTML={{ __html: resource.embeddedContent }}
+              />
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+        
+        {/* Snippet fallback for readings without embedded content */}
+        {!isVideo && !resource.embeddedContent && resource.snippet && (
           <p className="text-xs text-muted-foreground line-clamp-2">
             {resource.snippet}
           </p>
@@ -215,19 +237,32 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
             <span>{resource.consumptionTime}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              size="sm" 
-              variant="ghost"
-              onClick={handleReport}
-              disabled={isReporting || !stepTitle}
-              title="Report & find replacement"
-            >
-              {isReporting ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Flag className="h-3 w-3" />
-              )}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="ghost"
+                  disabled={isReporting || !stepTitle}
+                  title="Report issue"
+                >
+                  {isReporting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Flag className="h-3 w-3" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleReport('broken')}>
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Link is broken
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleReport('not_relevant')}>
+                  <Ban className="h-4 w-4 mr-2" />
+                  Not relevant
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button 
               size="sm" 
               variant="outline"
