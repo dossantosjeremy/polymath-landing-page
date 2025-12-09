@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 export type ViewMode = 'draft' | 'active';
 
@@ -38,6 +38,23 @@ export function useMissionControl({ steps, onConfirm }: UseMissionControlProps) 
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmedSteps, setConfirmedSteps] = useState<MissionControlStep[]>([]);
+
+  // Track previous steps to detect changes
+  const prevStepsRef = useRef<MissionControlStep[]>(steps);
+
+  // Reset state when steps change (e.g., after regeneration)
+  useEffect(() => {
+    const stepsChanged = steps.length !== prevStepsRef.current.length ||
+      steps.some((s, i) => s.title !== prevStepsRef.current[i]?.title);
+    
+    if (stepsChanged) {
+      setMode('draft');
+      setSelectedSteps(new Set(steps.map((_, idx) => idx)));
+      setActiveStepIndex(null);
+      setConfirmedSteps([]);
+      prevStepsRef.current = steps;
+    }
+  }, [steps]);
 
   // Reset selected steps when steps change
   const resetSelection = useCallback(() => {

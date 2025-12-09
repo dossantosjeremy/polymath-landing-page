@@ -1235,6 +1235,7 @@ const Syllabus = () => {
               <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
                 <SyllabusMissionControl
+                  key={`mission-control-${syllabusData.modules.length}-${syllabusData.timestamp || Date.now()}`}
                   modules={syllabusData.modules}
                   discipline={discipline}
                   rawSources={originalSources.length > 0 ? originalSources : syllabusData.rawSources}
