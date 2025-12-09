@@ -13,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { LearningPlayer } from "@/components/LearningPlayer";
 import { StepSummary } from "@/components/StepSummary";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
-import { LearningPathSettings, LearningPathConstraints, PruningStats } from "@/components/LearningPathSettings";
+import { SmartLearningPathSettings, LearningPathConstraints, PruningStats } from "@/components/SmartLearningPathSettings";
 import { CurriculumAuditCard } from "@/components/CurriculumAuditCard";
 import { AdHocHeader, DomainAuthority } from "@/components/AdHocHeader";
 import { AuthorityBadge } from "@/components/AuthorityBadge";
@@ -1051,10 +1051,10 @@ const Syllabus = () => {
 
           {/* Learning Path Settings - only show when syllabus is loaded */}
           {!loading && syllabusData && (
-            <LearningPathSettings
-              onApply={handleApplyConstraints}
+            <SmartLearningPathSettings
+              onGenerate={handleApplyConstraints}
               pruningStats={pruningStats || syllabusData.pruningStats}
-              isApplying={applyingConstraints}
+              isGenerating={applyingConstraints}
             />
           )}
 
