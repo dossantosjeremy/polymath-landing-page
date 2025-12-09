@@ -12,12 +12,12 @@ interface GenerationStage {
 }
 
 const GENERATION_STAGES: GenerationStage[] = [
-  { id: 'analyzing', label: 'Analyzing Topic', description: 'Understanding topic structure and pillars...', estimatedSeconds: 3 },
-  { id: 'discovering', label: 'Discovering Sources', description: 'Finding authoritative syllabi from universities...', estimatedSeconds: 8 },
-  { id: 'fetching', label: 'Fetching Content', description: 'Retrieving full syllabus content from sources...', estimatedSeconds: 12 },
-  { id: 'extracting', label: 'Extracting Modules', description: 'Parsing and extracting course modules...', estimatedSeconds: 8 },
-  { id: 'synthesizing', label: 'Synthesizing Curriculum', description: 'Merging sources into comprehensive curriculum...', estimatedSeconds: 15 },
-  { id: 'caching', label: 'Finalizing', description: 'Caching curriculum for future learners...', estimatedSeconds: 2 },
+  { id: 'analyzing', label: 'Analyzing Topic', description: 'Understanding topic structure and pillars...', estimatedSeconds: 5 },
+  { id: 'discovering', label: 'Discovering Sources', description: 'Finding authoritative syllabi from universities...', estimatedSeconds: 12 },
+  { id: 'fetching', label: 'Fetching Content', description: 'Retrieving full syllabus content from sources...', estimatedSeconds: 18 },
+  { id: 'extracting', label: 'Extracting Modules', description: 'Parsing and extracting course modules...', estimatedSeconds: 12 },
+  { id: 'synthesizing', label: 'Synthesizing Curriculum', description: 'Merging sources into comprehensive curriculum...', estimatedSeconds: 30 },
+  { id: 'caching', label: 'Finalizing', description: 'Caching curriculum for future learners...', estimatedSeconds: 8 },
 ];
 
 interface GenerationProgressIndicatorProps {
@@ -66,15 +66,20 @@ export function GenerationProgressIndicator({
         break;
       }
     }
-    // If we've exceeded total time, stay on last stage with high progress
+    // If we've exceeded total time, stay on last stage with logarithmic slowdown toward 99%
     if (elapsedTime >= totalEstimatedTime) {
       setCurrentStageIndex(GENERATION_STAGES.length - 1);
-      setStageProgress(95);
+      const overtime = elapsedTime - totalEstimatedTime;
+      const slowProgress = 95 + (4 * (1 - Math.exp(-overtime / 30))); // Approaches 99% asymptotically
+      setStageProgress(slowProgress);
     }
   }, [elapsedTime, totalEstimatedTime]);
 
   const currentStage = GENERATION_STAGES[currentStageIndex];
-  const overallProgress = Math.min(95, (elapsedTime / totalEstimatedTime) * 100);
+  const isOvertime = elapsedTime > totalEstimatedTime;
+  const overallProgress = isOvertime 
+    ? 95 + (4 * (1 - Math.exp(-(elapsedTime - totalEstimatedTime) / 30)))
+    : Math.min(95, (elapsedTime / totalEstimatedTime) * 100);
   const estimatedRemaining = Math.max(0, totalEstimatedTime - elapsedTime);
 
   return (
@@ -129,7 +134,11 @@ export function GenerationProgressIndicator({
         <Progress value={overallProgress} className="h-2" />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>Elapsed: {formatTime(elapsedTime)}</span>
-          <span>Est. remaining: ~{formatTime(estimatedRemaining)}</span>
+          {isOvertime ? (
+            <span className="animate-pulse">Still working... complex topics take longer</span>
+          ) : (
+            <span>Est. remaining: ~{formatTime(estimatedRemaining)}</span>
+          )}
         </div>
       </div>
 
