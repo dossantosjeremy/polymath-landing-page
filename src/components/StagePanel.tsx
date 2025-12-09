@@ -176,6 +176,13 @@ export function StagePanel({
             />
           ) : (
             <>
+              <LearningPlayer 
+                key={currentStep.title}
+                stepTitle={currentStep.title}
+                discipline={discipline}
+                syllabusUrls={syllabusUrls}
+                isCapstone={false}
+              />
               <StepSummary
                 stepTitle={currentStep.title}
                 discipline={discipline}
@@ -187,13 +194,6 @@ export function StagePanel({
                     .filter(Boolean)
                     .join('\n\n---\n\n');
                 })()}
-              />
-              <LearningPlayer 
-                key={currentStep.title}
-                stepTitle={currentStep.title}
-                discipline={discipline}
-                syllabusUrls={syllabusUrls}
-                isCapstone={false}
               />
             </>
           )}
