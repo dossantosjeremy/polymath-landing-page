@@ -7,7 +7,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { ChevronDown, Settings, Info, Clock, Calendar, Target, AlertTriangle, CheckCircle2, XCircle, Sparkles } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { ChevronDown, Settings, Info, Clock, Calendar, Target, AlertTriangle, CheckCircle2, XCircle, Sparkles, Loader2 } from "lucide-react";
 import { format, addWeeks } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
@@ -50,6 +51,22 @@ export interface PruningStats {
   hiddenByTimeTitles: string[];
 }
 
+// Generation stages for progress
+const GENERATION_STAGES = [
+  { label: 'Analyzing topic', estimatedSeconds: 5 },
+  { label: 'Discovering sources', estimatedSeconds: 12 },
+  { label: 'Fetching content', estimatedSeconds: 18 },
+  { label: 'Synthesizing curriculum', estimatedSeconds: 30 },
+  { label: 'Applying constraints', estimatedSeconds: 8 },
+  { label: 'Finalizing', estimatedSeconds: 5 },
+];
+
+const formatTime = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `0:${secs.toString().padStart(2, '0')}`;
+};
+
 interface SmartLearningPathSettingsProps {
   onGenerate: (constraints: LearningPathConstraints) => void;
   pruningStats?: PruningStats;
@@ -70,6 +87,48 @@ export const SmartLearningPathSettings = ({
   const [hoursPerWeek, setHoursPerWeek] = useState<number>(5);
   const [durationValue, setDurationValue] = useState<number>(4);
   const [durationUnit, setDurationUnit] = useState<'weeks' | 'months'>('weeks');
+  
+  // Generation progress
+  const [elapsedTime, setElapsedTime] = useState(0);
+  const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  
+  const totalEstimatedTime = GENERATION_STAGES.reduce((sum, s) => sum + s.estimatedSeconds, 0);
+
+  // Reset elapsed time when generation starts/stops
+  useEffect(() => {
+    if (isGenerating) {
+      setElapsedTime(0);
+      setCurrentStageIndex(0);
+    }
+  }, [isGenerating]);
+
+  // Timer for elapsed time during generation
+  useEffect(() => {
+    if (!isGenerating) return;
+    
+    const interval = setInterval(() => {
+      setElapsedTime(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isGenerating]);
+
+  // Progress through stages based on elapsed time
+  useEffect(() => {
+    if (!isGenerating) return;
+    
+    let accumulatedTime = 0;
+    for (let i = 0; i < GENERATION_STAGES.length; i++) {
+      accumulatedTime += GENERATION_STAGES[i].estimatedSeconds;
+      if (elapsedTime < accumulatedTime) {
+        setCurrentStageIndex(i);
+        break;
+      }
+    }
+    if (elapsedTime >= totalEstimatedTime) {
+      setCurrentStageIndex(GENERATION_STAGES.length - 1);
+    }
+  }, [elapsedTime, isGenerating, totalEstimatedTime]);
 
   // Computed values
   const durationWeeks = useMemo(() => {
@@ -242,14 +301,16 @@ export const SmartLearningPathSettings = ({
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Badge 
-                      className={cn(
-                        "text-sm font-medium cursor-help",
-                        getDepthBadgeColor(depthResult.depth)
-                      )}
-                    >
-                      {depthResult.depth ? depthResult.depth.charAt(0).toUpperCase() + depthResult.depth.slice(1) : 'Insufficient Time'}
-                    </Badge>
+                    <span className="cursor-help">
+                      <Badge 
+                        className={cn(
+                          "text-sm font-medium",
+                          getDepthBadgeColor(depthResult.depth)
+                        )}
+                      >
+                        {depthResult.depth ? depthResult.depth.charAt(0).toUpperCase() + depthResult.depth.slice(1) : 'Insufficient Time'}
+                      </Badge>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p>
@@ -332,15 +393,43 @@ export const SmartLearningPathSettings = ({
             </div>
           </Alert>
 
-          {/* Generate Button */}
-          <Button 
-            onClick={handleGenerate} 
-            disabled={isGenerating || !isValid}
-            className="w-full"
-            size="lg"
-          >
-            {isGenerating ? "Generating..." : "Generate My Learning Path"}
-          </Button>
+          {/* Generate Button with Progress */}
+          {isGenerating ? (
+            <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="font-medium">{GENERATION_STAGES[currentStageIndex]?.label || 'Processing'}...</span>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  Step {currentStageIndex + 1} of {GENERATION_STAGES.length}
+                </span>
+              </div>
+              
+              <Progress 
+                value={Math.min(95, (elapsedTime / totalEstimatedTime) * 100)} 
+                className="h-2" 
+              />
+              
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Elapsed: {formatTime(elapsedTime)}</span>
+                {elapsedTime < totalEstimatedTime ? (
+                  <span>Est. remaining: ~{formatTime(Math.max(0, totalEstimatedTime - elapsedTime))}</span>
+                ) : (
+                  <span className="animate-pulse">Still working... complex topics take longer</span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <Button 
+              onClick={handleGenerate} 
+              disabled={!isValid}
+              className="w-full"
+              size="lg"
+            >
+              Generate My Learning Path
+            </Button>
+          )}
         </CollapsibleContent>
       </Collapsible>
 
