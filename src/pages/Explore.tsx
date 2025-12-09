@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Settings, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { PreGenerationSettings, PreGenerationConstraints } from "@/components/PreGenerationSettings";
+import { SmartPreGenerationSettings, SmartPreGenerationConstraints, toLegacyConstraints } from "@/components/SmartPreGenerationSettings";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -32,10 +32,11 @@ const Explore = () => {
   const [showSearch, setShowSearch] = useState(!!searchParams.get("q"));
   const [contextPath, setContextPath] = useState<string[] | undefined>(undefined);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [globalConstraints, setGlobalConstraints] = useState<PreGenerationConstraints>({
-    depth: 'standard',
+  const [globalConstraints, setGlobalConstraints] = useState<SmartPreGenerationConstraints>({
+    skillLevel: 'beginner',
     hoursPerWeek: 5,
-    skillLevel: 'beginner'
+    durationWeeks: 4,
+    depth: 'standard'
   });
 
   useEffect(() => {
@@ -99,8 +100,11 @@ const Explore = () => {
 
   const isCustomSettings = globalConstraints.depth !== 'standard' || 
     globalConstraints.hoursPerWeek !== 5 || 
-    globalConstraints.goalDate || 
+    globalConstraints.durationWeeks !== 4 || 
     globalConstraints.skillLevel !== 'beginner';
+  
+  // Convert smart constraints to legacy format for child components
+  const legacyConstraints = toLegacyConstraints(globalConstraints);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -148,13 +152,13 @@ const Explore = () => {
                 </Button>
               </CollapsibleTrigger>
 
-              <CollapsibleContent className="mt-4 border p-6 bg-card">
+              <CollapsibleContent className="mt-4 border rounded-lg p-6 bg-card">
                 <div className="mb-4">
                   <p className="text-sm text-muted-foreground">
-                    These settings will be applied to all syllabus generations on this page. You can still customize per discipline.
+                    These settings will be applied to all syllabus generations. Depth is automatically determined based on your available time.
                   </p>
                 </div>
-                <PreGenerationSettings 
+                <SmartPreGenerationSettings 
                   constraints={globalConstraints}
                   onChange={setGlobalConstraints}
                 />
@@ -169,7 +173,7 @@ const Explore = () => {
               query={searchQuery}
               searching={searching}
               onBrowseInContext={handleBrowseInContext}
-              globalConstraints={globalConstraints}
+              globalConstraints={legacyConstraints}
             />
           ) : (
             <div>
@@ -178,7 +182,7 @@ const Explore = () => {
               </h1>
               <ProgressiveDisclosure 
                 initialPath={contextPath} 
-                globalConstraints={globalConstraints}
+                globalConstraints={legacyConstraints}
               />
             </div>
           )}
