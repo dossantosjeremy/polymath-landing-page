@@ -34,22 +34,16 @@ export const simplifySearchTerm = (term: string): string => {
   return words.slice(0, 2).join(' ') || term.split(' ')[0];
 };
 
-// Generate primary image URL with unique signature to prevent duplicates
+// Generate primary image URL using Picsum with unique seed
 export const getPrimaryImageUrl = (name: string, context?: string): string => {
-  const query = context 
-    ? `${name.toLowerCase()} ${context.toLowerCase()}`.substring(0, 40)
-    : name.toLowerCase();
-  
-  // Add unique signature based on full name to get different images
-  const sig = hashString(name);
-  return `https://source.unsplash.com/600x400/?${encodeURIComponent(query)}&sig=${sig}`;
+  const seed = `${name}-${context || 'default'}`.replace(/\s+/g, '-').toLowerCase();
+  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/600/400`;
 };
 
-// Generate fallback image URL (simplified term) with unique signature
+// Generate fallback image URL with different seed variation
 export const getFallbackImageUrl = (name: string): string => {
-  const simplified = simplifySearchTerm(name);
-  const sig = hashString(name + '_fallback');
-  return `https://source.unsplash.com/600x400/?${encodeURIComponent(simplified)}&sig=${sig}`;
+  const seed = `${name}-fallback`.replace(/\s+/g, '-').toLowerCase();
+  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/600/400`;
 };
 
 // Get curated domain fallback
