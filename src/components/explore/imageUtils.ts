@@ -105,25 +105,17 @@ export const simplifySearchTerm = (term: string): string => {
   return words.slice(0, 2).join(' ') || term.split(' ')[0];
 };
 
-// Generate primary image URL - prefer curated, fallback to unique Picsum
-export const getPrimaryImageUrl = (name: string, context?: string): string => {
-  // Check for curated subdomain image first
+// Check if we have a curated image for this discipline
+export const getCuratedImageUrl = (name: string): string | null => {
+  // Check for curated subdomain image
   if (subdomainImages[name]) {
     return subdomainImages[name];
   }
-  // Generate unique Picsum image based on name + context
-  const seed = `${name}-${context || 'default'}`.replace(/\s+/g, '-').toLowerCase();
-  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/600/400`;
-};
-
-// Generate fallback image URL - unique Picsum with different seed
-export const getFallbackImageUrl = (name: string): string => {
-  // Check curated subdomain
-  if (subdomainImages[name]) {
-    return subdomainImages[name];
+  // Check for curated domain image
+  if (domainFallbackImages[name]) {
+    return domainFallbackImages[name];
   }
-  const seed = `${name}-fallback`.replace(/\s+/g, '-').toLowerCase();
-  return `https://picsum.photos/seed/${encodeURIComponent(seed)}/600/400`;
+  return null;
 };
 
 // Get curated domain fallback

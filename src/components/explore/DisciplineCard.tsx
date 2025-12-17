@@ -1,14 +1,13 @@
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { getGradientFromName } from "./imageUtils";
+import { getGradientFromName, getCuratedImageUrl } from "./imageUtils";
+import { useDisciplineImage } from "@/hooks/useDisciplineImage";
+import { Loader2 } from "lucide-react";
 
 interface DisciplineCardProps {
   name: string;
   description?: string;
-  imageUrl: string;
-  fallbackImageUrl?: string;
-  categoryFallbackUrl?: string;
+  context?: string;
   isSelected?: boolean;
   onClick: () => void;
   size?: 'large' | 'medium' | 'compact';
@@ -18,53 +17,27 @@ interface DisciplineCardProps {
 export const DisciplineCard = ({
   name,
   description,
-  imageUrl,
-  fallbackImageUrl,
-  categoryFallbackUrl,
+  context,
   isSelected = false,
   onClick,
   size = 'large',
   childCount
 }: DisciplineCardProps) => {
-  const [imageLoadAttempt, setImageLoadAttempt] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  // Check for curated image first
+  const curatedUrl = getCuratedImageUrl(name);
+  
+  // Use the hook for AI-generated images
+  const { imageUrl, isLoading, isGenerating } = useDisciplineImage({
+    disciplineName: name,
+    context,
+    curated: curatedUrl
+  });
 
   const sizeClasses = {
     large: 'h-48 w-72',
     medium: 'h-40 w-64',
     compact: 'h-32 w-56'
   };
-
-  // Determine which image URL to use based on attempts
-  const getCurrentImageUrl = (): string | null => {
-    switch (imageLoadAttempt) {
-      case 0: return imageUrl;
-      case 1: return fallbackImageUrl || categoryFallbackUrl || null;
-      case 2: return categoryFallbackUrl || null;
-      default: return null;
-    }
-  };
-
-  const handleImageError = () => {
-    const nextAttempt = imageLoadAttempt + 1;
-    
-    // Check if we have more fallbacks to try
-    if (nextAttempt === 1 && (fallbackImageUrl || categoryFallbackUrl)) {
-      setImageLoadAttempt(1);
-    } else if (nextAttempt === 2 && categoryFallbackUrl && fallbackImageUrl) {
-      setImageLoadAttempt(2);
-    } else {
-      // No more fallbacks, show gradient
-      setImageLoadAttempt(3);
-      setIsLoading(false);
-    }
-  };
-
-  const handleImageLoad = () => {
-    setIsLoading(false);
-  };
-
-  const currentUrl = getCurrentImageUrl();
 
   return (
     <Card
@@ -78,22 +51,27 @@ export const DisciplineCard = ({
     >
       {/* Loading skeleton */}
       {isLoading && (
-        <div className="absolute inset-0 animate-pulse bg-muted" />
+        <div className="absolute inset-0 animate-pulse bg-muted flex items-center justify-center">
+          {isGenerating && (
+            <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-xs">Generating...</span>
+            </div>
+          )}
+        </div>
       )}
       
       {/* Image or Gradient fallback */}
-      {currentUrl ? (
+      {imageUrl ? (
         <img 
-          src={currentUrl} 
+          src={imageUrl} 
           alt={name}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
           className={cn(
             "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
             isLoading && "opacity-0"
           )}
         />
-      ) : (
+      ) : !isLoading && (
         <div 
           className="absolute inset-0"
           style={{ background: getGradientFromName(name) }}

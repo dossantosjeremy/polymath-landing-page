@@ -110,6 +110,27 @@ export type Database = {
         }
         Relationships: []
       }
+      discipline_images: {
+        Row: {
+          created_at: string
+          discipline_name: string
+          id: string
+          image_url: string
+        }
+        Insert: {
+          created_at?: string
+          discipline_name: string
+          id?: string
+          image_url: string
+        }
+        Update: {
+          created_at?: string
+          discipline_name?: string
+          id?: string
+          image_url?: string
+        }
+        Relationships: []
+      }
       disciplines: {
         Row: {
           created_at: string | null

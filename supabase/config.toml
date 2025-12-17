@@ -23,3 +23,6 @@ verify_jwt = false
 
 [functions.recover-podcast-link]
 verify_jwt = false
+
+[functions.generate-discipline-image]
+verify_jwt = false

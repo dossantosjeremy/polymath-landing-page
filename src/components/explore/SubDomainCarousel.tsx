@@ -9,7 +9,6 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getPrimaryImageUrl, getFallbackImageUrl, getDomainFallbackImage } from "./imageUtils";
 
 interface SubDomain {
   value: string;
@@ -112,9 +111,7 @@ export const SubDomainCarousel = ({ domain, selectedSubDomain, onSelect }: SubDo
             <CarouselItem key={subDomain.value} className="pl-4 basis-auto">
               <DisciplineCard
                 name={subDomain.value}
-                imageUrl={getPrimaryImageUrl(subDomain.value, domain)}
-                fallbackImageUrl={getFallbackImageUrl(subDomain.value)}
-                categoryFallbackUrl={getDomainFallbackImage(domain)}
+                context={domain}
                 isSelected={selectedSubDomain === subDomain.value}
                 onClick={() => onSelect(subDomain.value, childCounts[subDomain.value] > 0)}
                 size="medium"
