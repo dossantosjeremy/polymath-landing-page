@@ -21,39 +21,13 @@ interface SubDomainCarouselProps {
   onSelect: (subDomain: string, hasChildren: boolean) => void;
 }
 
-// Generate a pseudo-random image based on the subdomain name
+// Generate contextual image using Unsplash Source API with the subdomain name
 const getSubDomainImage = (subDomain: string, domain: string): string => {
-  const categoryImages: Record<string, string[]> = {
-    "Arts and Humanities": [
-      "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=600&q=80",
-      "https://images.unsplash.com/photo-1541367777708-7905fe3296c0?w=600&q=80",
-      "https://images.unsplash.com/photo-1460661419201-fd4cecdf8a8b?w=600&q=80",
-    ],
-    "Business": [
-      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&q=80",
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&q=80",
-      "https://images.unsplash.com/photo-1553028826-f4804a6dba3b?w=600&q=80",
-    ],
-    "Computer Science": [
-      "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&q=80",
-      "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=600&q=80",
-      "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&q=80",
-    ],
-    "Engineering": [
-      "https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=600&q=80",
-      "https://images.unsplash.com/photo-1537462715879-360eeb61a0ad?w=600&q=80",
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&q=80",
-    ],
-    "default": [
-      "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=600&q=80",
-      "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&q=80",
-      "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&q=80",
-    ],
-  };
-
-  const images = categoryImages[domain] || categoryImages["default"];
-  const index = subDomain.length % images.length;
-  return images[index];
+  // Clean the subdomain name for use as a search query
+  const searchTerm = subDomain.toLowerCase().replace(/[^a-z0-9\s]/gi, ' ').trim();
+  // Combine with domain for more relevant results
+  const query = `${searchTerm} ${domain.toLowerCase()}`.substring(0, 50);
+  return `https://source.unsplash.com/600x400/?${encodeURIComponent(query)}`;
 };
 
 export const SubDomainCarousel = ({ domain, selectedSubDomain, onSelect }: SubDomainCarouselProps) => {
