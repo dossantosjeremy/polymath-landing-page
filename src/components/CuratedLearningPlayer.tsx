@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Loader2, Check } from 'lucide-react';
+import { BookOpen, Loader2, Check, Sparkles, GraduationCap, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CriticalPath } from './CriticalPath';
 import { KnowledgeCheck } from './KnowledgeCheck';
 import { ExpansionPack } from './ExpansionPack';
 import { CapstoneAssignment } from './CapstoneAssignment';
+import { MOOCSection } from './MOOCSection';
 import { useCuratedResources } from '@/hooks/useCuratedResources';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -29,6 +32,7 @@ interface LoadingStage {
 const LOADING_STAGES: LoadingStage[] = [
   { id: 'cache', label: 'Checking Cache', description: 'Looking for cached resources...', estimatedSeconds: 2 },
   { id: 'videos', label: 'Discovering Videos', description: 'Searching YouTube for educational content...', estimatedSeconds: 5 },
+  { id: 'moocs', label: 'Finding Courses', description: 'Searching Coursera & Udemy...', estimatedSeconds: 4 },
   { id: 'readings', label: 'Finding Readings', description: 'Locating authoritative articles...', estimatedSeconds: 4 },
   { id: 'verify', label: 'Verifying Resources', description: 'Validating links and quality...', estimatedSeconds: 3 },
   { id: 'curate', label: 'Curating Results', description: 'Selecting the best resources for you...', estimatedSeconds: 2 },
@@ -161,7 +165,7 @@ export const CuratedLearningPlayer = ({
             <p className="text-sm font-medium">Curated Learning Resources</p>
             <p className="text-xs text-muted-foreground max-w-md mx-auto">
               Get the minimum effective dose: one core video and one core reading, 
-              plus optional deep-dive resources.
+              plus optional deep-dive resources and online courses.
             </p>
           </div>
           <Button onClick={handleLoadResources}>
@@ -265,8 +269,9 @@ export const CuratedLearningPlayer = ({
 
   const hasCore = resources.coreVideo || resources.coreReading;
   const hasExpansion = resources.deepDive.length > 0 || resources.expansionPack.length > 0;
+  const moocCount = resources.moocs?.length || 0;
 
-  if (!hasCore && !hasExpansion) {
+  if (!hasCore && !hasExpansion && moocCount === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-sm text-muted-foreground">No resources found for this step.</p>
@@ -276,36 +281,73 @@ export const CuratedLearningPlayer = ({
 
   return (
     <div className="space-y-6 py-6 w-full max-w-full min-w-0 overflow-hidden">
-      {/* Critical Path - Core Resources */}
-      {hasCore && (
-        <CriticalPath
-          learningObjective={resources.learningObjective}
-          coreVideo={resources.coreVideo}
-          coreReading={resources.coreReading}
-          totalCoreTime={resources.totalCoreTime}
-          discipline={discipline}
-        />
-      )}
+      <Tabs defaultValue="essential" className="w-full">
+        <TabsList className="w-full grid grid-cols-3 mb-6">
+          <TabsTrigger value="essential" className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden sm:inline">Essential Path</span>
+            <span className="sm:hidden">Essential</span>
+          </TabsTrigger>
+          <TabsTrigger value="courses" className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4" />
+            <span className="hidden sm:inline">Online Courses</span>
+            <span className="sm:hidden">Courses</span>
+            {moocCount > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+                {moocCount}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="all" className="flex items-center gap-2">
+            <Library className="h-4 w-4" />
+            <span className="hidden sm:inline">All Resources</span>
+            <span className="sm:hidden">All</span>
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Knowledge Check - Appears after core content */}
-      {hasCore && resources.knowledgeCheck && !coreCompleted && (
-        <KnowledgeCheck
-          question={resources.knowledgeCheck.question}
-          onUnderstand={handleUnderstand}
-          onNeedMore={handleNeedMore}
-        />
-      )}
+        {/* Essential Path Tab */}
+        <TabsContent value="essential" className="space-y-6 mt-0">
+          {hasCore && (
+            <CriticalPath
+              learningObjective={resources.learningObjective}
+              coreVideo={resources.coreVideo}
+              coreReading={resources.coreReading}
+              totalCoreTime={resources.totalCoreTime}
+              discipline={discipline}
+            />
+          )}
 
-      {/* Expansion Pack - Optional Deep Dive */}
-      {hasExpansion && (
-        <ExpansionPack
-          deepDive={resources.deepDive}
-          expansionPack={resources.expansionPack}
-          totalExpandedTime={resources.totalExpandedTime}
-          onFindMore={handleFindMore}
-          isExpanded={showExpansion}
-        />
-      )}
+          {hasCore && resources.knowledgeCheck && !coreCompleted && (
+            <KnowledgeCheck
+              question={resources.knowledgeCheck.question}
+              onUnderstand={handleUnderstand}
+              onNeedMore={handleNeedMore}
+            />
+          )}
+        </TabsContent>
+
+        {/* Online Courses Tab */}
+        <TabsContent value="courses" className="mt-0">
+          <MOOCSection
+            moocs={resources.moocs || []}
+            stepTitle={stepTitle}
+            discipline={discipline}
+          />
+        </TabsContent>
+
+        {/* All Resources Tab */}
+        <TabsContent value="all" className="mt-0">
+          {hasExpansion && (
+            <ExpansionPack
+              deepDive={resources.deepDive}
+              expansionPack={resources.expansionPack}
+              totalExpandedTime={resources.totalExpandedTime}
+              onFindMore={handleFindMore}
+              isExpanded={showExpansion}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

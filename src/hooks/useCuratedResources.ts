@@ -40,6 +40,9 @@ export interface CuratedStepResources {
   deepDive: CuratedResource[];
   expansionPack: CuratedResource[];
   
+  // MOOCs - dedicated array for Online Courses tab
+  moocs: any[];
+  
   // Knowledge verification
   knowledgeCheck?: {
     question: string;
@@ -166,6 +169,11 @@ export const useCuratedResources = () => {
 
 // Transform legacy format to curated format
 function transformToCuratedFormat(data: any): CuratedStepResources {
+  // Extract MOOCs from alternatives
+  const allAlternatives = data.alternatives || [];
+  const moocs = data.moocs || allAlternatives.filter((a: any) => a.type === 'mooc');
+  const nonMoocAlternatives = allAlternatives.filter((a: any) => a.type !== 'mooc');
+
   // If already in curated format, return as-is
   if (data.coreVideo !== undefined || data.learningObjective) {
     return {
@@ -176,12 +184,13 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
       totalExpandedTime: data.totalExpandedTime || calculateTotalTime([...(data.deepDive || []), ...(data.expansionPack || [])]),
       deepDive: data.deepDive || [],
       expansionPack: data.expansionPack || [],
+      moocs: moocs,
       knowledgeCheck: data.knowledgeCheck,
       // Legacy compatibility
       videos: data.videos || [],
       readings: data.readings || [],
       books: data.books || [],
-      alternatives: data.alternatives || []
+      alternatives: nonMoocAlternatives
     };
   }
 
@@ -210,8 +219,12 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
     ...remainingVideos.slice(1).map((v: any) => transformResource(v, 'video')),
     ...remainingReadings.slice(2).map((r: any) => transformResource(r, 'reading')),
     ...books.map((b: any) => transformResource(b, 'book')),
-    ...alternatives.map((a: any) => transformResource(a, a.type || 'article'))
+    ...alternatives.filter((a: any) => a.type !== 'mooc').map((a: any) => transformResource(a, a.type || 'article'))
   ];
+
+  // Extract MOOCs from alternatives (use different variable name to avoid redeclaration)
+  const legacyMoocs = alternatives.filter((a: any) => a.type === 'mooc');
+  const legacyNonMoocAlternatives = alternatives.filter((a: any) => a.type !== 'mooc');
 
   return {
     coreVideo: coreVideo ? transformResource(coreVideo, 'video') : null,
@@ -221,6 +234,7 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
     totalExpandedTime: calculateTotalTime([...deepDive, ...expansionPack]),
     deepDive,
     expansionPack,
+    moocs: legacyMoocs,
     knowledgeCheck: {
       question: 'Can you explain the main concepts covered in this step?',
       supplementalResourceId: deepDive.length > 0 ? '0' : undefined
@@ -229,7 +243,7 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
     videos,
     readings,
     books,
-    alternatives
+    alternatives: legacyNonMoocAlternatives
   };
 }
 

@@ -29,11 +29,13 @@ const AUTHORITY_DOMAINS: Record<string, { type: string; reason: string }> = {
   'udemy.com': { type: 'industry_standard', reason: 'Udemy - Professional skills courses' },
 };
 
-// COURSERA API SEARCH
+// COURSERA API SEARCH with OAuth 2.0 Client Credentials
 async function searchCourseraAPI(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
-  const accessToken = Deno.env.get('COURSERA_ACCESS_TOKEN');
-  if (!accessToken) {
-    console.log('COURSERA_ACCESS_TOKEN not configured, skipping Coursera search');
+  const clientId = Deno.env.get('COURSERA_CLIENT_ID');
+  const clientSecret = Deno.env.get('COURSERA_CLIENT_SECRET');
+  
+  if (!clientId || !clientSecret) {
+    console.log('Coursera OAuth credentials not configured, skipping Coursera search');
     return [];
   }
 
@@ -41,7 +43,36 @@ async function searchCourseraAPI(stepTitle: string, discipline: string, blacklis
   console.log('🎓 Searching Coursera API for:', cleanedTitle);
 
   try {
-    // Search Coursera courses
+    // Step 1: Exchange credentials for access token using OAuth 2.0 client credentials
+    console.log('Obtaining Coursera access token...');
+    const tokenResponse = await fetch('https://api.coursera.com/oauth2/client_credentials/token', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret
+      })
+    });
+
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Coursera OAuth token request failed:', tokenResponse.status, errorText);
+      return [];
+    }
+
+    const tokenData = await tokenResponse.json();
+    const accessToken = tokenData.access_token;
+    
+    if (!accessToken) {
+      console.error('No access token returned from Coursera');
+      return [];
+    }
+    console.log('✓ Coursera access token obtained');
+
+    // Step 2: Search courses with the token
     const searchQuery = `${cleanedTitle} ${discipline}`;
     const searchUrl = new URL('https://api.coursera.org/api/courses.v1');
     searchUrl.searchParams.set('q', 'search');
@@ -57,7 +88,7 @@ async function searchCourseraAPI(stepTitle: string, discipline: string, blacklis
     });
 
     if (!response.ok) {
-      console.error('Coursera API failed:', response.status, await response.text());
+      console.error('Coursera API search failed:', response.status, await response.text());
       return [];
     }
 
@@ -68,11 +99,10 @@ async function searchCourseraAPI(stepTitle: string, discipline: string, blacklis
       return [];
     }
 
-    console.log(`Coursera API returned ${data.elements.length} courses`);
+    console.log(`✓ Coursera API returned ${data.elements.length} courses`);
 
     return data.elements
       .filter((course: any) => {
-        const url = `https://www.coursera.org/learn/${course.slug}`;
         return !blacklist.some(bl => bl.includes(course.slug));
       })
       .map((course: any) => ({
@@ -91,8 +121,8 @@ async function searchCourseraAPI(stepTitle: string, discipline: string, blacklis
   }
 }
 
-// UDEMY API SEARCH (via RapidAPI)
-async function searchUdemyAPI(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+// UDEMY API SEARCH (via RapidAPI) with retry logic for rate limits
+async function searchUdemyAPI(stepTitle: string, discipline: string, blacklist: string[], retryCount: number = 0): Promise<any[]> {
   const rapidApiKey = Deno.env.get('RAPIDAPI_KEY');
   if (!rapidApiKey) {
     console.log('RAPIDAPI_KEY not configured, skipping Udemy search');
@@ -103,6 +133,13 @@ async function searchUdemyAPI(stepTitle: string, discipline: string, blacklist: 
   console.log('📚 Searching Udemy API for:', cleanedTitle);
 
   try {
+    // Add delay between requests to avoid rate limits (increasing with retry count)
+    if (retryCount > 0) {
+      const delay = Math.min(5000 * Math.pow(2, retryCount - 1), 30000); // Exponential backoff, max 30s
+      console.log(`Udemy: Waiting ${delay}ms before retry ${retryCount}...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+
     const searchQuery = `${cleanedTitle} ${discipline}`;
     const searchUrl = new URL('https://udemy-course-scrapper-api.p.rapidapi.com/course-names');
     searchUrl.searchParams.set('search', searchQuery);
@@ -113,6 +150,17 @@ async function searchUdemyAPI(stepTitle: string, discipline: string, blacklist: 
         'x-rapidapi-key': rapidApiKey
       }
     });
+
+    // Handle rate limiting with retry
+    if (response.status === 429) {
+      console.log('Udemy API rate limited (429)');
+      if (retryCount < 2) {
+        console.log(`Retrying Udemy search (attempt ${retryCount + 1}/2)...`);
+        return searchUdemyAPI(stepTitle, discipline, blacklist, retryCount + 1);
+      }
+      console.log('Udemy API: Max retries reached, skipping');
+      return [];
+    }
 
     if (!response.ok) {
       console.error('Udemy API failed:', response.status, await response.text());
@@ -126,7 +174,7 @@ async function searchUdemyAPI(stepTitle: string, discipline: string, blacklist: 
       return [];
     }
 
-    console.log(`Udemy API returned ${data.length} courses`);
+    console.log(`✓ Udemy API returned ${data.length} courses`);
 
     return data
       .slice(0, 5)
@@ -188,6 +236,7 @@ interface CuratedStepResources {
   totalExpandedTime: string;
   deepDive: CuratedResource[];
   expansionPack: CuratedResource[];
+  moocs: any[]; // Dedicated MOOC array for Online Courses tab
   knowledgeCheck?: {
     question: string;
     supplementalResourceId?: string;
@@ -470,12 +519,15 @@ function curateResources(
     ...scoredReadings.slice(1, 3)
   ];
 
-  // Expansion pack: everything else
+  // Expansion pack: everything else (excluding MOOCs which go in separate array)
+  const nonMoocAlternatives = scoredAlternatives.filter(a => a.type !== 'mooc');
+  const moocs = scoredAlternatives.filter(a => a.type === 'mooc');
+  
   const expansionPack: CuratedResource[] = [
     ...scoredVideos.slice(2),
     ...scoredReadings.slice(3),
     ...scoredBooks,
-    ...scoredAlternatives
+    ...nonMoocAlternatives
   ];
 
   // Mark core resources
@@ -490,6 +542,16 @@ function curateResources(
     totalExpandedTime: calculateTotalTime([...deepDive, ...expansionPack]),
     deepDive,
     expansionPack,
+    moocs: moocs.map(m => ({
+      url: m.url,
+      title: m.title,
+      source: m.domain || 'Online Course',
+      duration: m.consumptionTime || m.duration,
+      verified: m.verified,
+      thumbnailUrl: m.thumbnailUrl,
+      description: m.snippet,
+      author: m.author
+    })),
     knowledgeCheck: generateKnowledgeCheck(stepTitle),
     // Legacy compatibility
     videos: resources.videos || [],
