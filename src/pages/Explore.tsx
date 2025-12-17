@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
-import { ProgressiveDisclosure } from "@/components/ProgressiveDisclosure";
+import { ExploreContainer } from "@/components/explore";
 import { SearchResults } from "@/components/SearchResults";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -177,10 +177,10 @@ const Explore = () => {
             />
           ) : (
             <div>
-              <h1 className="text-3xl font-serif font-bold mb-6">
+              <h1 className="text-3xl font-serif font-bold mb-8">
                 Browse Disciplines
               </h1>
-              <ProgressiveDisclosure 
+              <ExploreContainer 
                 initialPath={contextPath} 
                 globalConstraints={legacyConstraints}
               />
