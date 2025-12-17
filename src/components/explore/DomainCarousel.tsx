@@ -9,7 +9,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getFallbackImageUrl, getDomainFallbackImage } from "./imageUtils";
+import { getPrimaryImageUrl, getFallbackImageUrl, getDomainFallbackImage } from "./imageUtils";
 
 interface Domain {
   value: string;
@@ -23,6 +23,8 @@ interface DomainCarouselProps {
 
 // Domain-specific curated images from Unsplash (hand-picked for quality)
 const domainImages: Record<string, string> = {
+  "Agricultural Sciences": "https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=600&q=80",
+  "Architecture": "https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=600&q=80",
   "Arts and Humanities": "https://images.unsplash.com/photo-1544928147-79a2dbc1f389?w=600&q=80",
   "Business": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&q=80",
   "Computer Science": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&q=80",
@@ -62,9 +64,9 @@ const domainDescriptions: Record<string, string> = {
   "Natural Sciences": "Physics, chemistry & natural phenomena",
 };
 
-// Get image for domain - use curated if available
+// Get image for domain - use curated if available, otherwise use unique signature
 const getDomainImage = (domain: string): string => {
-  return domainImages[domain] || `https://source.unsplash.com/600x400/?${encodeURIComponent(domain.toLowerCase())}`;
+  return domainImages[domain] || getPrimaryImageUrl(domain);
 };
 
 export const DomainCarousel = ({ selectedDomain, onSelect }: DomainCarouselProps) => {
