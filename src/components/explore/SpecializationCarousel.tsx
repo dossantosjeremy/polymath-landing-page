@@ -9,6 +9,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getPrimaryImageUrl, getFallbackImageUrl, getDomainFallbackImage } from "./imageUtils";
 
 interface Specialization {
   value: string;
@@ -22,15 +23,8 @@ interface SpecializationCarouselProps {
   onSelect: (specialization: string) => void;
 }
 
-// Generate contextual image using Unsplash Source API with the specialization name
-const getSpecializationImage = (specialization: string, subDomain?: string): string => {
-  // Clean the specialization name for use as a search query
-  const searchTerm = specialization.toLowerCase().replace(/[^a-z0-9\s]/gi, ' ').trim();
-  return `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
-};
-
 export const SpecializationCarousel = ({ 
-  domain, 
+  domain,
   subDomain, 
   selectedSpecialization, 
   onSelect 
@@ -109,7 +103,9 @@ export const SpecializationCarousel = ({
             <CarouselItem key={spec.value} className="pl-4 basis-auto">
               <DisciplineCard
                 name={spec.value}
-                imageUrl={getSpecializationImage(spec.value)}
+                imageUrl={getPrimaryImageUrl(spec.value, subDomain)}
+                fallbackImageUrl={getFallbackImageUrl(spec.value)}
+                categoryFallbackUrl={getDomainFallbackImage(domain)}
                 isSelected={selectedSpecialization === spec.value}
                 onClick={() => onSelect(spec.value)}
                 size="compact"

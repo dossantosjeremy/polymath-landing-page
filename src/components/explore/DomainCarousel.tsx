@@ -9,6 +9,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getFallbackImageUrl, getDomainFallbackImage } from "./imageUtils";
 
 interface Domain {
   value: string;
@@ -22,27 +23,23 @@ interface DomainCarouselProps {
 
 // Domain-specific curated images from Unsplash (hand-picked for quality)
 const domainImages: Record<string, string> = {
-  "Arts and Humanities": "https://images.unsplash.com/photo-1544928147-79a2dbc1f389?w=600&q=80", // Art gallery
-  "Business": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&q=80", // Business person
-  "Computer Science": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&q=80", // Code on screen
-  "Data Science": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&q=80", // Data visualization
-  "Education": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?w=600&q=80", // Classroom
-  "Engineering": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&q=80", // Engineering
-  "Health and Medicine": "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&q=80", // Medical
-  "Language": "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&q=80", // Books/writing
-  "Law": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80", // Law books/scales
-  "Math and Logic": "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&q=80", // Math equations
-  "Personal Development": "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&q=80", // Person growing
-  "Physical Science": "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&q=80", // Lab/science
-  "Social Sciences": "https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a?w=600&q=80", // People together
-  "Information Technology": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&q=80", // Server room
-};
-
-// Generate dynamic Unsplash image URL based on search term
-const getUnsplashImage = (query: string, seed?: string): string => {
-  const encodedQuery = encodeURIComponent(query.toLowerCase().replace(/[^a-z0-9\s]/gi, ''));
-  // Use Unsplash Source API with specific search terms
-  return `https://source.unsplash.com/600x400/?${encodedQuery}`;
+  "Arts and Humanities": "https://images.unsplash.com/photo-1544928147-79a2dbc1f389?w=600&q=80",
+  "Business": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=600&q=80",
+  "Computer Science": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&q=80",
+  "Data Science": "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&q=80",
+  "Education": "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?w=600&q=80",
+  "Engineering": "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&q=80",
+  "Health and Medicine": "https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=600&q=80",
+  "Language": "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=600&q=80",
+  "Law": "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&q=80",
+  "Math and Logic": "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&q=80",
+  "Personal Development": "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?w=600&q=80",
+  "Physical Science": "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&q=80",
+  "Social Sciences": "https://images.unsplash.com/photo-1491438590914-bc09fcaaf77a?w=600&q=80",
+  "Information Technology": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&q=80",
+  "Life Sciences": "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?w=600&q=80",
+  "Medicine and Health Sciences": "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=600&q=80",
+  "Natural Sciences": "https://images.unsplash.com/photo-1507413245164-6160d8298b31?w=600&q=80",
 };
 
 const domainDescriptions: Record<string, string> = {
@@ -60,11 +57,14 @@ const domainDescriptions: Record<string, string> = {
   "Physical Science": "Physics, chemistry & earth sciences",
   "Social Sciences": "Psychology, sociology & anthropology",
   "Information Technology": "Networks, security & IT infrastructure",
+  "Life Sciences": "Biology, ecology & life systems",
+  "Medicine and Health Sciences": "Medical research & healthcare sciences",
+  "Natural Sciences": "Physics, chemistry & natural phenomena",
 };
 
-// Get image for domain - use curated if available, otherwise dynamic
+// Get image for domain - use curated if available
 const getDomainImage = (domain: string): string => {
-  return domainImages[domain] || getUnsplashImage(domain);
+  return domainImages[domain] || `https://source.unsplash.com/600x400/?${encodeURIComponent(domain.toLowerCase())}`;
 };
 
 export const DomainCarousel = ({ selectedDomain, onSelect }: DomainCarouselProps) => {
@@ -131,6 +131,8 @@ export const DomainCarousel = ({ selectedDomain, onSelect }: DomainCarouselProps
                 name={domain.value}
                 description={domainDescriptions[domain.value]}
                 imageUrl={getDomainImage(domain.value)}
+                fallbackImageUrl={getFallbackImageUrl(domain.value)}
+                categoryFallbackUrl={getDomainFallbackImage(domain.value)}
                 isSelected={selectedDomain === domain.value}
                 onClick={() => onSelect(domain.value)}
                 size="large"
