@@ -12,6 +12,17 @@ const domainFallbackImages: Record<string, string> = {
   "default": "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&h=400&fit=crop"
 };
 
+// Generate a hash from string for unique signatures
+const hashString = (str: string): number => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash);
+};
+
 // Simplify search term for better Unsplash results
 export const simplifySearchTerm = (term: string): string => {
   const stopWords = ['and', 'the', 'of', 'in', 'for', 'to', 'with', 'on', 'at', 'sciences', 'studies', 'applied'];
@@ -23,18 +34,22 @@ export const simplifySearchTerm = (term: string): string => {
   return words.slice(0, 2).join(' ') || term.split(' ')[0];
 };
 
-// Generate primary image URL
+// Generate primary image URL with unique signature to prevent duplicates
 export const getPrimaryImageUrl = (name: string, context?: string): string => {
   const query = context 
     ? `${name.toLowerCase()} ${context.toLowerCase()}`.substring(0, 40)
     : name.toLowerCase();
-  return `https://source.unsplash.com/600x400/?${encodeURIComponent(query)}`;
+  
+  // Add unique signature based on full name to get different images
+  const sig = hashString(name);
+  return `https://source.unsplash.com/600x400/?${encodeURIComponent(query)}&sig=${sig}`;
 };
 
-// Generate fallback image URL (simplified term)
+// Generate fallback image URL (simplified term) with unique signature
 export const getFallbackImageUrl = (name: string): string => {
   const simplified = simplifySearchTerm(name);
-  return `https://source.unsplash.com/600x400/?${encodeURIComponent(simplified)}`;
+  const sig = hashString(name + '_fallback');
+  return `https://source.unsplash.com/600x400/?${encodeURIComponent(simplified)}&sig=${sig}`;
 };
 
 // Get curated domain fallback
@@ -44,7 +59,7 @@ export const getDomainFallbackImage = (domain: string): string => {
 
 // Generate gradient from name (last resort)
 export const getGradientFromName = (name: string): string => {
-  const hash = name.split('').reduce((a, b) => ((a << 5) - a) + b.charCodeAt(0), 0);
-  const hue = Math.abs(hash) % 360;
+  const hash = hashString(name);
+  const hue = hash % 360;
   return `linear-gradient(135deg, hsl(${hue}, 70%, 35%), hsl(${(hue + 45) % 360}, 60%, 25%))`;
 };
