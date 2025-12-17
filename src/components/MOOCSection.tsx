@@ -32,8 +32,8 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, onFindMore }: MOOCSe
   const { findMore, isSearching } = useFindMoreResource();
   const { toast } = useToast();
   
-  // Filter to only show verified MOOCs
-  const validMOOCs = localMOOCs.filter(m => m.url && m.verified !== false);
+  // Show courses even if they're unverified (some providers block HEAD checks)
+  const validMOOCs = localMOOCs.filter(m => m.url);
   
   // Group MOOCs by source
   const courseraMOOCs = validMOOCs.filter(m => m.source?.toLowerCase().includes('coursera'));
@@ -75,12 +75,12 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, onFindMore }: MOOCSe
 
   const getSourceBadgeColor = (source: string) => {
     const s = source?.toLowerCase() || '';
-    if (s.includes('coursera')) return 'bg-blue-600 text-white';
-    if (s.includes('udemy')) return 'bg-purple-600 text-white';
-    if (s.includes('edx')) return 'bg-red-600 text-white';
-    if (s.includes('khan')) return 'bg-green-600 text-white';
-    if (s.includes('udacity')) return 'bg-cyan-600 text-white';
-    return 'bg-primary text-primary-foreground';
+    // Use design-system tokens (no hardcoded Tailwind colors)
+    if (s.includes('coursera')) return 'bg-primary text-primary-foreground';
+    if (s.includes('udemy')) return 'bg-secondary text-secondary-foreground';
+    if (s.includes('edx')) return 'bg-accent text-accent-foreground';
+    if (s.includes('khan') || s.includes('udacity')) return 'bg-muted text-muted-foreground';
+    return 'bg-muted text-muted-foreground';
   };
 
   const renderMOOCCard = (mooc: MOOC, index: number) => (
@@ -176,7 +176,7 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, onFindMore }: MOOCSe
           <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="font-semibold mb-2">No Online Courses Found</h3>
           <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-            We couldn't find verified online courses for this topic. Try searching manually on these platforms:
+            We couldn't find online courses for this topic. Try searching manually on these platforms:
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
             <Button 
@@ -221,13 +221,13 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, onFindMore }: MOOCSe
   return (
     <div className="space-y-6">
       {/* Coursera Section */}
-      {renderMOOCGroup(courseraMOOCs, 'Coursera', 'bg-blue-600 text-white')}
+      {renderMOOCGroup(courseraMOOCs, 'Coursera', 'bg-primary text-primary-foreground')}
       
       {/* Udemy Section */}
-      {renderMOOCGroup(udemyMOOCs, 'Udemy', 'bg-purple-600 text-white')}
+      {renderMOOCGroup(udemyMOOCs, 'Udemy', 'bg-secondary text-secondary-foreground')}
       
       {/* Other MOOCs */}
-      {renderMOOCGroup(otherMOOCs, 'Other Platforms', 'bg-primary text-primary-foreground')}
+      {renderMOOCGroup(otherMOOCs, 'Other Platforms', 'bg-muted text-muted-foreground')}
 
       {/* Find More Button */}
       <div className="flex justify-center pt-4">

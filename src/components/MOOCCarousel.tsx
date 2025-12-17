@@ -28,8 +28,8 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
   const { findMore, isSearching } = useFindMoreResource();
   const { toast } = useToast();
   
-  // Filter to only show verified MOOCs, limit to 3
-  const validMOOCs = localMOOCs.filter(m => m.url && m.verified !== false).slice(0, 3);
+  // Show MOOCs even if they're unverified (some providers block HEAD checks), limit to 3
+  const validMOOCs = localMOOCs.filter(m => m.url).slice(0, 3);
   
   // Fallback for no valid MOOCs
   if (validMOOCs.length === 0) {
@@ -37,7 +37,7 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
       <Card className="p-8 text-center border-dashed">
         <GraduationCap className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
         <p className="text-sm text-muted-foreground mb-4">
-          No verified MOOC courses found for this topic.
+          No MOOC courses found for this topic.
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <Button 
@@ -102,11 +102,12 @@ export const MOOCCarousel = ({ moocs, stepTitle, discipline }: MOOCCarouselProps
   };
 
   const getSourceBadgeColor = (source: string) => {
-    if (source.toLowerCase().includes('coursera')) return 'bg-blue-600 text-white';
-    if (source.toLowerCase().includes('edx')) return 'bg-purple-600 text-white';
-    if (source.toLowerCase().includes('khan')) return 'bg-green-600 text-white';
-    if (source.toLowerCase().includes('udacity')) return 'bg-cyan-600 text-white';
-    return 'bg-primary text-primary-foreground';
+    const s = source.toLowerCase();
+    // Use design-system tokens (no hardcoded Tailwind colors)
+    if (s.includes('coursera')) return 'bg-primary text-primary-foreground';
+    if (s.includes('edx')) return 'bg-accent text-accent-foreground';
+    if (s.includes('khan') || s.includes('udacity')) return 'bg-muted text-muted-foreground';
+    return 'bg-secondary text-secondary-foreground';
   };
 
   return (

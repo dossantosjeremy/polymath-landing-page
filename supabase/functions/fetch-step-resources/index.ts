@@ -83,7 +83,7 @@ async function searchCourseraAPI(stepTitle: string, discipline: string, blacklis
     const response = await fetch(searchUrl.toString(), {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       }
     });
 
@@ -942,8 +942,33 @@ async function validateUrl(url: string): Promise<{
     if (response.ok) {
       return { isValid: true, finalUrl: response.url };
     }
+
+    // Some sites (notably Coursera/Wikipedia/etc.) return 403/404/405 for HEAD even when GET works.
+    if ([403, 404, 405].includes(response.status)) {
+      try {
+        const getController = new AbortController();
+        const getTimeoutId = setTimeout(() => getController.abort(), 5000);
+        const getResponse = await fetch(url, {
+          method: 'GET',
+          redirect: 'follow',
+          signal: getController.signal,
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (compatible; ProjectHermesBot/1.0)'
+          }
+        });
+        clearTimeout(getTimeoutId);
+
+        if (getResponse.ok) {
+          return { isValid: true, finalUrl: getResponse.url };
+        }
+
+        console.log(`URL GET validation also failed (${getResponse.status}) for ${url}`);
+      } catch (e) {
+        console.log(`URL GET validation failed for ${url}:`, e);
+      }
+    }
     
-    // For non-OK responses, immediately fail (don't use broken URLs)
     console.log(`URL validation failed (${response.status}) for ${url}`);
     const waybackResponse = await fetch(
       `https://archive.org/wayback/available?url=${encodeURIComponent(url)}`
