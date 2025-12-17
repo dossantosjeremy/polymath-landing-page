@@ -9,7 +9,6 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getPrimaryImageUrl, getFallbackImageUrl, getDomainFallbackImage } from "./imageUtils";
 
 interface Specialization {
   value: string;
@@ -103,9 +102,7 @@ export const SpecializationCarousel = ({
             <CarouselItem key={spec.value} className="pl-4 basis-auto">
               <DisciplineCard
                 name={spec.value}
-                imageUrl={getPrimaryImageUrl(spec.value, subDomain)}
-                fallbackImageUrl={getFallbackImageUrl(spec.value)}
-                categoryFallbackUrl={getDomainFallbackImage(domain)}
+                context={subDomain}
                 isSelected={selectedSpecialization === spec.value}
                 onClick={() => onSelect(spec.value)}
                 size="compact"
