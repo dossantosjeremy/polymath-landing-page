@@ -22,16 +22,11 @@ interface SpecializationCarouselProps {
   onSelect: (specialization: string) => void;
 }
 
-const getSpecializationImage = (specialization: string): string => {
-  const images = [
-    "https://images.unsplash.com/photo-1532619187608-e5375cab36aa?w=600&q=80",
-    "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&q=80",
-    "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&q=80",
-    "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=600&q=80",
-    "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&q=80",
-  ];
-  const index = specialization.length % images.length;
-  return images[index];
+// Generate contextual image using Unsplash Source API with the specialization name
+const getSpecializationImage = (specialization: string, subDomain?: string): string => {
+  // Clean the specialization name for use as a search query
+  const searchTerm = specialization.toLowerCase().replace(/[^a-z0-9\s]/gi, ' ').trim();
+  return `https://source.unsplash.com/600x400/?${encodeURIComponent(searchTerm)}`;
 };
 
 export const SpecializationCarousel = ({ 
