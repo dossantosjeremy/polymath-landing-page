@@ -470,13 +470,21 @@ serve(async (req) => {
     }
 
     // Filter out modules with invalid sourceUrls (not in rawSources)
-    const validSourceUrls = new Set(rawSources.map(s => s.url));
-    const filteredModules = modules.filter(m => 
-      !m.sourceUrl || m.isCapstone || validSourceUrls.has(m.sourceUrl)
-    );
-    
-    if (filteredModules.length < modules.length) {
-      console.log(`[Filter] Removed ${modules.length - filteredModules.length} modules with invalid sources`);
+    // IMPORTANT: Only apply this filter when we actually have discovered rawSources.
+    // When rawSources is empty (e.g., Tier 3 generation or discovery failure), filtering would
+    // incorrectly remove legitimate content steps and leave only capstones.
+    let filteredModules = modules;
+    if (rawSources.length > 0) {
+      const validSourceUrls = new Set(rawSources.map(s => s.url));
+      filteredModules = modules.filter(m =>
+        !m.sourceUrl || m.isCapstone || validSourceUrls.has(m.sourceUrl)
+      );
+
+      if (filteredModules.length < modules.length) {
+        console.log(`[Filter] Removed ${modules.length - filteredModules.length} modules with invalid sources`);
+      }
+    } else {
+      console.log('[Filter] Skipping invalid-source filter (no rawSources discovered)');
     }
 
     const responseData = {
