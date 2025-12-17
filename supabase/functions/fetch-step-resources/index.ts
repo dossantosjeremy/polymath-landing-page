@@ -26,7 +26,129 @@ const AUTHORITY_DOMAINS: Record<string, { type: string; reason: string }> = {
   'wikipedia.org': { type: 'academic', reason: 'Wikipedia - General reference' },
   'gutenberg.org': { type: 'academic', reason: 'Project Gutenberg - Public domain texts' },
   'archive.org': { type: 'academic', reason: 'Internet Archive' },
+  'udemy.com': { type: 'industry_standard', reason: 'Udemy - Professional skills courses' },
 };
+
+// COURSERA API SEARCH
+async function searchCourseraAPI(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+  const accessToken = Deno.env.get('COURSERA_ACCESS_TOKEN');
+  if (!accessToken) {
+    console.log('COURSERA_ACCESS_TOKEN not configured, skipping Coursera search');
+    return [];
+  }
+
+  const cleanedTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
+  console.log('🎓 Searching Coursera API for:', cleanedTitle);
+
+  try {
+    // Search Coursera courses
+    const searchQuery = `${cleanedTitle} ${discipline}`;
+    const searchUrl = new URL('https://api.coursera.org/api/courses.v1');
+    searchUrl.searchParams.set('q', 'search');
+    searchUrl.searchParams.set('query', searchQuery);
+    searchUrl.searchParams.set('fields', 'name,slug,photoUrl,partnerIds,description');
+    searchUrl.searchParams.set('limit', '5');
+
+    const response = await fetch(searchUrl.toString(), {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Coursera API failed:', response.status, await response.text());
+      return [];
+    }
+
+    const data = await response.json();
+    
+    if (!data.elements || data.elements.length === 0) {
+      console.log('No courses found in Coursera API');
+      return [];
+    }
+
+    console.log(`Coursera API returned ${data.elements.length} courses`);
+
+    return data.elements
+      .filter((course: any) => {
+        const url = `https://www.coursera.org/learn/${course.slug}`;
+        return !blacklist.some(bl => bl.includes(course.slug));
+      })
+      .map((course: any) => ({
+        type: 'mooc' as const,
+        url: `https://www.coursera.org/learn/${course.slug}`,
+        title: course.name,
+        source: 'Coursera',
+        duration: 'Self-paced',
+        thumbnailUrl: course.photoUrl,
+        verified: true,
+        description: course.description
+      }));
+  } catch (error) {
+    console.error('Coursera API error:', error);
+    return [];
+  }
+}
+
+// UDEMY API SEARCH (via RapidAPI)
+async function searchUdemyAPI(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+  const rapidApiKey = Deno.env.get('RAPIDAPI_KEY');
+  if (!rapidApiKey) {
+    console.log('RAPIDAPI_KEY not configured, skipping Udemy search');
+    return [];
+  }
+
+  const cleanedTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
+  console.log('📚 Searching Udemy API for:', cleanedTitle);
+
+  try {
+    const searchQuery = `${cleanedTitle} ${discipline}`;
+    const searchUrl = new URL('https://udemy-course-scrapper-api.p.rapidapi.com/course-names');
+    searchUrl.searchParams.set('search', searchQuery);
+
+    const response = await fetch(searchUrl.toString(), {
+      headers: {
+        'x-rapidapi-host': 'udemy-course-scrapper-api.p.rapidapi.com',
+        'x-rapidapi-key': rapidApiKey
+      }
+    });
+
+    if (!response.ok) {
+      console.error('Udemy API failed:', response.status, await response.text());
+      return [];
+    }
+
+    const data = await response.json();
+    
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      console.log('No courses found in Udemy API');
+      return [];
+    }
+
+    console.log(`Udemy API returned ${data.length} courses`);
+
+    return data
+      .slice(0, 5)
+      .filter((course: any) => {
+        const url = course.url || '';
+        return !blacklist.some(bl => url.includes(bl));
+      })
+      .map((course: any) => ({
+        type: 'mooc' as const,
+        url: course.url?.startsWith('http') ? course.url : `https://www.udemy.com${course.url || ''}`,
+        title: course.title || course.name || 'Udemy Course',
+        source: 'Udemy',
+        duration: course.content_length || course.num_lectures ? `${course.num_lectures} lectures` : 'Self-paced',
+        thumbnailUrl: course.image || course.image_480x270 || '',
+        verified: true,
+        author: course.instructor || course.visible_instructors?.[0]?.name || ''
+      }));
+  } catch (error) {
+    console.error('Udemy API error:', error);
+    return [];
+  }
+}
 
 interface ScoreBreakdown {
   syllabusMatch: number;
@@ -1220,6 +1342,11 @@ RESPONSE FORMAT - CRITICAL:
     // Start resource discovery in parallel while hunting for videos
     const resourcePromise = callPerplexityAPI(prompt);
     
+    // Start MOOC API searches in parallel (Coursera + Udemy)
+    console.log('🎓 Starting MOOC API searches (Coursera + Udemy)...');
+    const courseraPromise = searchCourseraAPI(stepTitle, discipline, blacklist);
+    const udemyPromise = searchUdemyAPI(stepTitle, discipline, blacklist);
+    
     // Try YouTube API first - this is the most reliable method
     let videos = await searchYouTubeAPI(stepTitle, discipline, blacklist);
     
@@ -1304,19 +1431,31 @@ RESPONSE FORMAT - CRITICAL:
     
     const perplexityResources = extractJSON(perplexityContent) || {};
     
+    // Wait for MOOC API results
+    const [courseraCourses, udemyCourses] = await Promise.all([courseraPromise, udemyPromise]);
+    console.log(`✓ Coursera returned ${courseraCourses.length} courses, Udemy returned ${udemyCourses.length} courses`);
+    
+    // Merge MOOC results with Perplexity alternatives (API-sourced first for higher quality)
+    const apiMOOCs = [...courseraCourses, ...udemyCourses];
+    const perplexityAlternatives = (perplexityResources.alternatives || []).filter(
+      (alt: any) => alt.type !== 'mooc' || !apiMOOCs.some(m => m.title === alt.title)
+    );
+    const mergedAlternatives = [...apiMOOCs, ...perplexityAlternatives];
+    
     // Merge results with fallbacks
     let resources: StepResources = {
       videos: perplexityVideos || [],
       readings: perplexityResources.readings || [],
       books: perplexityResources.books || [],
-      alternatives: perplexityResources.alternatives || [],
+      alternatives: mergedAlternatives,
     };
     
     console.log('Successfully parsed resources:', {
       videoCount: resources.videos?.length || 0,
       readingCount: resources.readings?.length || 0,
       bookCount: resources.books?.length || 0,
-      alternativesCount: resources.alternatives?.length || 0
+      alternativesCount: resources.alternatives?.length || 0,
+      apiMOOCCount: apiMOOCs.length
     });
 
     // Validate and enhance all URLs
