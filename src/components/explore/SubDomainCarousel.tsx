@@ -9,6 +9,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getPrimaryImageUrl, getFallbackImageUrl, getDomainFallbackImage } from "./imageUtils";
 
 interface SubDomain {
   value: string;
@@ -20,15 +21,6 @@ interface SubDomainCarouselProps {
   selectedSubDomain?: string;
   onSelect: (subDomain: string, hasChildren: boolean) => void;
 }
-
-// Generate contextual image using Unsplash Source API with the subdomain name
-const getSubDomainImage = (subDomain: string, domain: string): string => {
-  // Clean the subdomain name for use as a search query
-  const searchTerm = subDomain.toLowerCase().replace(/[^a-z0-9\s]/gi, ' ').trim();
-  // Combine with domain for more relevant results
-  const query = `${searchTerm} ${domain.toLowerCase()}`.substring(0, 50);
-  return `https://source.unsplash.com/600x400/?${encodeURIComponent(query)}`;
-};
 
 export const SubDomainCarousel = ({ domain, selectedSubDomain, onSelect }: SubDomainCarouselProps) => {
   const [subDomains, setSubDomains] = useState<SubDomain[]>([]);
@@ -120,7 +112,9 @@ export const SubDomainCarousel = ({ domain, selectedSubDomain, onSelect }: SubDo
             <CarouselItem key={subDomain.value} className="pl-4 basis-auto">
               <DisciplineCard
                 name={subDomain.value}
-                imageUrl={getSubDomainImage(subDomain.value, domain)}
+                imageUrl={getPrimaryImageUrl(subDomain.value, domain)}
+                fallbackImageUrl={getFallbackImageUrl(subDomain.value)}
+                categoryFallbackUrl={getDomainFallbackImage(domain)}
                 isSelected={selectedSubDomain === subDomain.value}
                 onClick={() => onSelect(subDomain.value, childCounts[subDomain.value] > 0)}
                 size="medium"
