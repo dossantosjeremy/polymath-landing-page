@@ -594,8 +594,10 @@ async function searchYouTubeAPI(stepTitle: string, discipline: string, blacklist
     return [];
   }
 
-  // Clean step title: remove number prefix like "1. " or "3. "
-  const cleanedTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
+  // Clean step title: remove "Module X - Step Y:" prefix or simple "1. " prefix
+  const cleanedTitle = stepTitle
+    .replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '')
+    .trim();
   
   console.log('🎬 Searching YouTube Data API for:', cleanedTitle, 'in', discipline);
 
@@ -793,10 +795,13 @@ async function callPerplexityForVideos(stepTitle: string, discipline: string, bl
     ? `\n\nCRITICAL: DO NOT RETURN these broken/reported video URLs:\n${blacklist.filter(url => url.includes('youtube.com') || url.includes('youtu.be')).join('\n')}\n`
     : '';
 
-  const prompt = `SEARCH YOUTUBE and find REAL, EXISTING educational videos about: "${stepTitle}" in the discipline of "${discipline}"
+  // Clean step title for better search results
+  const cleanedTitle = stepTitle.replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '').trim();
+  
+  const prompt = `SEARCH YOUTUBE and find REAL, EXISTING educational videos about: "${cleanedTitle}" in the discipline of "${discipline}"
 
 SEARCH REQUIREMENTS:
-- Perform actual YouTube searches using queries like: "${stepTitle} lecture", "${stepTitle} explained", "${stepTitle} tutorial"
+- Perform actual YouTube searches using queries like: "${cleanedTitle} lecture", "${cleanedTitle} explained", "${cleanedTitle} tutorial"
 - Search for videos from authoritative educational channels: CrashCourse, Khan Academy, 3Blue1Brown, Veritasium, TED-Ed, MIT OCW, university lecture channels
 - Verify each video exists before including it
 - Videos must be under 25 minutes (prefer 8-18 minutes)
@@ -861,7 +866,10 @@ async function searchBruteForceVideos(stepTitle: string, discipline: string, bla
     ? `DO NOT return these URLs: ${blacklist.filter(url => url.includes('youtube')).join(', ')}`
     : '';
 
-  const prompt = `SEARCH YouTube NOW for: site:youtube.com (CrashCourse OR "TED-Ed" OR "Khan Academy" OR "3Blue1Brown" OR Veritasium) "${stepTitle}"
+  // Clean step title for better search results
+  const cleanedTitle = stepTitle.replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '').trim();
+  
+  const prompt = `SEARCH YouTube NOW for: site:youtube.com (CrashCourse OR "TED-Ed" OR "Khan Academy" OR "3Blue1Brown" OR Veritasium) "${cleanedTitle}"
 
 Find videos from these TRUSTED channels that actually exist.
 
@@ -893,9 +901,12 @@ If nothing found, return []`;
 
 // Attempt 3: Hail Mary - Generic lecture search
 async function searchHailMaryVideos(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
-  const prompt = `SEARCH YouTube for: site:youtube.com "${stepTitle}" lecture OR tutorial OR explained
+  // Clean step title for better search results
+  const cleanedTitle = stepTitle.replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '').trim();
+  
+  const prompt = `SEARCH YouTube for: site:youtube.com "${cleanedTitle}" lecture OR tutorial OR explained
 
-Find ANY educational video that exists and is relevant to "${stepTitle}" in ${discipline}.
+Find ANY educational video that exists and is relevant to "${cleanedTitle}" in ${discipline}.
 
 Return ONLY the first working video you find as JSON:
 [{"url": "https://www.youtube.com/watch?v=VIDEO_ID", "title": "title", "author": "channel", "duration": "duration", "whyThisVideo": "General lecture on topic"}]`;
