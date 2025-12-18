@@ -53,6 +53,8 @@ export function SyllabusMissionControl({
   regenerationKey = 0,
 }: SyllabusMissionControlProps) {
   const isMobile = useIsMobile();
+  // IMPORTANT: All hooks must be called before any conditional returns (React Rules of Hooks)
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Transform modules to MissionControlStep format - memoize to detect changes
   const steps: MissionControlStep[] = useMemo(() => {
@@ -147,8 +149,6 @@ export function SyllabusMissionControl({
   }
 
   // Desktop Layout: Collapsible Sidebar
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
   return (
     <div className="h-[calc(100vh-120px)] min-h-[700px] border rounded-lg overflow-hidden bg-card flex">
       {/* Left Panel - Collapsible Metro Map */}
