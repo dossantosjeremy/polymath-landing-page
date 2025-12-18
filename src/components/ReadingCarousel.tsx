@@ -145,22 +145,22 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
   return (
     <div className="space-y-4 w-full max-w-full min-w-0 overflow-hidden">
       <Carousel setApi={setApi} className="w-full max-w-full min-w-0 overflow-hidden">
-        <CarouselContent className="-ml-2 md:-ml-4">
+        <CarouselContent className="-ml-2 sm:-ml-4">
           {validReadings.map((reading, index) => {
             const isExpanded = expandedContent.has(index);
             const hasEmbeddedContent = reading.embeddedContent && reading.contentExtractionStatus === 'success';
 
             return (
-            <CarouselItem key={index} className="pl-2 md:pl-4 basis-full min-w-0 w-full max-w-full">
-              <Card className="border-2 border-border p-6 space-y-4 w-full max-w-full min-w-0 overflow-hidden break-words">
+            <CarouselItem key={index} className="pl-2 sm:pl-4 basis-full min-w-0 w-full max-w-full">
+              <Card className="border-2 border-border p-3 sm:p-6 space-y-3 sm:space-y-4 w-full max-w-full min-w-0 overflow-hidden break-words">
                   {/* Header */}
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-2 flex-1">
-                        <Badge className={getSourceBadgeColor(reading.domain)}>
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex items-start justify-between gap-2 sm:gap-3">
+                      <div className="space-y-1 sm:space-y-2 flex-1 min-w-0">
+                        <Badge className={`${getSourceBadgeColor(reading.domain)} text-xs`}>
                           {reading.domain}
                         </Badge>
-                        <h3 className="font-serif font-semibold text-lg">{reading.title}</h3>
+                        <h3 className="font-serif font-semibold text-base sm:text-lg break-words">{reading.title}</h3>
                         {reading.author && (
                           <p className="text-sm text-muted-foreground">By {reading.author}</p>
                         )}
@@ -246,17 +246,18 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
                   )}
 
                   {/* Actions */}
-                  <div className="flex gap-2 pt-2 border-t border-border">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
                     <Button
                       size="sm"
                       variant="outline"
+                      className="w-full sm:w-auto text-xs sm:text-sm"
                       onClick={() => window.open(reading.directPdfUrl || reading.url, '_blank')}
                     >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      {reading.directPdfUrl ? 'Open PDF' : 'Visit Source'}
+                      <ExternalLink className="h-3 w-3 mr-1 flex-shrink-0" />
+                      <span className="truncate">{reading.directPdfUrl ? 'Open PDF' : 'Visit Source'}</span>
                     </Button>
                     {reading.author && (
-                      <div className="flex-1 flex items-center justify-end text-xs text-muted-foreground">
+                      <div className="flex-1 flex items-center justify-end text-xs text-muted-foreground truncate">
                         Author: {reading.author}
                       </div>
                     )}
@@ -279,8 +280,8 @@ export const ReadingCarousel = ({ readings, stepTitle, discipline }: ReadingCaro
         </CarouselContent>
         {validReadings.length > 1 && (
           <>
-            <CarouselPrevious className="-left-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
-            <CarouselNext className="-right-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
+            <CarouselPrevious className="hidden sm:flex -left-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
+            <CarouselNext className="hidden sm:flex -right-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
           </>
         )}
       </Carousel>
