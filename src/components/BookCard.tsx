@@ -53,7 +53,7 @@ export const BookCard = ({
 
   return (
     <div 
-      className="border p-6 space-y-4 w-full max-w-full min-w-0 overflow-hidden"
+      className="border p-3 sm:p-6 space-y-3 sm:space-y-4 w-full max-w-full min-w-0 overflow-hidden"
       style={{
         borderLeftWidth: '4px',
         borderLeftColor: accentColor,
@@ -62,13 +62,13 @@ export const BookCard = ({
     >
       {/* Header Icon */}
       <div className="flex items-center gap-2">
-        <BookMarked className="h-5 w-5" style={{ color: accentColor }} />
-        <span className="text-sm font-medium" style={{ color: accentColor }}>{source}</span>
+        <BookMarked className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" style={{ color: accentColor }} />
+        <span className="text-xs sm:text-sm font-medium truncate" style={{ color: accentColor }}>{source}</span>
       </div>
 
       {showWarning && (
-        <div className="flex items-center gap-2 text-amber-600 text-xs">
-          <AlertTriangle className="h-3 w-3" />
+        <div className="flex items-center gap-2 text-amber-600 text-xs flex-wrap">
+          <AlertTriangle className="h-3 w-3 flex-shrink-0" />
           <span>Link may be outdated</span>
           {archivedUrl && (
             <a href={archivedUrl} className="underline hover:no-underline" target="_blank" rel="noopener noreferrer">
@@ -79,9 +79,9 @@ export const BookCard = ({
       )}
 
       {/* Book Info */}
-      <div className="space-y-2">
-        <h4 className="font-semibold text-lg">{title}</h4>
-        <p className="text-sm text-muted-foreground">by {author}</p>
+      <div className="space-y-1 sm:space-y-2">
+        <h4 className="font-semibold text-base sm:text-lg break-words">{title}</h4>
+        <p className="text-xs sm:text-sm text-muted-foreground">by {author}</p>
       </div>
 
       {/* Why Badge */}
@@ -111,18 +111,18 @@ export const BookCard = ({
       )}
 
       {/* CTA Buttons */}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <Button
           variant="outline"
-          className="flex-1"
+          className="flex-1 text-xs sm:text-sm"
           asChild
           style={{
             borderColor: accentColor,
             color: accentColor
           }}
         >
-          <a href={url} target="_blank" rel="noopener noreferrer">
-            Read Book <ExternalLink className="ml-2 h-4 w-4" />
+          <a href={url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+            <span className="truncate">Read Book</span> <ExternalLink className="ml-2 h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
           </a>
         </Button>
         
