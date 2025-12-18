@@ -123,27 +123,27 @@ export function SyllabusMissionControl({
   // Mobile Layout: Use Sheet for Metro Map
   if (isMobile) {
     return (
-      <div className="relative h-[calc(100vh-200px)] min-h-[500px]">
-        {/* Stage Panel - Full Width */}
-        <div className="h-full border rounded-lg overflow-hidden bg-card">
-          {stagePanel}
-        </div>
-
-        {/* Floating Map Button */}
+      <div className="relative w-full min-h-[70dvh]">
+        {/* Floating Map Button - TOP LEFT */}
         <Sheet>
           <SheetTrigger asChild>
             <Button
-              size="lg"
-              className="fixed bottom-6 right-6 shadow-lg z-50"
+              size="sm"
+              className="fixed top-20 left-4 shadow-lg z-50"
             >
-              <Map className="h-5 w-5 mr-2" />
-              {mode === 'draft' ? 'View Map' : `${(activeStepIndex ?? 0) + 1}/${confirmedSteps.length}`}
+              <Map className="h-4 w-4 mr-2" />
+              {mode === 'draft' ? 'Map' : `${(activeStepIndex ?? 0) + 1}/${confirmedSteps.length}`}
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0">
+          <SheetContent side="left" className="w-[85vw] max-w-[350px] p-0">
             {metroMap}
           </SheetContent>
         </Sheet>
+
+        {/* Stage Panel - Full Width */}
+        <div className="w-full border rounded-lg overflow-hidden bg-card">
+          {stagePanel}
+        </div>
       </div>
     );
   }
@@ -164,7 +164,7 @@ export function SyllabusMissionControl({
       </div>
 
       {/* Right Panel - Stage (expands when collapsed) */}
-      <div className="flex-1 h-full min-w-0 overflow-hidden flex flex-col" style={{ contain: 'inline-size' }}>
+      <div className="flex-1 h-full min-w-0 overflow-hidden flex flex-col">
         {/* Toggle Button */}
         <div className="flex items-center gap-2 p-2 border-b bg-muted/30">
           <Button
@@ -193,7 +193,7 @@ export function SyllabusMissionControl({
         </div>
         
         {/* Content */}
-        <div className="flex-1 min-h-0 overflow-hidden w-full max-w-full" style={{ contain: 'inline-size' }}>
+        <div className="flex-1 min-h-0 overflow-hidden w-full max-w-full">
           {stagePanel}
         </div>
       </div>
