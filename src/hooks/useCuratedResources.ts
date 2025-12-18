@@ -169,10 +169,22 @@ export const useCuratedResources = () => {
 
 // Transform legacy format to curated format
 function transformToCuratedFormat(data: any): CuratedStepResources {
+  // Debug logging
+  console.log('📥 Raw data received from backend:', {
+    hasVideoField: !!data.videos,
+    hasAlternatives: !!data.alternatives,
+    alternativesCount: data.alternatives?.length || 0,
+    hasMoocsField: !!data.moocs,
+    moocsCount: data.moocs?.length || 0,
+    moocsSample: data.moocs?.slice(0, 2).map((m: any) => ({ title: m.title, source: m.source }))
+  });
+
   // Extract MOOCs from alternatives
   const allAlternatives = data.alternatives || [];
   const moocs = data.moocs || allAlternatives.filter((a: any) => a.type === 'mooc');
   const nonMoocAlternatives = allAlternatives.filter((a: any) => a.type !== 'mooc');
+
+  console.log('📚 Extracted MOOCs:', moocs.length, moocs.map((m: any) => m.title));
 
   // If already in curated format, return as-is
   if (data.coreVideo !== undefined || data.learningObjective) {
