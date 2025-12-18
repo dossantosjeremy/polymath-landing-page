@@ -18,6 +18,7 @@ interface MOOC {
   thumbnailUrl?: string;
   description?: string;
   author?: string;
+  courseName?: string; // Parent course name for individual lessons
 }
 
 interface MOOCSectionProps {
@@ -59,8 +60,8 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
       
       if (result?.error) {
         toast({
-          title: "No New Courses Found",
-          description: result.message || "Could not find additional courses.",
+          title: "No New Lessons Found",
+          description: result.message || "Could not find additional video lessons.",
           variant: "default"
         });
         return;
@@ -69,14 +70,14 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
       if (result) {
         setLocalMOOCs([...localMOOCs, result]);
         toast({
-          title: "Course Added",
+          title: "Lesson Added",
           description: `Added: ${result.title}`,
         });
       }
     } catch (err) {
       toast({
         title: "Search Failed",
-        description: "Could not find additional courses. Try again later.",
+        description: "Could not find additional lessons. Try again later.",
         variant: "destructive"
       });
     }
@@ -122,6 +123,12 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
           )}
         </div>
         <h3 className="font-semibold text-sm sm:text-base line-clamp-2 break-words">{mooc.title}</h3>
+        {/* Parent course name */}
+        {mooc.courseName && (
+          <p className="text-xs text-muted-foreground break-words">
+            from <span className="font-medium">{mooc.courseName}</span>
+          </p>
+        )}
         {mooc.author && (
           <p className="text-xs text-muted-foreground break-words">by {mooc.author}</p>
         )}
@@ -145,7 +152,7 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
           onClick={() => window.open(mooc.url, '_blank')}
         >
           <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4 mr-2 shrink-0" />
-          <span className="truncate">View Course</span>
+          <span className="truncate">Watch Lesson</span>
         </Button>
       </div>
 
@@ -154,7 +161,7 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
           title={mooc.title}
           originalUrl={mooc.url}
           archivedUrl={mooc.archivedUrl}
-          searchQuery={`${stepTitle} ${discipline} course`}
+          searchQuery={`${stepTitle} ${discipline} lesson`}
           resourceType="video"
         />
       )}
@@ -168,7 +175,7 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
       <div className="space-y-3 w-full max-w-full">
         <div className="flex items-center gap-2">
           <Badge className={`${badgeClass} text-xs`}>{label}</Badge>
-          <span className="text-xs sm:text-sm text-muted-foreground">{groupMOOCs.length} course{groupMOOCs.length !== 1 ? 's' : ''}</span>
+          <span className="text-xs sm:text-sm text-muted-foreground">{groupMOOCs.length} lesson{groupMOOCs.length !== 1 ? 's' : ''}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           {groupMOOCs.map((mooc, idx) => renderMOOCCard(mooc, idx))}
@@ -183,7 +190,7 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Loading external courses...</p>
+          <p className="text-sm text-muted-foreground">Loading video lessons...</p>
         </div>
       </div>
     );
@@ -195,9 +202,9 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
       <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden">
         <Card className="p-4 sm:p-8 text-center border-dashed">
           <GraduationCap className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
-          <h3 className="font-semibold mb-2 text-sm sm:text-base">No External Courses Found</h3>
+          <h3 className="font-semibold mb-2 text-sm sm:text-base">No Video Lessons Found</h3>
           <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 max-w-md mx-auto">
-            No Coursera or Udemy courses found for this topic. Try searching manually:
+            No individual video lessons found for this topic. Try searching manually:
           </p>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
             <Button 
@@ -240,7 +247,7 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
             disabled={isSearching}
           >
             <Search className="h-3 w-3 sm:h-4 sm:w-4 mr-2 shrink-0" />
-            {isSearching ? 'Searching...' : 'Search for Courses'}
+            {isSearching ? 'Searching...' : 'Search for Lessons'}
           </Button>
         </div>
       </div>
@@ -268,7 +275,7 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
           disabled={isSearching}
         >
           <PlusCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2 shrink-0" />
-          {isSearching ? 'Searching...' : 'Find More Courses'}
+          {isSearching ? 'Searching...' : 'Find More Lessons'}
         </Button>
       </div>
     </div>
