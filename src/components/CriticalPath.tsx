@@ -58,23 +58,23 @@ export function CriticalPath({
   );
 
   return (
-    <Card className={cn("border-2 border-primary/20 bg-primary/5", className)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <Badge className="bg-green-600 text-white">✅ Core Requirement</Badge>
+    <Card className={cn("border-2 border-primary/20 bg-primary/5 w-full max-w-full overflow-hidden", className)}>
+      <CardHeader className="pb-3 px-3 sm:px-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <Badge className="bg-green-600 text-white w-fit text-xs">✅ Core Requirement</Badge>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            <span>{totalCoreTime}</span>
+            <Clock className="h-3 w-3 shrink-0" />
+            <span className="whitespace-nowrap">{totalCoreTime}</span>
             <span>•</span>
-            <span>Covers {coveragePercent}% of topic</span>
+            <span className="whitespace-nowrap">Covers {coveragePercent}%</span>
           </div>
         </div>
         
         {/* Learning Objective */}
-        <div className="mt-3 p-3 bg-background rounded-lg border">
+        <div className="mt-3 p-2 sm:p-3 bg-background rounded-lg border">
           <div className="flex items-start gap-2">
             <Target className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-            <p className="text-sm">
+            <p className="text-xs sm:text-sm break-words">
               <span className="font-medium">Learning Objective: </span>
               {learningObjective}
             </p>
@@ -82,7 +82,7 @@ export function CriticalPath({
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-3 sm:px-6">
         {/* Core Video */}
         {coreVideo && (
           <CoreResourceCard
@@ -151,10 +151,10 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
   };
 
   return (
-    <div className="border rounded-lg bg-background overflow-hidden">
+    <div className="border rounded-lg bg-background overflow-hidden w-full max-w-full">
       {/* Video Embed or Reading Preview */}
       {isVideo && videoId && (
-        <div className="relative w-full h-0 pb-[56.25%] bg-black">
+        <div className="relative w-full aspect-video bg-black">
           <iframe
             src={`https://www.youtube.com/embed/${videoId}`}
             className="absolute inset-0 w-full h-full"
@@ -165,12 +165,12 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
         </div>
       )}
       
-      <div className="p-4 space-y-3">
+      <div className="p-3 sm:p-4 space-y-3">
         {/* Header with badges */}
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className={cn(
-              "p-1.5 rounded",
+              "p-1.5 rounded shrink-0",
               isVideo ? "bg-red-500/10" : "bg-blue-500/10"
             )}>
               <Icon className={cn(
@@ -182,7 +182,7 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
               Core {type}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <TrustBadge 
               origin={resource.origin} 
               domain={resource.domain}
@@ -193,10 +193,10 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
         </div>
         
         {/* Title and Author */}
-        <div>
-          <h4 className="font-semibold text-sm line-clamp-2">{resource.title}</h4>
+        <div className="min-w-0">
+          <h4 className="font-semibold text-sm line-clamp-2 break-words">{resource.title}</h4>
           {resource.author && (
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1 break-words">
               by {resource.author}
             </p>
           )}
@@ -231,12 +231,12 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
         </div>
         
         {/* Footer */}
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
             <span>{resource.consumptionTime}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 

@@ -62,32 +62,33 @@ export function ExpansionPack({
   }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className={className}>
-      <CollapsibleTrigger className="flex items-center justify-between w-full py-3 px-4 hover:bg-muted/50 rounded-lg transition-colors">
-        <div className="flex items-center gap-2">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className={cn("w-full max-w-full overflow-hidden", className)}>
+      <CollapsibleTrigger className="flex items-center justify-between w-full py-2 sm:py-3 px-3 sm:px-4 hover:bg-muted/50 rounded-lg transition-colors">
+        <div className="flex items-center gap-2 min-w-0">
           <Plus className={cn(
-            "h-4 w-4 transition-transform",
+            "h-4 w-4 transition-transform shrink-0",
             isOpen && "rotate-45"
           )} />
-          <span className="font-medium text-sm">Want to go deeper?</span>
-          <Badge variant="outline" className="ml-2">Optional</Badge>
+          <span className="font-medium text-xs sm:text-sm truncate">Want to go deeper?</span>
+          <Badge variant="outline" className="ml-1 sm:ml-2 text-[10px] sm:text-xs shrink-0">Optional</Badge>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{totalResources} resources</span>
-          <span>•</span>
-          <span>{totalExpandedTime}</span>
+        <div className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-xs text-muted-foreground shrink-0">
+          <span className="hidden sm:inline">{totalResources} resources</span>
+          <span className="sm:hidden">{totalResources}</span>
+          <span className="hidden sm:inline">•</span>
+          <span className="hidden sm:inline">{totalExpandedTime}</span>
           <ChevronDown className={cn(
-            "h-4 w-4 transition-transform",
+            "h-3 w-3 sm:h-4 sm:w-4 transition-transform",
             isOpen && "rotate-180"
           )} />
         </div>
       </CollapsibleTrigger>
       
-      <CollapsibleContent className="space-y-4 pt-3">
+      <CollapsibleContent className="space-y-3 sm:space-y-4 pt-2 sm:pt-3">
         {/* Deep Dive Section */}
         {deepDive.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+            <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
               Deep Dive Resources
             </h4>
             <div className="grid gap-2">
@@ -107,7 +108,7 @@ export function ExpansionPack({
         {/* All Other Resources */}
         {expansionPack.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+            <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
               Additional Resources
             </h4>
             <div className="grid gap-2">
@@ -198,32 +199,32 @@ function ExpansionResourceCard({ resource, stepTitle, discipline, onReplace }: E
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <Card className="border hover:border-primary/30 transition-colors">
+      <Card className="border hover:border-primary/30 transition-colors w-full max-w-full overflow-hidden">
         <CardContent className="p-0">
-          <CollapsibleTrigger className="w-full p-3">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-muted rounded shrink-0">
-                <Icon className="h-4 w-4 text-muted-foreground" />
+          <CollapsibleTrigger className="w-full p-2 sm:p-3">
+            <div className="flex items-start gap-2 sm:gap-3">
+              <div className="p-1.5 sm:p-2 bg-muted rounded shrink-0">
+                <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </div>
               
               <div className="flex-1 min-w-0 space-y-1 text-left">
                 <div className="flex items-start justify-between gap-2">
-                  <h5 className="text-sm font-medium line-clamp-1">{resource.title}</h5>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <h5 className="text-xs sm:text-sm font-medium line-clamp-1 break-words">{resource.title}</h5>
+                  <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                     <TrustBadge origin={resource.origin} />
                     <ChevronDown className={cn(
-                      "h-4 w-4 transition-transform text-muted-foreground",
+                      "h-3 w-3 sm:h-4 sm:w-4 transition-transform text-muted-foreground",
                       isOpen && "rotate-180"
                     )} />
                   </div>
                 </div>
                 
                 {resource.author && (
-                  <p className="text-xs text-muted-foreground">by {resource.author}</p>
+                  <p className="text-[10px] sm:text-xs text-muted-foreground truncate">by {resource.author}</p>
                 )}
                 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
+                <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground">
+                  <Clock className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" />
                   <span>{resource.consumptionTime}</span>
                 </div>
               </div>
@@ -231,10 +232,10 @@ function ExpansionResourceCard({ resource, stepTitle, discipline, onReplace }: E
           </CollapsibleTrigger>
           
           <CollapsibleContent>
-            <div className="px-3 pb-3 space-y-3 border-t pt-3">
+            <div className="px-2 sm:px-3 pb-2 sm:pb-3 space-y-2 sm:space-y-3 border-t pt-2 sm:pt-3">
               {/* Video Embed */}
               {isVideo && videoId && (
-                <div className="relative w-full h-0 pb-[56.25%] bg-black rounded-lg overflow-hidden">
+                <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
                   <iframe
                     src={`https://www.youtube.com/embed/${videoId}`}
                     className="absolute inset-0 w-full h-full"
@@ -247,25 +248,25 @@ function ExpansionResourceCard({ resource, stepTitle, discipline, onReplace }: E
               
               {/* Embedded Reading Content */}
               {!isVideo && resource.embeddedContent && (
-                <div className="p-3 bg-muted/30 rounded-lg max-h-64 overflow-y-auto text-sm prose prose-sm dark:prose-invert">
+                <div className="p-2 sm:p-3 bg-muted/30 rounded-lg max-h-48 sm:max-h-64 overflow-y-auto text-xs sm:text-sm prose prose-sm dark:prose-invert">
                   <pre className="whitespace-pre-wrap font-sans text-foreground">{resource.embeddedContent}</pre>
                 </div>
               )}
               
               {/* Snippet fallback if no embedded content */}
               {!isVideo && !resource.embeddedContent && resource.snippet && (
-                <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                <div className="p-2 sm:p-3 bg-muted/30 rounded-lg text-xs sm:text-sm text-muted-foreground">
                   {resource.snippet}
                 </div>
               )}
               
               {/* Rationale */}
-              <div className="p-2 bg-muted/50 rounded text-xs italic text-muted-foreground">
+              <div className="p-2 bg-muted/50 rounded text-[10px] sm:text-xs italic text-muted-foreground break-words">
                 "{resource.rationale}"
               </div>
               
               {/* Actions */}
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <Button 
                   size="sm" 
                   variant="ghost"
@@ -282,6 +283,7 @@ function ExpansionResourceCard({ resource, stepTitle, discipline, onReplace }: E
                 <Button 
                   size="sm" 
                   variant="outline"
+                  className="text-xs"
                   onClick={() => window.open(resource.url, '_blank')}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />

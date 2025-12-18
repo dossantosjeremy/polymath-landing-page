@@ -64,7 +64,7 @@ export const ReadingCard = ({
 
   return (
     <div 
-      className="border p-6 space-y-4"
+      className="border p-3 sm:p-6 space-y-3 sm:space-y-4 w-full max-w-full overflow-hidden box-border"
       style={{
         borderLeftWidth: '4px',
         borderLeftColor: accentColor,
@@ -72,18 +72,18 @@ export const ReadingCard = ({
       }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {favicon ? (
-            <img src={favicon} alt="" className="h-4 w-4" />
+            <img src={favicon} alt="" className="h-4 w-4 shrink-0" />
           ) : (
-            <BookOpen className="h-4 w-4" style={{ color: accentColor }} />
+            <BookOpen className="h-4 w-4 shrink-0" style={{ color: accentColor }} />
           )}
-          <span className="text-sm font-medium" style={{ color: accentColor }}>{domain}</span>
+          <span className="text-sm font-medium truncate" style={{ color: accentColor }}>{domain}</span>
         </div>
         
         {directPdfUrl && (
-          <Badge variant="outline" className="text-green-600 border-green-600 text-xs">
+          <Badge variant="outline" className="text-green-600 border-green-600 text-xs w-fit shrink-0">
             📄 Direct PDF
           </Badge>
         )}
@@ -102,10 +102,10 @@ export const ReadingCard = ({
       )}
 
       {/* Title */}
-      <h4 className="font-semibold text-lg">{title}</h4>
+      <h4 className="font-semibold text-base sm:text-lg break-words">{title}</h4>
 
       {/* Snippet */}
-      <p className="text-sm text-muted-foreground leading-relaxed">{snippet}</p>
+      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed break-words">{snippet}</p>
 
       {/* Specific Readings with Direct Links */}
       {specificReadings && specificReadings.length > 0 && (
@@ -139,61 +139,63 @@ export const ReadingCard = ({
 
       {/* Focus Highlight */}
       <div 
-        className="p-3 border-l-2"
+        className="p-2 sm:p-3 border-l-2"
         style={{
           borderLeftColor: accentColor,
           backgroundColor: `${bgColor}10`
         }}
       >
-        <p className="text-sm font-medium">📌 Focus: {focusHighlight}</p>
+        <p className="text-xs sm:text-sm font-medium break-words">📌 Focus: {focusHighlight}</p>
       </div>
 
-      {/* CTA Buttons */}
-      <div className="flex gap-2">
+      {/* CTA Buttons - stack on mobile */}
+      <div className="flex flex-col sm:flex-row gap-2">
         <Button
           variant="outline"
-          className="flex-1"
+          className="flex-1 text-xs sm:text-sm"
           asChild
           style={{
             borderColor: accentColor,
             color: accentColor
           }}
         >
-          <a href={displayUrl} target="_blank" rel="noopener noreferrer">
-            {directPdfUrl ? 'Open PDF' : specificReadings && specificReadings.length > 0 ? 'View All Readings' : 'Read Full Source'} 
-            <ExternalLink className="ml-2 h-4 w-4" />
+          <a href={displayUrl} target="_blank" rel="noopener noreferrer" className="truncate">
+            {directPdfUrl ? 'Open PDF' : specificReadings && specificReadings.length > 0 ? 'View Readings' : 'Read Source'} 
+            <ExternalLink className="ml-2 h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
           </a>
         </Button>
         
-        {showWarning && (
-          <Button variant="ghost" size="icon" asChild title="Search for this resource">
-            <a 
-              href={`https://scholar.google.com/scholar?q=${encodeURIComponent(title)}`}
-              target="_blank" 
-              rel="noopener noreferrer"
-            >
-              <Search className="h-4 w-4" />
-            </a>
+        <div className="flex gap-2 justify-end">
+          {showWarning && (
+            <Button variant="ghost" size="icon" asChild title="Search for this resource">
+              <a 
+                href={`https://scholar.google.com/scholar?q=${encodeURIComponent(title)}`}
+                target="_blank" 
+                rel="noopener noreferrer"
+              >
+                <Search className="h-4 w-4" />
+              </a>
+            </Button>
+          )}
+          
+          {archivedUrl && !showWarning && (
+            <Button variant="ghost" size="icon" asChild title="View archived version">
+              <a href={archivedUrl} target="_blank" rel="noopener noreferrer">
+                <Archive className="h-4 w-4" />
+              </a>
+            </Button>
+          )}
+          
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleReport}
+            disabled={isReporting}
+            title="Report broken link & find replacement"
+          >
+            <Flag className="h-4 w-4" />
           </Button>
-        )}
-        
-        {archivedUrl && !showWarning && (
-          <Button variant="ghost" size="icon" asChild title="View archived version">
-            <a href={archivedUrl} target="_blank" rel="noopener noreferrer">
-              <Archive className="h-4 w-4" />
-            </a>
-          </Button>
-        )}
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={handleReport}
-          disabled={isReporting}
-          title="Report broken link & find replacement"
-        >
-          <Flag className="h-4 w-4" />
-        </Button>
+        </div>
       </div>
     </div>
   );
