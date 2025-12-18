@@ -985,9 +985,9 @@ const Syllabus = () => {
       <Navigation />
 
       <main className="flex-1">
-        <div className="max-w-5xl mx-auto px-6 py-8">
+        <div className="w-full px-3 sm:px-6 py-4 sm:py-8 sm:max-w-5xl sm:mx-auto overflow-x-hidden">
           {/* Breadcrumbs */}
-          <nav className="flex items-center gap-2 text-sm mb-6" aria-label="Breadcrumb">
+          <nav className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm mb-4 sm:mb-6 flex-wrap" aria-label="Breadcrumb">
             <button
               onClick={() => navigate('/')}
               className="hover:text-foreground hover:underline transition-colors flex items-center gap-1 text-primary"

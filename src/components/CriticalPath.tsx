@@ -62,11 +62,11 @@ export function CriticalPath({
       <CardHeader className="pb-3 px-3 sm:px-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <Badge className="bg-green-600 text-white w-fit text-xs">✅ Core Requirement</Badge>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
             <Clock className="h-3 w-3 shrink-0" />
-            <span className="whitespace-nowrap">{totalCoreTime}</span>
-            <span>•</span>
-            <span className="whitespace-nowrap">Covers {coveragePercent}%</span>
+            <span>{totalCoreTime}</span>
+            <span className="hidden sm:inline">•</span>
+            <span>Covers {coveragePercent}%</span>
           </div>
         </div>
         
