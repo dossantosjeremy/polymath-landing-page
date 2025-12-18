@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ExternalLink, GraduationCap, AlertTriangle, PlusCircle, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ExternalLink, GraduationCap, AlertTriangle, PlusCircle, Search, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -24,13 +24,22 @@ interface MOOCSectionProps {
   moocs: MOOC[];
   stepTitle: string;
   discipline: string;
+  isLoading?: boolean;
   onFindMore?: () => void;
 }
 
-export const MOOCSection = ({ moocs, stepTitle, discipline, onFindMore }: MOOCSectionProps) => {
+export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, onFindMore }: MOOCSectionProps) => {
   const [localMOOCs, setLocalMOOCs] = useState(moocs);
   const { findMore, isSearching } = useFindMoreResource();
   const { toast } = useToast();
+
+  // Debug logging
+  console.log('📚 MOOCSection render:', { moocCount: moocs?.length, isLoading, moocs });
+
+  // Sync local state when props change
+  useEffect(() => {
+    setLocalMOOCs(moocs);
+  }, [moocs]);
   
   // Show courses even if they're unverified (some providers block HEAD checks)
   const validMOOCs = localMOOCs.filter(m => m.url);
@@ -168,15 +177,27 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, onFindMore }: MOOCSe
     );
   };
 
+  // Loading state - show spinner
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Loading external courses...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Empty state
   if (validMOOCs.length === 0) {
     return (
       <div className="space-y-4 sm:space-y-6 w-full max-w-full overflow-x-hidden">
         <Card className="p-4 sm:p-8 text-center border-dashed">
           <GraduationCap className="h-10 w-10 sm:h-12 sm:w-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
-          <h3 className="font-semibold mb-2 text-sm sm:text-base">No Online Courses Found</h3>
+          <h3 className="font-semibold mb-2 text-sm sm:text-base">No External Courses Found</h3>
           <p className="text-xs sm:text-sm text-muted-foreground mb-4 sm:mb-6 max-w-md mx-auto">
-            We couldn't find online courses for this topic. Try searching manually:
+            No Coursera or Udemy courses found for this topic. Try searching manually:
           </p>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-center">
             <Button 

@@ -329,9 +329,10 @@ export const CuratedLearningPlayer = ({
         {/* Online Courses Tab */}
         <TabsContent value="courses" className="mt-0 w-full max-w-full overflow-x-hidden">
           <MOOCSection
-            moocs={resources.moocs || []}
+            moocs={resources?.moocs || []}
             stepTitle={stepTitle}
             discipline={discipline}
+            isLoading={isLoading}
           />
         </TabsContent>
 

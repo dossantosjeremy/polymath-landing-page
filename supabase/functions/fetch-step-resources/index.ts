@@ -29,6 +29,19 @@ const AUTHORITY_DOMAINS: Record<string, { type: string; reason: string }> = {
   'udemy.com': { type: 'industry_standard', reason: 'Udemy - Professional skills courses' },
 };
 
+// Helper to infer proper MOOC source name from URL
+function inferMOOCSource(url: string, domain?: string): string {
+  if (url.includes('coursera.org') || url.includes('coursera.com')) return 'Coursera';
+  if (url.includes('udemy.com')) return 'Udemy';
+  if (url.includes('edx.org')) return 'edX';
+  if (url.includes('khanacademy.org')) return 'Khan Academy';
+  if (url.includes('linkedin.com/learning')) return 'LinkedIn Learning';
+  if (url.includes('skillshare.com')) return 'Skillshare';
+  if (url.includes('pluralsight.com')) return 'Pluralsight';
+  if (url.includes('udacity.com')) return 'Udacity';
+  return domain || 'Online Course';
+}
+
 // COURSERA API SEARCH with OAuth 2.0 Client Credentials
 async function searchCourseraAPI(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
   const clientId = Deno.env.get('COURSERA_CLIENT_ID');
@@ -545,7 +558,7 @@ function curateResources(
     moocs: moocs.map(m => ({
       url: m.url,
       title: m.title,
-      source: m.domain || 'Online Course',
+      source: inferMOOCSource(m.url, m.domain),
       duration: m.consumptionTime || m.duration,
       verified: m.verified,
       thumbnailUrl: m.thumbnailUrl,
@@ -1315,9 +1328,44 @@ serve(async (req) => {
         .maybeSingle();
 
       if (cached) {
-        console.log('✓ Using cached resources');
+        console.log('✓ Cache hit, checking for MOOCs...');
+        
+        // Check if cached data has MOOCs
+        const cachedMoocs = cached.resources.moocs || 
+          (cached.resources.alternatives || []).filter((a: any) => a.type === 'mooc');
+        
+        let resourcesWithMoocs = cached.resources;
+        
+        // If no MOOCs in cache, fetch them now
+        if (cachedMoocs.length === 0) {
+          console.log('🎓 No MOOCs in cache, fetching from Coursera/Udemy APIs...');
+          const [courseraCourses, udemyCourses] = await Promise.all([
+            searchCourseraAPI(stepTitle, discipline, blacklist),
+            searchUdemyAPI(stepTitle, discipline, blacklist)
+          ]);
+          
+          console.log(`✓ MOOC API Results: Coursera=${courseraCourses.length}, Udemy=${udemyCourses.length}`);
+          
+          const apiMOOCs = [...courseraCourses, ...udemyCourses];
+          if (apiMOOCs.length > 0) {
+            resourcesWithMoocs = {
+              ...cached.resources,
+              alternatives: [
+                ...apiMOOCs,
+                ...(cached.resources.alternatives || [])
+              ]
+            };
+          }
+        }
+        
+        // CRITICAL: Curate the cached resources before returning
+        const syllabusContent = rawSourcesContent || '';
+        const curatedResources = curateResources(resourcesWithMoocs, stepTitle, discipline, syllabusContent);
+        
+        console.log('📦 Returning curated cached resources with MOOCs:', curatedResources.moocs?.length || 0);
+        
         return new Response(
-          JSON.stringify(cached.resources),
+          JSON.stringify(curatedResources),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
