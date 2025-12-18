@@ -42,6 +42,22 @@ function inferMOOCSource(url: string, domain?: string): string {
   return domain || 'Online Course';
 }
 
+// Helper to sanitize malformed JSON from Perplexity responses
+function sanitizeJSON(jsonString: string): string {
+  return jsonString
+    // Remove trailing commas before ] or }
+    .replace(/,\s*([}\]])/g, '$1')
+    // Fix unescaped newlines inside strings
+    .replace(/[\n\r]/g, ' ')
+    // Remove control characters
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    // Fix common quote issues (curly quotes to straight)
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
+    // Trim whitespace
+    .trim();
+}
+
 // Search for MOOC courses from major platforms using Perplexity
 async function searchMOOCVideoLessons(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
@@ -118,16 +134,38 @@ Find 5-10 relevant courses.`;
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '[]';
     
-    // Parse JSON from response
+    // Log raw response for debugging
+    console.log('MOOC search raw response (first 500 chars):', content.substring(0, 500));
+    
+    // Parse JSON from response with sanitization and fallback
     let courses: any[] = [];
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        courses = JSON.parse(jsonMatch[0]);
+        // First try direct parse
+        try {
+          courses = JSON.parse(jsonMatch[0]);
+        } catch (directParseError) {
+          // Sanitize and retry
+          console.log('Direct JSON parse failed, attempting sanitization...');
+          const sanitized = sanitizeJSON(jsonMatch[0]);
+          courses = JSON.parse(sanitized);
+        }
       }
     } catch (parseError) {
-      console.error('Failed to parse MOOC courses JSON:', parseError);
-      return [];
+      console.error('Failed to parse MOOC courses JSON after sanitization:', parseError);
+      // Fallback: Try to extract individual objects
+      console.log('Attempting individual object extraction from MOOC response...');
+      const objectMatches = content.matchAll(/\{[^{}]*"url"\s*:\s*"[^"]+[^{}]*\}/g);
+      for (const match of objectMatches) {
+        try {
+          const obj = JSON.parse(sanitizeJSON(match[0]));
+          if (obj.url) courses.push(obj);
+        } catch (e) {
+          // Skip malformed individual objects
+        }
+      }
+      console.log(`Extracted ${courses.length} courses via fallback`);
     }
 
     if (!Array.isArray(courses)) {
