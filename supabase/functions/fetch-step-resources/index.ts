@@ -42,12 +42,11 @@ function inferMOOCSource(url: string, domain?: string): string {
   return domain || 'Online Course';
 }
 
-// COURSERA API SEARCH with OAuth 2.0 Client Credentials
-// Search for individual video lessons from MOOC platforms using Perplexity
+// Search for MOOC courses from major platforms using Perplexity
 async function searchMOOCVideoLessons(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) {
-    console.log('PERPLEXITY_API_KEY not configured, skipping MOOC lesson search');
+    console.log('PERPLEXITY_API_KEY not configured, skipping MOOC search');
     return [];
   }
 
@@ -56,43 +55,42 @@ async function searchMOOCVideoLessons(stepTitle: string, discipline: string, bla
     .replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '')
     .trim();
   
-  console.log('🎓 Searching for individual MOOC video lessons about:', cleanedTitle);
+  console.log('🎓 Searching for MOOC courses about:', cleanedTitle);
 
   const blacklistClause = blacklist.length > 0 
     ? `\nDO NOT return these URLs: ${blacklist.join(', ')}`
     : '';
 
-  const prompt = `SEARCH for individual VIDEO LESSONS (not full courses) on MOOC platforms about: "${cleanedTitle}" in ${discipline}
+  const prompt = `SEARCH for online courses and educational content about: "${cleanedTitle}" in ${discipline}
 
-Target sites to search:
-- coursera.org/lecture/* (individual lecture videos)
-- edx.org course videos
-- khanacademy.org (individual videos)
-- udacity.com (specific lessons)
-- linkedin.com/learning (video tutorials)
+Target platforms (search these specific sites):
+- coursera.org/learn/* (Coursera courses)
+- edx.org/course/* (edX courses)  
+- khanacademy.org (Khan Academy - free videos and courses)
+- udemy.com/course/* (Udemy courses)
+- linkedin.com/learning/* (LinkedIn Learning)
+- skillshare.com (Skillshare classes)
 
-CRITICAL REQUIREMENTS:
-1. Find SPECIFIC lecture videos that can be watched immediately, NOT course enrollment/overview pages
-2. Each result should be a single watchable video (5-30 minutes typical)
-3. Look for URLs containing: /lecture/, /video/, /lesson/, /watch, /v/
-4. EXCLUDE: course landing pages, enrollment pages, certificate programs
-5. Include the parent course name when visible
-
+REQUIREMENTS:
+1. Find relevant courses that teach this specific topic
+2. Prefer courses with good ratings/reviews if visible
+3. Include free courses and courses with free preview content
+4. Khan Academy content is always free - prioritize if available
 ${blacklistClause}
 
 Return ONLY a JSON array (no markdown, no explanation):
 [
   {
-    "url": "direct link to video lesson",
-    "title": "Lecture/Video title",
-    "source": "Platform (Coursera/Khan Academy/edX/LinkedIn Learning/Udacity)",
-    "duration": "duration if visible (e.g., '18 min')",
-    "courseName": "Parent course name if applicable",
-    "instructor": "Instructor name if visible"
+    "url": "course URL",
+    "title": "Course title",
+    "source": "Platform name (Coursera/Khan Academy/edX/Udemy/LinkedIn Learning/Skillshare)",
+    "duration": "course length if visible (e.g., '4 weeks', '2 hours')",
+    "instructor": "Instructor name if visible",
+    "description": "Brief description of what the course covers"
   }
 ]
 
-Find 5-8 specific video lessons. If you cannot find individual video pages, return an empty array [].`;
+Find 5-10 relevant courses.`;
 
   try {
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -113,7 +111,7 @@ Find 5-8 specific video lessons. If you cannot find individual video pages, retu
     });
 
     if (!response.ok) {
-      console.error('Perplexity MOOC lesson search failed:', response.status);
+      console.error('Perplexity MOOC search failed:', response.status);
       return [];
     }
 
@@ -121,46 +119,46 @@ Find 5-8 specific video lessons. If you cannot find individual video pages, retu
     const content = data.choices?.[0]?.message?.content || '[]';
     
     // Parse JSON from response
-    let lessons: any[] = [];
+    let courses: any[] = [];
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
-        lessons = JSON.parse(jsonMatch[0]);
+        courses = JSON.parse(jsonMatch[0]);
       }
     } catch (parseError) {
-      console.error('Failed to parse MOOC lessons JSON:', parseError);
+      console.error('Failed to parse MOOC courses JSON:', parseError);
       return [];
     }
 
-    if (!Array.isArray(lessons)) {
+    if (!Array.isArray(courses)) {
       return [];
     }
 
-    console.log(`✓ Found ${lessons.length} MOOC video lessons`);
+    console.log(`✓ Found ${courses.length} MOOC courses`);
 
-    // Transform to standard format and filter out course landing pages
-    return lessons
-      .filter((lesson: any) => {
-        const url = lesson.url?.toLowerCase() || '';
-        // Filter out enrollment/overview pages
-        const isLandingPage = url.includes('/learn/') && !url.includes('/lecture') && !url.includes('/video');
-        const isEnrollmentPage = url.includes('enroll') || url.includes('subscribe') || url.includes('pricing');
-        return lesson.url && !isLandingPage && !isEnrollmentPage && !blacklist.includes(lesson.url);
+    // Transform to standard format
+    return courses
+      .filter((course: any) => {
+        const url = course.url?.toLowerCase() || '';
+        // Only filter out obvious non-course pages
+        const isInvalidPage = url.includes('pricing') || url.includes('enterprise') || url.includes('business');
+        return course.url && !isInvalidPage && !blacklist.includes(course.url);
       })
-      .slice(0, 8)
-      .map((lesson: any) => ({
+      .slice(0, 10)
+      .map((course: any) => ({
         type: 'mooc' as const,
-        url: lesson.url,
-        title: lesson.title || 'Video Lesson',
-        source: inferMOOCSource(lesson.url, lesson.source),
-        duration: lesson.duration || '',
-        courseName: lesson.courseName || '',
-        author: lesson.instructor || '',
-        verified: false, // Will be verified later if needed
+        url: course.url,
+        title: course.title || 'Online Course',
+        source: inferMOOCSource(course.url, course.source),
+        duration: course.duration || '',
+        courseName: '',
+        author: course.instructor || '',
+        description: course.description || '',
+        verified: false,
         thumbnailUrl: ''
       }));
   } catch (error) {
-    console.error('MOOC video lesson search error:', error);
+    console.error('MOOC search error:', error);
     return [];
   }
 }
