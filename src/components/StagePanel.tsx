@@ -1,7 +1,7 @@
 import { MapPin, Sparkles, BookOpen, Award, ExternalLink } from "lucide-react";
 import { MissionControlStep, ViewMode } from "@/hooks/useMissionControl";
 import { StepSummary } from "@/components/StepSummary";
-import { LearningPlayer } from "@/components/LearningPlayer";
+import { CuratedLearningPlayer } from "@/components/CuratedLearningPlayer";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
 import { cn } from "@/lib/utils";
 // ScrollArea removed - using simple overflow div for mobile compatibility
@@ -176,7 +176,7 @@ export function StagePanel({
             />
           ) : (
             <>
-              <LearningPlayer 
+              <CuratedLearningPlayer 
                 key={currentStep.title}
                 stepTitle={currentStep.title}
                 discipline={discipline}
