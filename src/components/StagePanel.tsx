@@ -94,11 +94,11 @@ export function StagePanel({
 
   // Active Mode: Show current step content
   return (
-    <ScrollArea className="h-full w-full max-w-full [&>div]:!max-w-full [&>div]:!overflow-x-hidden" style={{ contain: 'inline-size' }}>
-      <div className="p-6 space-y-6 w-full max-w-full min-w-0 overflow-x-hidden">
+    <ScrollArea className="h-full w-full max-w-full overflow-x-hidden [&>div]:!max-w-full [&>div]:!overflow-x-hidden" style={{ contain: 'inline-size' }}>
+      <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 w-full max-w-full min-w-0 overflow-x-hidden box-border">
         {/* Step Header */}
         <div className={cn(
-          "p-6 rounded-lg border-l-4",
+          "p-3 sm:p-6 rounded-lg border-l-4",
           isCapstone
             ? "bg-[hsl(var(--gold))]/5 border-l-[hsl(var(--gold))]"
             : "bg-primary/5 border-l-primary"
@@ -110,7 +110,7 @@ export function StagePanel({
               <BookOpen className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
             )}
             <div className="min-w-0 flex-1">
-              <h1 className="text-xl font-bold mb-1 break-words">{currentStep.title}</h1>
+              <h1 className="text-base sm:text-xl font-bold mb-1 break-words">{currentStep.title}</h1>
               <span className={cn(
                 "text-xs px-2 py-1 rounded inline-block",
                 isCapstone

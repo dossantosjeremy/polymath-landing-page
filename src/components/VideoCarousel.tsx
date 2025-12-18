@@ -127,46 +127,43 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
   };
 
   return (
-    <div className="w-full max-w-full min-w-0 overflow-hidden">
-      <Carousel className="w-full max-w-full min-w-0 overflow-hidden" opts={{ align: "start" }}>
-        <CarouselContent className="-ml-4">
+    <div className="w-full max-w-full min-w-0 overflow-x-hidden box-border">
+      <Carousel className="w-full max-w-full min-w-0" opts={{ align: "start" }}>
+        <CarouselContent className="-ml-2 sm:-ml-4">
           {validVideos.map((video, index) => {
             const embedUrl = getYouTubeEmbedUrl(video.url);
 
             return (
-              <CarouselItem key={index} className="pl-4 basis-full min-w-0">
-                <Card className="border-2 border-border p-4 space-y-3">
-                  {/* Flex blowout prevention wrapper */}
-                  <div className="w-full max-w-full min-w-0">
-                    {/* The Container Cage - strict max width constraint */}
-                    <div className="w-full max-w-[800px] mx-auto">
-                      {/* Padding Hack: pb-[56.25%] forces 16:9 ratio (9/16 = 0.5625) */}
-                      <div className="relative w-full h-0 pb-[56.25%] bg-black rounded-xl overflow-hidden shadow-lg border border-border">
+              <CarouselItem key={index} className="pl-2 sm:pl-4 basis-full min-w-0">
+                <Card className="border-2 border-border p-3 sm:p-4 space-y-3 w-full max-w-full overflow-hidden">
+                  {/* Video embed wrapper */}
+                  <div className="w-full max-w-full">
+                    {/* Aspect ratio container for 16:9 */}
+                    <div className="relative w-full aspect-video bg-black rounded-lg sm:rounded-xl overflow-hidden shadow-lg border border-border">
                       {embedUrl ? (
                         <iframe
                           src={embedUrl}
                           title={video.title}
-                          className="absolute top-0 left-0 w-full h-full"
+                          className="absolute inset-0 w-full h-full"
                           frameBorder={0}
                           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                           allowFullScreen
                         />
                       ) : (
-                        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center text-muted-foreground">
+                        <div className="absolute inset-0 w-full h-full flex items-center justify-center text-muted-foreground">
                           Video unavailable
                         </div>
                       )}
                     </div>
                   </div>
-                </div>
 
                   {/* Video Info */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-semibold text-sm line-clamp-2">{video.title}</h4>
+                      <h4 className="font-semibold text-xs sm:text-sm line-clamp-2 min-w-0 break-words">{video.title}</h4>
                       {video.verified === false && (
-                        <Badge variant="outline" className="shrink-0 text-xs">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
+                        <Badge variant="outline" className="shrink-0 text-[10px] sm:text-xs">
+                          <AlertTriangle className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
                           Unverified
                         </Badge>
                       )}
@@ -175,7 +172,7 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
                     <p className="text-xs text-muted-foreground">{video.author}</p>
 
                     {video.whyThisVideo && (
-                      <p className="text-xs text-muted-foreground italic border-l-2 border-primary/20 pl-2">
+                      <p className="text-xs text-muted-foreground italic border-l-2 border-primary/20 pl-2 break-words">
                         {video.whyThisVideo}
                       </p>
                     )}
@@ -187,32 +184,34 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
                         <div className="space-y-1">
                           {video.keyMoments.map((moment, i) => (
                             <div key={i} className="text-xs text-muted-foreground flex gap-2">
-                              <span className="font-mono">{moment.time}</span>
-                              <span>{moment.label}</span>
+                              <span className="font-mono shrink-0">{moment.time}</span>
+                              <span className="break-words">{moment.label}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
 
-                    {/* Actions */}
-                    <div className="flex gap-2 pt-2">
+                    {/* Actions - stack on mobile */}
+                    <div className="flex flex-col sm:flex-row gap-2 pt-2">
                       <Button
                         size="sm"
                         variant="outline"
+                        className="flex-1 sm:flex-none text-xs"
                         onClick={() => window.open(video.url, '_blank')}
                       >
                         <ExternalLink className="h-3 w-3 mr-1" />
-                        Watch on YouTube
+                        <span className="truncate">Watch on YouTube</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
+                        className="flex-1 sm:flex-none text-xs"
                         onClick={() => handleReport(index)}
                         disabled={isReporting}
                       >
                         <Flag className="h-3 w-3 mr-1" />
-                        {isReporting ? 'Finding replacement...' : 'Report & Replace'}
+                        <span className="truncate">{isReporting ? 'Finding...' : 'Report'}</span>
                       </Button>
                     </div>
 
@@ -234,8 +233,8 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
         </CarouselContent>
         {validVideos.length > 1 && (
           <>
-            <CarouselPrevious className="-left-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
-            <CarouselNext className="-right-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
+            <CarouselPrevious className="hidden sm:flex -left-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
+            <CarouselNext className="hidden sm:flex -right-4 h-10 w-10 bg-background/95 hover:bg-background shadow-lg border-2" />
           </>
         )}
       </Carousel>

@@ -280,33 +280,33 @@ export const CuratedLearningPlayer = ({
   }
 
   return (
-    <div className="space-y-6 py-6 w-full max-w-full min-w-0 overflow-hidden">
-      <Tabs defaultValue="essential" className="w-full">
-        <TabsList className="w-full grid grid-cols-3 mb-6">
-          <TabsTrigger value="essential" className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4" />
-            <span className="hidden sm:inline">Essential Path</span>
-            <span className="sm:hidden">Essential</span>
+    <div className="space-y-4 sm:space-y-6 py-4 sm:py-6 w-full max-w-full min-w-0 overflow-x-hidden box-border">
+      <Tabs defaultValue="essential" className="w-full max-w-full">
+        <TabsList className="w-full grid grid-cols-3 mb-4 sm:mb-6 h-auto p-1">
+          <TabsTrigger value="essential" className="flex items-center justify-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 text-xs sm:text-sm">
+            <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+            <span className="hidden sm:inline truncate">Essential Path</span>
+            <span className="sm:hidden truncate">Essential</span>
           </TabsTrigger>
-          <TabsTrigger value="courses" className="flex items-center gap-2">
-            <GraduationCap className="h-4 w-4" />
-            <span className="hidden sm:inline">Online Courses</span>
-            <span className="sm:hidden">Courses</span>
+          <TabsTrigger value="courses" className="flex items-center justify-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 text-xs sm:text-sm">
+            <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+            <span className="hidden sm:inline truncate">Courses</span>
+            <span className="sm:hidden truncate">Courses</span>
             {moocCount > 0 && (
-              <Badge variant="secondary" className="ml-1 text-xs px-1.5 py-0">
+              <Badge variant="secondary" className="ml-0.5 sm:ml-1 text-[10px] sm:text-xs px-1 sm:px-1.5 py-0">
                 {moocCount}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="all" className="flex items-center gap-2">
-            <Library className="h-4 w-4" />
-            <span className="hidden sm:inline">All Resources</span>
-            <span className="sm:hidden">All</span>
+          <TabsTrigger value="all" className="flex items-center justify-center gap-1 sm:gap-2 px-1 sm:px-3 py-2 text-xs sm:text-sm">
+            <Library className="h-3 w-3 sm:h-4 sm:w-4 shrink-0" />
+            <span className="hidden sm:inline truncate">All Resources</span>
+            <span className="sm:hidden truncate">All</span>
           </TabsTrigger>
         </TabsList>
 
         {/* Essential Path Tab */}
-        <TabsContent value="essential" className="space-y-6 mt-0">
+        <TabsContent value="essential" className="space-y-4 sm:space-y-6 mt-0 w-full max-w-full overflow-x-hidden">
           {hasCore && (
             <CriticalPath
               learningObjective={resources.learningObjective}
@@ -327,7 +327,7 @@ export const CuratedLearningPlayer = ({
         </TabsContent>
 
         {/* Online Courses Tab */}
-        <TabsContent value="courses" className="mt-0">
+        <TabsContent value="courses" className="mt-0 w-full max-w-full overflow-x-hidden">
           <MOOCSection
             moocs={resources.moocs || []}
             stepTitle={stepTitle}
@@ -336,7 +336,7 @@ export const CuratedLearningPlayer = ({
         </TabsContent>
 
         {/* All Resources Tab */}
-        <TabsContent value="all" className="mt-0">
+        <TabsContent value="all" className="mt-0 w-full max-w-full overflow-x-hidden">
           {hasExpansion && (
             <ExpansionPack
               deepDive={resources.deepDive}
