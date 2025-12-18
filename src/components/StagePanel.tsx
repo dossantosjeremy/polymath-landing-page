@@ -4,7 +4,7 @@ import { StepSummary } from "@/components/StepSummary";
 import { LearningPlayer } from "@/components/LearningPlayer";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// ScrollArea removed - using simple overflow div for mobile compatibility
 
 interface StagePanelProps {
   mode: ViewMode;
@@ -94,7 +94,7 @@ export function StagePanel({
 
   // Active Mode: Show current step content
   return (
-    <ScrollArea className="h-full w-full max-w-full overflow-x-hidden [&>div]:!max-w-full [&>div]:!overflow-x-hidden" style={{ contain: 'inline-size' }}>
+    <div className="h-full w-full overflow-y-auto overflow-x-hidden">
       <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 w-full max-w-full min-w-0 overflow-x-hidden box-border">
         {/* Step Header */}
         <div className={cn(
@@ -156,7 +156,7 @@ export function StagePanel({
         </div>
 
         {/* Progress Indicator */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap break-words">
           <span className="whitespace-nowrap">Step {(activeStepIndex ?? 0) + 1} of {confirmedSteps.length}</span>
           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
             <div 
@@ -199,6 +199,6 @@ export function StagePanel({
           )}
         </div>
       </div>
-    </ScrollArea>
+    </div>
   );
 }
