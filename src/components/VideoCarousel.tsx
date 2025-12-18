@@ -128,14 +128,14 @@ export const VideoCarousel = ({ videos, stepTitle, discipline }: VideoCarouselPr
 
   return (
     <div className="w-full max-w-full min-w-0 overflow-x-hidden box-border">
-      <Carousel className="w-full max-w-full min-w-0" opts={{ align: "start" }}>
-        <CarouselContent className="-ml-2 sm:-ml-4">
+      <Carousel className="w-full max-w-full min-w-0 overflow-x-hidden" opts={{ align: "start" }}>
+        <CarouselContent className="ml-0 sm:-ml-4">
           {validVideos.map((video, index) => {
             const embedUrl = getYouTubeEmbedUrl(video.url);
 
             return (
-              <CarouselItem key={index} className="pl-2 sm:pl-4 basis-full min-w-0">
-                <Card className="border-2 border-border p-3 sm:p-4 space-y-3 w-full max-w-full overflow-hidden">
+              <CarouselItem key={index} className="pl-0 sm:pl-4 basis-full min-w-0">
+                <Card className="border-2 border-border p-3 sm:p-4 space-y-3 w-full max-w-full overflow-x-hidden box-border">
                   {/* Video embed wrapper */}
                   <div className="w-full max-w-full">
                     {/* Aspect ratio container for 16:9 */}

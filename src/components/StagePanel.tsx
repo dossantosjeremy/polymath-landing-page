@@ -156,7 +156,7 @@ export function StagePanel({
         </div>
 
         {/* Progress Indicator */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
           <span className="whitespace-nowrap">Step {(activeStepIndex ?? 0) + 1} of {confirmedSteps.length}</span>
           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
             <div 

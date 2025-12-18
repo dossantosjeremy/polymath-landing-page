@@ -62,7 +62,7 @@ export function ExpansionPack({
   }
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen} className={cn("w-full max-w-full overflow-hidden", className)}>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className={cn("w-full max-w-full overflow-x-hidden box-border", className)}>
       <CollapsibleTrigger className="flex items-center justify-between w-full py-2 sm:py-3 px-3 sm:px-4 hover:bg-muted/50 rounded-lg transition-colors">
         <div className="flex items-center gap-2 min-w-0">
           <Plus className={cn(
