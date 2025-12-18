@@ -43,170 +43,124 @@ function inferMOOCSource(url: string, domain?: string): string {
 }
 
 // COURSERA API SEARCH with OAuth 2.0 Client Credentials
-async function searchCourseraAPI(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
-  const clientId = Deno.env.get('COURSERA_CLIENT_ID');
-  const clientSecret = Deno.env.get('COURSERA_CLIENT_SECRET');
+// Search for individual video lessons from MOOC platforms using Perplexity
+async function searchMOOCVideoLessons(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+  const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
+  if (!apiKey) {
+    console.log('PERPLEXITY_API_KEY not configured, skipping MOOC lesson search');
+    return [];
+  }
+
+  // Clean step title for better search results
+  const cleanedTitle = stepTitle
+    .replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '')
+    .trim();
   
-  if (!clientId || !clientSecret) {
-    console.log('Coursera OAuth credentials not configured, skipping Coursera search');
-    return [];
-  }
+  console.log('🎓 Searching for individual MOOC video lessons about:', cleanedTitle);
 
-  const cleanedTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
-  console.log('🎓 Searching Coursera API for:', cleanedTitle);
+  const blacklistClause = blacklist.length > 0 
+    ? `\nDO NOT return these URLs: ${blacklist.join(', ')}`
+    : '';
+
+  const prompt = `SEARCH for individual VIDEO LESSONS (not full courses) on MOOC platforms about: "${cleanedTitle}" in ${discipline}
+
+Target sites to search:
+- coursera.org/lecture/* (individual lecture videos)
+- edx.org course videos
+- khanacademy.org (individual videos)
+- udacity.com (specific lessons)
+- linkedin.com/learning (video tutorials)
+
+CRITICAL REQUIREMENTS:
+1. Find SPECIFIC lecture videos that can be watched immediately, NOT course enrollment/overview pages
+2. Each result should be a single watchable video (5-30 minutes typical)
+3. Look for URLs containing: /lecture/, /video/, /lesson/, /watch, /v/
+4. EXCLUDE: course landing pages, enrollment pages, certificate programs
+5. Include the parent course name when visible
+
+${blacklistClause}
+
+Return ONLY a JSON array (no markdown, no explanation):
+[
+  {
+    "url": "direct link to video lesson",
+    "title": "Lecture/Video title",
+    "source": "Platform (Coursera/Khan Academy/edX/LinkedIn Learning/Udacity)",
+    "duration": "duration if visible (e.g., '18 min')",
+    "courseName": "Parent course name if applicable",
+    "instructor": "Instructor name if visible"
+  }
+]
+
+Find 5-8 specific video lessons. If you cannot find individual video pages, return an empty array [].`;
 
   try {
-    // Step 1: Exchange credentials for access token using OAuth 2.0 client credentials
-    console.log('Obtaining Coursera access token...');
-    const tokenResponse = await fetch('https://api.coursera.com/oauth2/client_credentials/token', {
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/x-www-form-urlencoded'
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
       },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: clientId,
-        client_secret: clientSecret
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          { role: 'system', content: 'You are a learning resource discovery assistant. Return ONLY valid JSON arrays, no markdown formatting.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 2000,
+        temperature: 0.3
       })
     });
 
-    if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('Coursera OAuth token request failed:', tokenResponse.status, errorText);
-      return [];
-    }
-
-    const tokenData = await tokenResponse.json();
-    const accessToken = tokenData.access_token;
-    
-    if (!accessToken) {
-      console.error('No access token returned from Coursera');
-      return [];
-    }
-    console.log('✓ Coursera access token obtained');
-
-    // Step 2: Search courses with the token
-    const searchQuery = `${cleanedTitle} ${discipline}`;
-    const searchUrl = new URL('https://api.coursera.org/api/courses.v1');
-    searchUrl.searchParams.set('q', 'search');
-    searchUrl.searchParams.set('query', searchQuery);
-    searchUrl.searchParams.set('fields', 'name,slug,photoUrl,partnerIds,description');
-    searchUrl.searchParams.set('limit', '5');
-
-    const response = await fetch(searchUrl.toString(), {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Accept': 'application/json'
-      }
-    });
-
     if (!response.ok) {
-      console.error('Coursera API search failed:', response.status, await response.text());
+      console.error('Perplexity MOOC lesson search failed:', response.status);
       return [];
     }
 
     const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '[]';
     
-    if (!data.elements || data.elements.length === 0) {
-      console.log('No courses found in Coursera API');
+    // Parse JSON from response
+    let lessons: any[] = [];
+    try {
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        lessons = JSON.parse(jsonMatch[0]);
+      }
+    } catch (parseError) {
+      console.error('Failed to parse MOOC lessons JSON:', parseError);
       return [];
     }
 
-    console.log(`✓ Coursera API returned ${data.elements.length} courses`);
+    if (!Array.isArray(lessons)) {
+      return [];
+    }
 
-    return data.elements
-      .filter((course: any) => {
-        return !blacklist.some(bl => bl.includes(course.slug));
+    console.log(`✓ Found ${lessons.length} MOOC video lessons`);
+
+    // Transform to standard format and filter out course landing pages
+    return lessons
+      .filter((lesson: any) => {
+        const url = lesson.url?.toLowerCase() || '';
+        // Filter out enrollment/overview pages
+        const isLandingPage = url.includes('/learn/') && !url.includes('/lecture') && !url.includes('/video');
+        const isEnrollmentPage = url.includes('enroll') || url.includes('subscribe') || url.includes('pricing');
+        return lesson.url && !isLandingPage && !isEnrollmentPage && !blacklist.includes(lesson.url);
       })
-      .map((course: any) => ({
+      .slice(0, 8)
+      .map((lesson: any) => ({
         type: 'mooc' as const,
-        url: `https://www.coursera.org/learn/${course.slug}`,
-        title: course.name,
-        source: 'Coursera',
-        duration: 'Self-paced',
-        thumbnailUrl: course.photoUrl,
-        verified: true,
-        description: course.description
+        url: lesson.url,
+        title: lesson.title || 'Video Lesson',
+        source: inferMOOCSource(lesson.url, lesson.source),
+        duration: lesson.duration || '',
+        courseName: lesson.courseName || '',
+        author: lesson.instructor || '',
+        verified: false, // Will be verified later if needed
+        thumbnailUrl: ''
       }));
   } catch (error) {
-    console.error('Coursera API error:', error);
-    return [];
-  }
-}
-
-// UDEMY API SEARCH (via RapidAPI) with retry logic for rate limits
-async function searchUdemyAPI(stepTitle: string, discipline: string, blacklist: string[], retryCount: number = 0): Promise<any[]> {
-  const rapidApiKey = Deno.env.get('RAPIDAPI_KEY');
-  if (!rapidApiKey) {
-    console.log('RAPIDAPI_KEY not configured, skipping Udemy search');
-    return [];
-  }
-
-  const cleanedTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
-  console.log('📚 Searching Udemy API for:', cleanedTitle);
-
-  try {
-    // Add delay between requests to avoid rate limits (increasing with retry count)
-    if (retryCount > 0) {
-      const delay = Math.min(5000 * Math.pow(2, retryCount - 1), 30000); // Exponential backoff, max 30s
-      console.log(`Udemy: Waiting ${delay}ms before retry ${retryCount}...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
-    const searchQuery = `${cleanedTitle} ${discipline}`;
-    const searchUrl = new URL('https://udemy-course-scrapper-api.p.rapidapi.com/course-names');
-    searchUrl.searchParams.set('search', searchQuery);
-
-    const response = await fetch(searchUrl.toString(), {
-      headers: {
-        'x-rapidapi-host': 'udemy-course-scrapper-api.p.rapidapi.com',
-        'x-rapidapi-key': rapidApiKey
-      }
-    });
-
-    // Handle rate limiting with retry
-    if (response.status === 429) {
-      console.log('Udemy API rate limited (429)');
-      if (retryCount < 2) {
-        console.log(`Retrying Udemy search (attempt ${retryCount + 1}/2)...`);
-        return searchUdemyAPI(stepTitle, discipline, blacklist, retryCount + 1);
-      }
-      console.log('Udemy API: Max retries reached, skipping');
-      return [];
-    }
-
-    if (!response.ok) {
-      console.error('Udemy API failed:', response.status, await response.text());
-      return [];
-    }
-
-    const data = await response.json();
-    
-    if (!data || !Array.isArray(data) || data.length === 0) {
-      console.log('No courses found in Udemy API');
-      return [];
-    }
-
-    console.log(`✓ Udemy API returned ${data.length} courses`);
-
-    return data
-      .slice(0, 5)
-      .filter((course: any) => {
-        const url = course.url || '';
-        return !blacklist.some(bl => url.includes(bl));
-      })
-      .map((course: any) => ({
-        type: 'mooc' as const,
-        url: course.url?.startsWith('http') ? course.url : `https://www.udemy.com${course.url || ''}`,
-        title: course.title || course.name || 'Udemy Course',
-        source: 'Udemy',
-        duration: course.content_length || course.num_lectures ? `${course.num_lectures} lectures` : 'Self-paced',
-        thumbnailUrl: course.image || course.image_480x270 || '',
-        verified: true,
-        author: course.instructor || course.visible_instructors?.[0]?.name || ''
-      }));
-  } catch (error) {
-    console.error('Udemy API error:', error);
+    console.error('MOOC video lesson search error:', error);
     return [];
   }
 }
@@ -239,6 +193,7 @@ interface CuratedResource {
   focusHighlight?: string;
   keyMoments?: { time: string; label: string }[];
   archivedUrl?: string;
+  courseName?: string; // Parent course name for MOOC video lessons
 }
 
 interface CuratedStepResources {
@@ -563,7 +518,8 @@ function curateResources(
       verified: m.verified,
       thumbnailUrl: m.thumbnailUrl,
       description: m.snippet,
-      author: m.author
+      author: m.author,
+      courseName: m.courseName || ''
     })),
     knowledgeCheck: generateKnowledgeCheck(stepTitle),
     // Legacy compatibility
@@ -1349,20 +1305,16 @@ serve(async (req) => {
         
         // If no MOOCs in cache, fetch them now
         if (cachedMoocs.length === 0) {
-          console.log('🎓 No MOOCs in cache, fetching from Coursera/Udemy APIs...');
-          const [courseraCourses, udemyCourses] = await Promise.all([
-            searchCourseraAPI(stepTitle, discipline, blacklist),
-            searchUdemyAPI(stepTitle, discipline, blacklist)
-          ]);
+          console.log('🎓 No MOOCs in cache, fetching MOOC video lessons...');
+          const moocLessons = await searchMOOCVideoLessons(stepTitle, discipline, blacklist);
           
-          console.log(`✓ MOOC API Results: Coursera=${courseraCourses.length}, Udemy=${udemyCourses.length}`);
+          console.log(`✓ MOOC Lessons Found: ${moocLessons.length}`);
           
-          const apiMOOCs = [...courseraCourses, ...udemyCourses];
-          if (apiMOOCs.length > 0) {
+          if (moocLessons.length > 0) {
             resourcesWithMoocs = {
               ...cached.resources,
               alternatives: [
-                ...apiMOOCs,
+                ...moocLessons,
                 ...(cached.resources.alternatives || [])
               ]
             };
@@ -1488,10 +1440,9 @@ RESPONSE FORMAT - CRITICAL:
     // Start resource discovery in parallel while hunting for videos
     const resourcePromise = callPerplexityAPI(prompt);
     
-    // Start MOOC API searches in parallel (Coursera + Udemy)
-    console.log('🎓 Starting MOOC API searches (Coursera + Udemy)...');
-    const courseraPromise = searchCourseraAPI(stepTitle, discipline, blacklist);
-    const udemyPromise = searchUdemyAPI(stepTitle, discipline, blacklist);
+    // Start MOOC video lesson search in parallel
+    console.log('🎓 Starting MOOC video lesson search...');
+    const moocLessonsPromise = searchMOOCVideoLessons(stepTitle, discipline, blacklist);
     
     // Try YouTube API first - this is the most reliable method
     let videos = await searchYouTubeAPI(stepTitle, discipline, blacklist);
@@ -1577,16 +1528,15 @@ RESPONSE FORMAT - CRITICAL:
     
     const perplexityResources = extractJSON(perplexityContent) || {};
     
-    // Wait for MOOC API results
-    const [courseraCourses, udemyCourses] = await Promise.all([courseraPromise, udemyPromise]);
-    console.log(`✓ Coursera returned ${courseraCourses.length} courses, Udemy returned ${udemyCourses.length} courses`);
+    // Wait for MOOC video lesson results
+    const moocLessons = await moocLessonsPromise;
+    console.log(`✓ Found ${moocLessons.length} MOOC video lessons`);
     
-    // Merge MOOC results with Perplexity alternatives (API-sourced first for higher quality)
-    const apiMOOCs = [...courseraCourses, ...udemyCourses];
+    // Merge MOOC lessons with Perplexity alternatives (lessons first for higher quality)
     const perplexityAlternatives = (perplexityResources.alternatives || []).filter(
-      (alt: any) => alt.type !== 'mooc' || !apiMOOCs.some(m => m.title === alt.title)
+      (alt: any) => alt.type !== 'mooc' || !moocLessons.some((m: any) => m.title === alt.title)
     );
-    const mergedAlternatives = [...apiMOOCs, ...perplexityAlternatives];
+    const mergedAlternatives = [...moocLessons, ...perplexityAlternatives];
     
     // Merge results with fallbacks
     let resources: StepResources = {
@@ -1601,7 +1551,7 @@ RESPONSE FORMAT - CRITICAL:
       readingCount: resources.readings?.length || 0,
       bookCount: resources.books?.length || 0,
       alternativesCount: resources.alternatives?.length || 0,
-      apiMOOCCount: apiMOOCs.length
+      moocLessonCount: moocLessons.length
     });
 
     // Validate and enhance all URLs
