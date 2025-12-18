@@ -314,6 +314,7 @@ export const CuratedLearningPlayer = ({
               coreReading={resources.coreReading}
               totalCoreTime={resources.totalCoreTime}
               discipline={discipline}
+              stepTitle={stepTitle}
             />
           )}
 
