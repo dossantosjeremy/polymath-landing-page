@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronRight, ChevronDown, BookOpen, Sparkles, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
-import { AdHocGenerationCard } from "@/components/AdHocGenerationCard";
 import { ProvenanceBadge } from "@/components/ProvenanceBadge";
 
 interface Discipline {
@@ -36,7 +35,6 @@ export const SearchResults = ({
 }: SearchResultsProps) => {
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [generatingAdHoc, setGeneratingAdHoc] = useState(false);
   const [includeAIAugmentation, setIncludeAIAugmentation] = useState(false);
 
   // Check cache for expanded discipline
@@ -122,21 +120,23 @@ export const SearchResults = ({
     navigate(`/syllabus?${params.toString()}`);
   };
 
-  const handleAdHocGeneration = () => {
-    setGeneratingAdHoc(true);
-    const params = new URLSearchParams({
-      discipline: query,
-      isAdHoc: 'true',
-      searchTerm: query,
-      depth: globalConstraints.depth,
-      hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
-      skillLevel: globalConstraints.skillLevel
-    });
-    if (globalConstraints.goalDate) {
-      params.set('goalDate', globalConstraints.goalDate.toISOString());
+  // Auto-navigate for ad-hoc topics (not in database)
+  useEffect(() => {
+    if (!searching && results.length === 0 && query.trim()) {
+      const params = new URLSearchParams({
+        discipline: query,
+        isAdHoc: 'true',
+        searchTerm: query,
+        depth: globalConstraints.depth,
+        hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
+        skillLevel: globalConstraints.skillLevel
+      });
+      if (globalConstraints.goalDate) {
+        params.set('goalDate', globalConstraints.goalDate.toISOString());
+      }
+      navigate(`/syllabus?${params.toString()}`);
     }
-    navigate(`/syllabus?${params.toString()}`);
-  };
+  }, [searching, results.length, query, globalConstraints, navigate]);
 
   if (searching) {
     return (
@@ -146,14 +146,12 @@ export const SearchResults = ({
     );
   }
 
+  // Return null while auto-navigating for ad-hoc topics
   if (results.length === 0) {
     return (
-      <div className="py-12 max-w-2xl mx-auto">
-        <AdHocGenerationCard 
-          searchTerm={query}
-          onGenerate={handleAdHocGeneration}
-          isGenerating={generatingAdHoc}
-        />
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <span className="ml-3 text-muted-foreground">Generating syllabus for "{query}"...</span>
       </div>
     );
   }

@@ -3,13 +3,14 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb, ShieldCheck } from "lucide-react";
+import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb, ShieldCheck, ToggleLeft, ToggleRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { LearningPlayer } from "@/components/LearningPlayer";
 import { StepSummary } from "@/components/StepSummary";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
@@ -238,6 +239,8 @@ const Syllabus = () => {
   const [pruningStats, setPruningStats] = useState<PruningStats | undefined>();
   const [useMissionControl, setUseMissionControl] = useState(true); // Enable by default
   const [regenerationKey, setRegenerationKey] = useState(0); // Forces SyllabusMissionControl remount
+  const [aiEnabled, setAiEnabled] = useState(false); // AI augmentation toggle state
+  const [togglingAI, setTogglingAI] = useState(false); // Loading state for AI toggle
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -305,6 +308,13 @@ const Syllabus = () => {
     }
   }, [stepToScroll, syllabusData, loading]);
 
+  // Sync AI enabled state from URL or syllabus data
+  useEffect(() => {
+    if (useAIEnhanced || syllabusData?.isAIEnhanced) {
+      setAiEnabled(true);
+    }
+  }, [useAIEnhanced, syllabusData?.isAIEnhanced]);
+
   useEffect(() => {
     if (savedId) {
       loadSavedSyllabus(savedId);
@@ -315,6 +325,47 @@ const Syllabus = () => {
       generateSyllabus(undefined, preGenerationConstraints, false);
     }
   }, [discipline, savedId, useCache]);
+
+  // Handle AI toggle - regenerate syllabus with or without AI
+  const handleAIToggle = async (enabled: boolean) => {
+    if (togglingAI) return;
+    
+    setAiEnabled(enabled);
+    setTogglingAI(true);
+    
+    try {
+      // Regenerate syllabus with new AI setting
+      const params = new URLSearchParams(searchParams);
+      
+      if (enabled) {
+        params.set('useAIEnhanced', 'true');
+      } else {
+        params.delete('useAIEnhanced');
+        // When disabling AI, use cache if available
+        if (!isAdHoc) {
+          params.set('useCache', 'true');
+        }
+      }
+      
+      // Navigate to trigger regeneration
+      navigate(`/syllabus?${params.toString()}`, { replace: true });
+      
+      // Force regeneration
+      await generateSyllabus(undefined, preGenerationConstraints, true);
+      
+      toast({
+        title: enabled ? "AI Augmentation Enabled" : "AI Augmentation Disabled",
+        description: enabled 
+          ? "Searching for industry authorities and additional sources..." 
+          : "Showing academic sources only.",
+      });
+    } catch (error) {
+      console.error('Error toggling AI:', error);
+      setAiEnabled(!enabled); // Revert on error
+    } finally {
+      setTogglingAI(false);
+    }
+  };
 
   const loadCachedSyllabus = async () => {
     setLoading(true);
@@ -1076,23 +1127,41 @@ const Syllabus = () => {
               )}
             </div>
             
-            {/* Provenance Badge - shows content source */}
+            {/* Provenance Badge and AI Toggle */}
             {!loading && syllabusData && (
-              <div className="flex items-center gap-3 flex-wrap">
-                <ProvenanceBadge 
-                  source={determineContentSource({
-                    fromCache: useCache,
-                    isAdHoc: syllabusData.isAdHoc,
-                    isAIEnhanced: syllabusData.isAIEnhanced,
-                    source: syllabusData.source
-                  })} 
-                  size="md"
-                />
-                {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
-                  <span className="text-sm text-muted-foreground">
-                    • {syllabusData.rawSources.length} source{syllabusData.rawSources.length !== 1 ? 's' : ''}
-                  </span>
-                )}
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <ProvenanceBadge 
+                    source={determineContentSource({
+                      fromCache: useCache,
+                      isAdHoc: syllabusData.isAdHoc,
+                      isAIEnhanced: aiEnabled || syllabusData.isAIEnhanced,
+                      source: syllabusData.source
+                    })} 
+                    size="md"
+                  />
+                  {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
+                    <span className="text-sm text-muted-foreground">
+                      • {syllabusData.rawSources.length} source{syllabusData.rawSources.length !== 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+                
+                {/* AI Augmentation Toggle */}
+                <div className="flex items-center gap-3 p-3 border rounded-lg bg-card">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className={`h-4 w-4 ${aiEnabled ? 'text-violet-500' : 'text-muted-foreground'}`} />
+                    <span className="text-sm font-medium">AI Augmentation</span>
+                  </div>
+                  <Switch
+                    checked={aiEnabled}
+                    onCheckedChange={handleAIToggle}
+                    disabled={togglingAI || loading}
+                  />
+                  {togglingAI && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                </div>
               </div>
             )}
             
@@ -1102,7 +1171,7 @@ const Syllabus = () => {
                 source={determineContentSource({
                   fromCache: useCache,
                   isAdHoc: syllabusData.isAdHoc,
-                  isAIEnhanced: syllabusData.isAIEnhanced,
+                  isAIEnhanced: aiEnabled || syllabusData.isAIEnhanced,
                   source: syllabusData.source
                 })}
                 className="mt-4"
