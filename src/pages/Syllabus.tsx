@@ -1128,42 +1128,50 @@ const Syllabus = () => {
             </div>
             
             {/* Provenance Badge and AI Toggle */}
-            {!loading && syllabusData && (
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <ProvenanceBadge 
-                    source={determineContentSource({
-                      fromCache: useCache,
-                      isAdHoc: syllabusData.isAdHoc,
-                      isAIEnhanced: aiEnabled || syllabusData.isAIEnhanced,
-                      source: syllabusData.source
-                    })} 
-                    size="md"
-                  />
-                  {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
-                    <span className="text-sm text-muted-foreground">
-                      • {syllabusData.rawSources.length} source{syllabusData.rawSources.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-                
-                {/* AI Augmentation Toggle */}
-                <div className="flex items-center gap-3 p-3 border rounded-lg bg-card">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className={`h-4 w-4 ${aiEnabled ? 'text-violet-500' : 'text-muted-foreground'}`} />
-                    <span className="text-sm font-medium">AI Augmentation</span>
+            {!loading && syllabusData && (() => {
+              const contentSource = determineContentSource({
+                fromCache: useCache,
+                isAdHoc: syllabusData.isAdHoc,
+                isAIEnhanced: aiEnabled || syllabusData.isAIEnhanced,
+                source: syllabusData.source
+              });
+              
+              // Hide AI toggle when content is already AI-generated
+              const showAIToggle = contentSource !== 'tier3_ai_generated' 
+                && contentSource !== 'web_sourced' 
+                && contentSource !== 'ai_augmented';
+              
+              return (
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <ProvenanceBadge source={contentSource} size="md" />
+                    {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        • {syllabusData.rawSources.length} source{syllabusData.rawSources.length !== 1 ? 's' : ''}
+                      </span>
+                    )}
                   </div>
-                  <Switch
-                    checked={aiEnabled}
-                    onCheckedChange={handleAIToggle}
-                    disabled={togglingAI || loading}
-                  />
-                  {togglingAI && (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  
+                  {/* AI Augmentation Toggle - only for non-AI content */}
+                  {showAIToggle && (
+                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-card">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className={`h-4 w-4 ${aiEnabled ? 'text-violet-500' : 'text-muted-foreground'}`} />
+                        <span className="text-sm font-medium">AI Augmentation</span>
+                      </div>
+                      <Switch
+                        checked={aiEnabled}
+                        onCheckedChange={handleAIToggle}
+                        disabled={togglingAI || loading}
+                      />
+                      {togglingAI && (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                    </div>
                   )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
             
             {/* Provenance Disclaimer for AI-generated content */}
             {!loading && syllabusData && (
