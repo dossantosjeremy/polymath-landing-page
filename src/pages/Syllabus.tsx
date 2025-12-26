@@ -3,7 +3,8 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb, ShieldCheck } from "lucide-react";
+import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb, ShieldCheck, Download } from "lucide-react";
+import { generateSyllabusMarkdown, downloadMarkdown, generateFilename } from "@/lib/syllabusExport";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AIEnhancementProgress } from "@/components/AIEnhancementProgress";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { LearningPlayer } from "@/components/LearningPlayer";
 import { StepSummary } from "@/components/StepSummary";
@@ -1044,6 +1046,20 @@ const Syllabus = () => {
 
   const pathArray = path ? path.split(' > ') : [];
 
+  // Export syllabus to markdown
+  const handleExportMarkdown = () => {
+    if (!syllabusData) return;
+    
+    const markdown = generateSyllabusMarkdown(syllabusData);
+    const filename = generateFilename(syllabusData.discipline);
+    downloadMarkdown(markdown, filename);
+    
+    toast({
+      title: "Syllabus Exported",
+      description: `Downloaded ${filename}`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
@@ -1083,21 +1099,38 @@ const Syllabus = () => {
                 <p className="text-lg text-muted-foreground">Course Syllabus Blueprint</p>
               </div>
               {!loading && syllabusData && (
-                <Button
-                  onClick={saveSyllabus}
-                  disabled={saving || isSaved}
-                  variant="outline"
-                  className="flex-shrink-0"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : isSaved ? (
-                    <BookmarkCheck className="h-4 w-4 mr-2" />
-                  ) : (
-                    <Bookmark className="h-4 w-4 mr-2" />
-                  )}
-                  {isSaved ? 'Saved' : 'Save for Later'}
-                </Button>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={handleExportMarkdown}
+                          variant="outline"
+                          size="icon"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Export as Markdown</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <Button
+                    onClick={saveSyllabus}
+                    disabled={saving || isSaved}
+                    variant="outline"
+                  >
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : isSaved ? (
+                      <BookmarkCheck className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Bookmark className="h-4 w-4 mr-2" />
+                    )}
+                    {isSaved ? 'Saved' : 'Save for Later'}
+                  </Button>
+                </div>
               )}
             </div>
             
