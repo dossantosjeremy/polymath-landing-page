@@ -60,16 +60,15 @@ export function SyllabusMissionControl({
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Transform modules to MissionControlStep format - memoize to detect changes
-  // Filter based on visibility flags AND aiEnabled toggle
+  // Filter based on visibility flags only (AI filtering is done at parent level)
   const steps: MissionControlStep[] = useMemo(() => {
     return modules
       .filter(m => !m.isHiddenForTime && !m.isHiddenForDepth)
-      .filter(m => aiEnabled || !m.isAIDiscovered) // Hide AI-discovered modules when toggle is off
       .map((module, idx) => ({
         ...module,
         originalIndex: idx,
       }));
-  }, [modules, regenerationKey, aiEnabled]); // Include aiEnabled as dependency
+  }, [modules, regenerationKey]);
 
   const {
     mode,
