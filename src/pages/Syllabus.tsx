@@ -35,6 +35,7 @@ interface Module {
   priority?: 'core' | 'important' | 'nice-to-have';
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
+  isAIDiscovered?: boolean; // True if this module was added via AI enhancement
 }
 
 interface DiscoveredSource {
@@ -242,10 +243,8 @@ const Syllabus = () => {
   
   // Progressive AI Enhancement states
   const [hasEnhancedWithAI, setHasEnhancedWithAI] = useState(false); // Has enhancement been done?
-  const [aiEnabled, setAiEnabled] = useState(false); // Is AI view currently active?
+  const [aiEnabled, setAiEnabled] = useState(false); // Is AI view currently active (show/hide AI-discovered modules)
   const [enhancingWithAI, setEnhancingWithAI] = useState(false); // Loading state for AI enhancement
-  const [enhancedSyllabusData, setEnhancedSyllabusData] = useState<SyllabusData | null>(null); // AI-enhanced version
-  const [originalSyllabusData, setOriginalSyllabusData] = useState<SyllabusData | null>(null); // Original version
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -318,10 +317,6 @@ const Syllabus = () => {
     if (useAIEnhanced || syllabusData?.isAIEnhanced) {
       setAiEnabled(true);
       setHasEnhancedWithAI(true);
-      // If we arrived with AI already enabled, the current syllabus IS the enhanced one
-      if (syllabusData && !enhancedSyllabusData) {
-        setEnhancedSyllabusData(syllabusData);
-      }
     }
   }, [useAIEnhanced, syllabusData?.isAIEnhanced]);
 
@@ -339,11 +334,6 @@ const Syllabus = () => {
   // Handle initial "Enhance with AI" button click
   const handleEnhanceWithAI = async () => {
     if (enhancingWithAI || !syllabusData) return;
-    
-    // Store original syllabus before enhancement
-    if (!originalSyllabusData) {
-      setOriginalSyllabusData(syllabusData);
-    }
     
     setEnhancingWithAI(true);
     
@@ -378,26 +368,11 @@ const Syllabus = () => {
     }
   };
 
-  // Handle toggle between original and enhanced syllabus (after enhancement has been done)
+  // Handle toggle between showing/hiding AI-discovered modules
+  // No data swapping needed - just toggle the aiEnabled state which filters the display
   const handleAIViewToggle = (enabled: boolean) => {
     setAiEnabled(enabled);
-    
-    if (enabled && enhancedSyllabusData) {
-      setSyllabusData(enhancedSyllabusData);
-    } else if (!enabled && originalSyllabusData) {
-      setSyllabusData(originalSyllabusData);
-    }
   };
-
-  // Capture enhanced syllabus data after AI enhancement completes
-  useEffect(() => {
-    if (hasEnhancedWithAI && syllabusData && !enhancingWithAI) {
-      // If we just finished enhancing, store the enhanced version
-      if (syllabusData.isAIEnhanced && !enhancedSyllabusData) {
-        setEnhancedSyllabusData(syllabusData);
-      }
-    }
-  }, [syllabusData, hasEnhancedWithAI, enhancingWithAI]);
 
   const loadCachedSyllabus = async () => {
     setLoading(true);
@@ -1208,7 +1183,7 @@ const Syllabus = () => {
                           )}
                         </Button>
                       ) : (
-                        // After enhancement: Switch to toggle between original and enhanced
+                        // After enhancement: Switch to toggle between showing/hiding AI modules
                         <>
                           <div className={cn(
                             "flex items-center gap-2 transition-opacity",
@@ -1224,6 +1199,16 @@ const Syllabus = () => {
                             )}>
                               AI Enhanced
                             </span>
+                            {/* Show count of hidden AI modules when toggle is off */}
+                            {!aiEnabled && syllabusData && (() => {
+                              const hiddenCount = syllabusData.modules.filter(m => m.isAIDiscovered).length;
+                              if (hiddenCount === 0) return null;
+                              return (
+                                <span className="text-xs text-muted-foreground">
+                                  ({hiddenCount} hidden)
+                                </span>
+                              );
+                            })()}
                           </div>
                           <Switch
                             checked={aiEnabled}
@@ -1437,7 +1422,7 @@ const Syllabus = () => {
               <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
                 <SyllabusMissionControl
-                  key={`mission-control-${regenerationKey}`}
+                  key={`mission-control-${regenerationKey}-${aiEnabled}`}
                   modules={syllabusData.modules}
                   discipline={discipline}
                   rawSources={originalSources.length > 0 ? originalSources : syllabusData.rawSources}
@@ -1453,6 +1438,7 @@ const Syllabus = () => {
                   extractCourseCode={extractCourseCode}
                   getSourceColorByUrl={getSourceColorByUrl}
                   regenerationKey={regenerationKey}
+                  aiEnabled={aiEnabled}
                 />
               </div>
 

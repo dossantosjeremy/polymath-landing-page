@@ -22,6 +22,7 @@ interface Module {
   isHiddenForDepth?: boolean;
   authorityType?: 'industry_standard' | 'academic' | 'practitioner' | 'standard_body';
   authorityReason?: string;
+  isAIDiscovered?: boolean; // True if this module was added via AI enhancement
 }
 
 interface DiscoveredSource {
@@ -151,6 +152,29 @@ serve(async (req) => {
       console.log(`[Magistrate] Found ${discoveredAuthorities.length} authorities: ${discoveredAuthorities.map(a => a.name).join(', ')}`);
     }
 
+    // For AI-Enhanced mode: First fetch base syllabus, then add AI-discovered content
+    let baseSyllabusModules: Module[] = [];
+    let baseRawSources: DiscoveredSource[] = [];
+    
+    if (useAIEnhanced && !isAdHoc) {
+      console.log('[AI-Enhanced] Fetching base syllabus first to preserve academic content...');
+      const { data: cachedSyllabus, error: cacheError } = await supabase
+        .from('community_syllabi')
+        .select('*')
+        .eq('discipline', discipline)
+        .maybeSingle();
+      
+      if (!cacheError && cachedSyllabus) {
+        // Mark base syllabus modules as NOT AI-discovered
+        baseSyllabusModules = (cachedSyllabus.modules as Module[]).map(m => ({
+          ...m,
+          isAIDiscovered: false
+        }));
+        baseRawSources = cachedSyllabus.raw_sources as DiscoveredSource[] || [];
+        console.log(`[AI-Enhanced] Found ${baseSyllabusModules.length} base modules to preserve`);
+      }
+    }
+
     // Check community cache first (unless regenerating with selected sources, force refresh, or AI-enhanced mode)
     // AI-Enhanced mode bypasses cache to always use Magistrate authority discovery
     if (!selectedSourceUrls && !forceRefresh && !useAIEnhanced) {
@@ -163,9 +187,14 @@ serve(async (req) => {
 
       if (!cacheError && cachedSyllabus) {
         console.log('[Cache Hit] Returning cached syllabus (cost: $0.00)');
+        // Mark cached modules as NOT AI-discovered
+        const modulesWithFlag = (cachedSyllabus.modules as Module[]).map(m => ({
+          ...m,
+          isAIDiscovered: false
+        }));
         return new Response(JSON.stringify({
           discipline: cachedSyllabus.discipline,
-          modules: cachedSyllabus.modules,
+          modules: modulesWithFlag,
           source: cachedSyllabus.source,
           rawSources: cachedSyllabus.raw_sources,
           timestamp: cachedSyllabus.created_at,
@@ -177,7 +206,7 @@ serve(async (req) => {
       }
       console.log('[Cache Miss] No cached syllabus found, proceeding with generation');
     } else if (useAIEnhanced) {
-      console.log('[AI-Enhanced] Bypassing cache to use Magistrate authority discovery');
+      console.log('[AI-Enhanced] Proceeding with Magistrate authority discovery');
     }
 
     // Step 0: Discover all available sources first (unless regenerating with selected sources)
@@ -278,10 +307,35 @@ serve(async (req) => {
         );
         
         if (synthesisResult.modules.length >= 4) {
-          modules = synthesisResult.modules;
+          // AI-synthesized modules are already marked with isAIDiscovered: true
+          let aiModules = synthesisResult.modules;
           synthesisRationale = synthesisResult.synthesisRationale;
           syllabusSource = `AI-Synthesized Curriculum from ${validExtractions.length} source(s)`;
           sourceUrl = validExtractions[0].source.url;
+          
+          // For AI-Enhanced database disciplines: Merge base + AI modules
+          if (useAIEnhanced && !isAdHoc && baseSyllabusModules.length > 0) {
+            console.log(`[AI-Enhanced] Merging ${baseSyllabusModules.length} base modules with ${aiModules.length} AI-discovered modules...`);
+            
+            // Deduplicate AI modules against base modules (by normalized title)
+            const baseTitles = new Set(baseSyllabusModules.map(m => 
+              m.title.toLowerCase().replace(/^\d+\.\s*/, '').replace(/[^a-z]/g, '')
+            ));
+            
+            const uniqueAIModules = aiModules.filter(m => {
+              const normalizedTitle = m.title.toLowerCase().replace(/^\d+\.\s*/, '').replace(/[^a-z]/g, '');
+              return !baseTitles.has(normalizedTitle);
+            });
+            
+            console.log(`[AI-Enhanced] ${uniqueAIModules.length} unique AI modules after deduplication`);
+            
+            // Combine: base modules first, then AI-discovered at the end (or interleaved by topic)
+            modules = [...baseSyllabusModules, ...uniqueAIModules];
+            rawSources = [...baseRawSources, ...rawSources.filter(s => !baseRawSources.some(bs => bs.url === s.url))];
+          } else {
+            // For ad-hoc: all modules are AI-synthesized
+            modules = aiModules;
+          }
           
           // Deduplicate but do NOT force all sources to appear (synthesis already selected best)
           modules = deduplicateModules(modules);

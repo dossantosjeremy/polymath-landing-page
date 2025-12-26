@@ -14,6 +14,7 @@ interface Module {
   pillar?: string;
   selectionRationale?: string;
   origin?: 'internal' | 'external';
+  isAIDiscovered?: boolean; // True if this module was added via AI enhancement
 }
 
 interface TopicPillar {
@@ -174,13 +175,15 @@ Return ONLY valid JSON:
       console.log(`[Synthesis] ✓ Designed curriculum with ${parsed.modules.length} modules`);
       
       // Ensure all modules have required fields
+      // Mark all modules as AI-discovered since they come from AI synthesis
       const modules = parsed.modules.map((m: any, idx: number) => ({
         ...m,
         title: m.title || `Module ${idx + 1}`,
         tag: m.tag || 'Core Concepts',
         source: m.source || 'Synthesized',
         sourceUrls: m.sourceUrl ? [m.sourceUrl] : [],
-        origin: 'external' as const
+        origin: 'external' as const,
+        isAIDiscovered: true // Mark as AI-discovered for show/hide filtering
       }));
       
       return {
@@ -217,7 +220,8 @@ function fallbackSynthesis(
         modules.push({
           ...m,
           sourceUrls: [ext.source.url],
-          origin: 'external'
+          origin: 'external',
+          isAIDiscovered: true // Mark as AI-discovered for show/hide filtering
         });
       }
     });
@@ -231,7 +235,8 @@ function fallbackSynthesis(
       source: 'Synthesized',
       description: 'Demonstrate mastery through a practical project',
       isCapstone: true,
-      origin: 'external'
+      origin: 'external',
+      isAIDiscovered: true // Mark as AI-discovered for show/hide filtering
     });
   }
   
