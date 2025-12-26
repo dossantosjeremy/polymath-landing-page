@@ -239,8 +239,13 @@ const Syllabus = () => {
   const [pruningStats, setPruningStats] = useState<PruningStats | undefined>();
   const [useMissionControl, setUseMissionControl] = useState(true); // Enable by default
   const [regenerationKey, setRegenerationKey] = useState(0); // Forces SyllabusMissionControl remount
-  const [aiEnabled, setAiEnabled] = useState(false); // AI augmentation toggle state
-  const [togglingAI, setTogglingAI] = useState(false); // Loading state for AI toggle
+  
+  // Progressive AI Enhancement states
+  const [hasEnhancedWithAI, setHasEnhancedWithAI] = useState(false); // Has enhancement been done?
+  const [aiEnabled, setAiEnabled] = useState(false); // Is AI view currently active?
+  const [enhancingWithAI, setEnhancingWithAI] = useState(false); // Loading state for AI enhancement
+  const [enhancedSyllabusData, setEnhancedSyllabusData] = useState<SyllabusData | null>(null); // AI-enhanced version
+  const [originalSyllabusData, setOriginalSyllabusData] = useState<SyllabusData | null>(null); // Original version
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -308,10 +313,15 @@ const Syllabus = () => {
     }
   }, [stepToScroll, syllabusData, loading]);
 
-  // Sync AI enabled state from URL or syllabus data
+  // Sync AI enabled state from URL or syllabus data - but only if arriving with AI pre-enabled
   useEffect(() => {
     if (useAIEnhanced || syllabusData?.isAIEnhanced) {
       setAiEnabled(true);
+      setHasEnhancedWithAI(true);
+      // If we arrived with AI already enabled, the current syllabus IS the enhanced one
+      if (syllabusData && !enhancedSyllabusData) {
+        setEnhancedSyllabusData(syllabusData);
+      }
     }
   }, [useAIEnhanced, syllabusData?.isAIEnhanced]);
 
@@ -326,46 +336,68 @@ const Syllabus = () => {
     }
   }, [discipline, savedId, useCache]);
 
-  // Handle AI toggle - regenerate syllabus with or without AI
-  const handleAIToggle = async (enabled: boolean) => {
-    if (togglingAI) return;
+  // Handle initial "Enhance with AI" button click
+  const handleEnhanceWithAI = async () => {
+    if (enhancingWithAI || !syllabusData) return;
     
-    setAiEnabled(enabled);
-    setTogglingAI(true);
+    // Store original syllabus before enhancement
+    if (!originalSyllabusData) {
+      setOriginalSyllabusData(syllabusData);
+    }
+    
+    setEnhancingWithAI(true);
     
     try {
-      // Regenerate syllabus with new AI setting
+      // Update URL to include AI enhancement
       const params = new URLSearchParams(searchParams);
-      
-      if (enabled) {
-        params.set('useAIEnhanced', 'true');
-      } else {
-        params.delete('useAIEnhanced');
-        // When disabling AI, use cache if available
-        if (!isAdHoc) {
-          params.set('useCache', 'true');
-        }
-      }
-      
-      // Navigate to trigger regeneration
+      params.set('useAIEnhanced', 'true');
       navigate(`/syllabus?${params.toString()}`, { replace: true });
       
-      // Force regeneration
+      // Force regeneration with AI
       await generateSyllabus(undefined, preGenerationConstraints, true);
       
+      // After generation, the new syllabusData will be the enhanced version
+      // We'll capture it in the useEffect that watches syllabusData
+      
       toast({
-        title: enabled ? "AI Augmentation Enabled" : "AI Augmentation Disabled",
-        description: enabled 
-          ? "Searching for industry authorities and additional sources..." 
-          : "Showing academic sources only.",
+        title: "AI Enhancement Complete",
+        description: "Syllabus enhanced with AI-discovered sources and authorities.",
       });
+      
+      setHasEnhancedWithAI(true);
+      setAiEnabled(true);
     } catch (error) {
-      console.error('Error toggling AI:', error);
-      setAiEnabled(!enabled); // Revert on error
+      console.error('Error enhancing with AI:', error);
+      toast({
+        title: "Enhancement Failed",
+        description: "Could not enhance syllabus with AI. Please try again.",
+        variant: "destructive"
+      });
     } finally {
-      setTogglingAI(false);
+      setEnhancingWithAI(false);
     }
   };
+
+  // Handle toggle between original and enhanced syllabus (after enhancement has been done)
+  const handleAIViewToggle = (enabled: boolean) => {
+    setAiEnabled(enabled);
+    
+    if (enabled && enhancedSyllabusData) {
+      setSyllabusData(enhancedSyllabusData);
+    } else if (!enabled && originalSyllabusData) {
+      setSyllabusData(originalSyllabusData);
+    }
+  };
+
+  // Capture enhanced syllabus data after AI enhancement completes
+  useEffect(() => {
+    if (hasEnhancedWithAI && syllabusData && !enhancingWithAI) {
+      // If we just finished enhancing, store the enhanced version
+      if (syllabusData.isAIEnhanced && !enhancedSyllabusData) {
+        setEnhancedSyllabusData(syllabusData);
+      }
+    }
+  }, [syllabusData, hasEnhancedWithAI, enhancingWithAI]);
 
   const loadCachedSyllabus = async () => {
     setLoading(true);
@@ -1127,7 +1159,7 @@ const Syllabus = () => {
               )}
             </div>
             
-            {/* Provenance Badge and AI Toggle */}
+            {/* Provenance Badge and AI Enhancement */}
             {!loading && syllabusData && (() => {
               const contentSource = determineContentSource({
                 fromCache: useCache,
@@ -1136,10 +1168,9 @@ const Syllabus = () => {
                 source: syllabusData.source
               });
               
-              // Hide AI toggle when content is already AI-generated
-              const showAIToggle = contentSource !== 'tier3_ai_generated' 
-                && contentSource !== 'web_sourced' 
-                && contentSource !== 'ai_augmented';
+              // Hide AI enhancement UI when content is already AI-generated (ad-hoc/web-sourced)
+              const showAIEnhancement = contentSource !== 'tier3_ai_generated' 
+                && contentSource !== 'web_sourced';
               
               return (
                 <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -1152,20 +1183,54 @@ const Syllabus = () => {
                     )}
                   </div>
                   
-                  {/* AI Augmentation Toggle - only for non-AI content */}
-                  {showAIToggle && (
+                  {/* Progressive AI Enhancement UI */}
+                  {showAIEnhancement && (
                     <div className="flex items-center gap-3 p-3 border rounded-lg bg-card">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className={`h-4 w-4 ${aiEnabled ? 'text-violet-500' : 'text-muted-foreground'}`} />
-                        <span className="text-sm font-medium">AI Augmentation</span>
-                      </div>
-                      <Switch
-                        checked={aiEnabled}
-                        onCheckedChange={handleAIToggle}
-                        disabled={togglingAI || loading}
-                      />
-                      {togglingAI && (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      {!hasEnhancedWithAI ? (
+                        // Initial state: Button to trigger enhancement
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleEnhanceWithAI}
+                          disabled={enhancingWithAI || loading}
+                          className="gap-2"
+                        >
+                          {enhancingWithAI ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              <span>Enhancing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 text-violet-500" />
+                              <span>Enhance with AI</span>
+                            </>
+                          )}
+                        </Button>
+                      ) : (
+                        // After enhancement: Switch to toggle between original and enhanced
+                        <>
+                          <div className={cn(
+                            "flex items-center gap-2 transition-opacity",
+                            !aiEnabled && "opacity-50"
+                          )}>
+                            <Sparkles className={cn(
+                              "h-4 w-4 transition-colors",
+                              aiEnabled ? "text-violet-500" : "text-muted-foreground"
+                            )} />
+                            <span className={cn(
+                              "text-sm font-medium transition-all",
+                              !aiEnabled && "line-through decoration-muted-foreground"
+                            )}>
+                              AI Enhanced
+                            </span>
+                          </div>
+                          <Switch
+                            checked={aiEnabled}
+                            onCheckedChange={handleAIViewToggle}
+                            disabled={loading}
+                          />
+                        </>
                       )}
                     </div>
                   )}
