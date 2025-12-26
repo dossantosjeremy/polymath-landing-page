@@ -1,4 +1,5 @@
-import { CheckCircle2, Circle, Award, Lock, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, Circle, Award, Lock, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -123,11 +124,23 @@ export function CurriculumMetroMap({
                         isSelected
                           ? isCapstone
                             ? "bg-[hsl(var(--gold))]/5 border-[hsl(var(--gold))]/30"
-                            : "bg-primary/5 border-primary/30"
+                            : step.isAIDiscovered
+                              ? "bg-violet-50/50 border-violet-300/50 dark:bg-violet-950/20 dark:border-violet-400/30"
+                              : "bg-primary/5 border-primary/30"
                           : "bg-muted/30 border-border opacity-60"
                       )}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
+                            {/* AI Discovered Badge */}
+                            {step.isAIDiscovered && isSelected && (
+                              <Badge 
+                                variant="outline" 
+                                className="text-xs mb-1.5 border-violet-300 text-violet-600 dark:border-violet-400 dark:text-violet-400 gap-1"
+                              >
+                                <Sparkles className="h-3 w-3" />
+                                AI Discovered
+                              </Badge>
+                            )}
                             <h4 className={cn(
                               "font-medium text-sm",
                               !isSelected && "text-muted-foreground"
@@ -143,7 +156,9 @@ export function CurriculumMetroMap({
                               "text-xs px-1.5 py-0.5 rounded mt-2 inline-block",
                               isCapstone
                                 ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]"
-                                : "bg-primary/10 text-primary"
+                                : step.isAIDiscovered
+                                  ? "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
+                                  : "bg-primary/10 text-primary"
                             )}>
                               {step.tag}
                             </span>

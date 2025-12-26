@@ -3,14 +3,16 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
-import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb, ShieldCheck, ToggleLeft, ToggleRight } from "lucide-react";
+import { Loader2, ExternalLink, ChevronRight, Home, ChevronDown, Bookmark, BookmarkCheck, BookOpen, Award, Sparkles, Plus, Lightbulb, ShieldCheck } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AIEnhancementProgress } from "@/components/AIEnhancementProgress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useAuth } from "@/hooks/useAuth";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Switch } from "@/components/ui/switch";
+
 import { LearningPlayer } from "@/components/LearningPlayer";
 import { StepSummary } from "@/components/StepSummary";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
@@ -1163,7 +1165,7 @@ const Syllabus = () => {
                   
                   {/* Progressive AI Enhancement UI - 3-state lifecycle */}
                   {showAIEnhancement && (
-                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-card">
+                    <div className="flex items-center gap-3">
                       {aiStatus === 'idle' ? (
                         // Initial state: Button to trigger enhancement
                         <Button
@@ -1177,50 +1179,35 @@ const Syllabus = () => {
                           <span>Enhance with AI</span>
                         </Button>
                       ) : aiStatus === 'loading' ? (
-                        // Loading state: Disabled button with spinner
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled
-                          className="gap-2"
-                        >
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Enhancing...</span>
-                        </Button>
+                        // Loading state: Show progress component
+                        <AIEnhancementProgress discipline={discipline} />
                       ) : (
-                        // Ready state: Toggle visibility of AI modules
-                        <>
-                          <div className={cn(
-                            "flex items-center gap-2 transition-opacity",
-                            !showAIContent && "opacity-50"
-                          )}>
-                            <Sparkles className={cn(
-                              "h-4 w-4 transition-colors",
-                              showAIContent ? "text-violet-500" : "text-muted-foreground"
-                            )} />
-                            <span className={cn(
-                              "text-sm font-medium transition-all",
-                              !showAIContent && "line-through decoration-muted-foreground"
-                            )}>
+                        // Ready state: Tabs for toggling visibility
+                        <Tabs 
+                          value={showAIContent ? "enhanced" : "academic"} 
+                          onValueChange={(val) => handleAIViewToggle(val === "enhanced")}
+                          className="w-auto"
+                        >
+                          <TabsList className="h-9">
+                            <TabsTrigger value="academic" className="text-sm px-3 gap-1.5">
+                              <BookOpen className="h-3.5 w-3.5" />
+                              Academic Only
+                            </TabsTrigger>
+                            <TabsTrigger value="enhanced" className="text-sm px-3 gap-1.5">
+                              <Sparkles className="h-3.5 w-3.5" />
                               AI Enhanced
-                            </span>
-                            {/* Show count of hidden AI modules when toggle is off */}
-                            {!showAIContent && syllabusData && (() => {
-                              const hiddenCount = syllabusData.modules.filter(m => m.isAIDiscovered).length;
-                              if (hiddenCount === 0) return null;
-                              return (
-                                <span className="text-xs text-muted-foreground">
-                                  ({hiddenCount} hidden)
-                                </span>
-                              );
-                            })()}
-                          </div>
-                          <Switch
-                            checked={showAIContent}
-                            onCheckedChange={handleAIViewToggle}
-                            disabled={loading}
-                          />
-                        </>
+                              {syllabusData && (() => {
+                                const aiCount = syllabusData.modules.filter(m => m.isAIDiscovered).length;
+                                if (aiCount === 0) return null;
+                                return (
+                                  <span className="ml-1 text-xs opacity-70">
+                                    +{aiCount}
+                                  </span>
+                                );
+                              })()}
+                            </TabsTrigger>
+                          </TabsList>
+                        </Tabs>
                       )}
                     </div>
                   )}

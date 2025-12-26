@@ -14,6 +14,7 @@ export interface MissionControlStep {
   priority?: 'core' | 'important' | 'nice-to-have';
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
+  isAIDiscovered?: boolean;
   originalIndex: number;
 }
 
