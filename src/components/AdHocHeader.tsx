@@ -108,7 +108,7 @@ export function AdHocHeader({
               
               {/* Narrative flow description */}
               {narrativeFlow && (
-                <p className="text-slate-400 text-xs mt-2 italic">
+                <p className="text-slate-300 text-xs mt-2 italic">
                   Learning Path: {narrativeFlow}
                 </p>
               )}
@@ -138,13 +138,13 @@ export function AdHocHeader({
       
       {/* "TITANS" - Curriculum Authorities Section */}
       {discoveredAuthorities && discoveredAuthorities.length > 0 && (
-        <div className="bg-slate-800/50 border-t border-white/10 p-4">
+        <div className="bg-slate-800 border-t border-slate-700 p-4">
           <div className="flex items-center gap-2 mb-2">
             <Trophy className="h-4 w-4 text-[hsl(var(--gold))]" />
             <span className="text-sm font-semibold text-white">Curriculum Authorities</span>
-            <span className="text-xs text-slate-400">({discoveredAuthorities.length} industry leaders)</span>
+            <span className="text-xs text-slate-300">({discoveredAuthorities.length} industry leaders)</span>
           </div>
-          <p className="text-xs text-slate-400 mb-3">
+          <p className="text-xs text-slate-300 mb-3">
             This curriculum was synthesized using standards from industry leaders
           </p>
           <div className="flex flex-wrap gap-2">
@@ -152,7 +152,7 @@ export function AdHocHeader({
               {discoveredAuthorities.map((auth, idx) => (
                 <Tooltip key={idx}>
                   <TooltipTrigger asChild>
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-full cursor-help hover:bg-white/15 transition-colors">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 rounded-full cursor-help hover:bg-slate-600 transition-colors border border-slate-600">
                       <AuthorityBadge type={auth.authorityType} showLabel={false} />
                       <span className="text-sm text-white">{auth.name}</span>
                     </div>
@@ -176,10 +176,10 @@ export function AdHocHeader({
       
       {/* Pillar "Ingredients" Section */}
       {topicPillars && topicPillars.length > 0 && (
-        <div className="bg-gradient-to-r from-[hsl(var(--gold))]/5 to-amber-50 dark:from-slate-800 dark:to-slate-900 p-4 border-t border-[hsl(var(--gold))]/20">
+        <div className="bg-card p-4 border-t border-border">
           <div className="flex items-center gap-2 mb-3">
             <Layers className="h-4 w-4 text-[hsl(var(--gold))]" />
-            <span className="text-sm font-semibold">Curriculum Pillars</span>
+            <span className="text-sm font-semibold text-foreground">Curriculum Pillars</span>
             <span className="text-xs text-muted-foreground">({topicPillars.length} learning domains)</span>
           </div>
           
@@ -203,7 +203,7 @@ export function AdHocHeader({
           
           {/* Synthesis rationale */}
           {synthesisRationale && (
-            <p className="mt-3 text-xs text-muted-foreground italic border-t border-[hsl(var(--gold))]/10 pt-2">
+            <p className="mt-3 text-xs text-muted-foreground italic border-t border-border pt-2">
               {synthesisRationale}
             </p>
           )}
