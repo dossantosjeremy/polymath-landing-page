@@ -169,7 +169,8 @@ serve(async (req) => {
           source: cachedSyllabus.source,
           rawSources: cachedSyllabus.raw_sources,
           timestamp: cachedSyllabus.created_at,
-          fromCache: true
+          fromCache: true,
+          contentSource: 'database' // Explicit provenance tracking
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

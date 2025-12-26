@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { ChevronRight, ChevronDown, BookOpen, Sparkles } from "lucide-react";
+import { ChevronRight, ChevronDown, BookOpen, Sparkles, Building2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
 import { AdHocGenerationCard } from "@/components/AdHocGenerationCard";
+import { ProvenanceBadge } from "@/components/ProvenanceBadge";
+
 interface Discipline {
   id: string;
   l1: string;
@@ -15,6 +18,7 @@ interface Discipline {
   l5: string | null;
   l6: string | null;
 }
+
 interface SearchResultsProps {
   results: Discipline[];
   query: string;
@@ -22,6 +26,7 @@ interface SearchResultsProps {
   onBrowseInContext: (discipline: Discipline) => void;
   globalConstraints: PreGenerationConstraints;
 }
+
 export const SearchResults = ({
   results,
   query,
@@ -32,6 +37,7 @@ export const SearchResults = ({
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [generatingAdHoc, setGeneratingAdHoc] = useState(false);
+  const [includeAIAugmentation, setIncludeAIAugmentation] = useState(false);
 
   // Check cache for expanded discipline
   const expandedDiscipline = results.find(r => r.id === expandedId);
@@ -41,6 +47,7 @@ export const SearchResults = ({
     cacheDate,
     sourceCount
   } = useCommuniySyllabus(expandedDisciplineName);
+
   const getDisciplinePath = (discipline: Discipline): string[] => {
     const path = [discipline.l1];
     if (discipline.l2) path.push(discipline.l2);
@@ -50,6 +57,7 @@ export const SearchResults = ({
     if (discipline.l6) path.push(discipline.l6);
     return path;
   };
+
   const getLevel = (discipline: Discipline): string => {
     if (discipline.l6) return "Level 6";
     if (discipline.l5) return "Level 5";
@@ -58,11 +66,12 @@ export const SearchResults = ({
     if (discipline.l2) return "Category";
     return "Domain";
   };
+
   function getLastLevel(discipline: Discipline): string {
     return discipline.l6 || discipline.l5 || discipline.l4 || discipline.l3 || discipline.l2 || discipline.l1;
   }
 
-  const handleGenerateSyllabus = (discipline: Discipline, useAIEnhanced: boolean = false) => {
+  const handleLoadSyllabus = (discipline: Discipline) => {
     const disciplineName = getLastLevel(discipline);
     const path = getDisciplinePath(discipline).join(" > ");
     const params = new URLSearchParams({
@@ -72,26 +81,45 @@ export const SearchResults = ({
       hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
       skillLevel: globalConstraints.skillLevel
     });
+    
     if (globalConstraints.goalDate) {
       params.set('goalDate', globalConstraints.goalDate.toISOString());
     }
     
-    // Pass AI-enhanced flag if true
-    if (useAIEnhanced) {
-      params.set('useAIEnhanced', 'true');
+    // Database-first: If cached, load from cache unless AI augmentation is requested
+    if (cachedSyllabus && !includeAIAugmentation) {
+      params.set('useCache', 'true');
     }
     
-    // Check if cached version exists - if so, add useCache parameter (only for traditional)
-    if (cachedSyllabus && !useAIEnhanced) {
-      params.set('useCache', 'true');
+    // Include AI augmentation if toggle is on
+    if (includeAIAugmentation) {
+      params.set('useAIEnhanced', 'true');
     }
     
     navigate(`/syllabus?${params.toString()}`);
   };
-  const handleLoadCachedSyllabus = (discipline: Discipline) => {
+
+  const handleGenerateFresh = (discipline: Discipline) => {
     const disciplineName = getLastLevel(discipline);
     const path = getDisciplinePath(discipline).join(" > ");
-    navigate(`/syllabus?useCache=true&discipline=${encodeURIComponent(disciplineName)}&path=${encodeURIComponent(path)}`);
+    const params = new URLSearchParams({
+      discipline: disciplineName,
+      path: path,
+      depth: globalConstraints.depth,
+      hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
+      skillLevel: globalConstraints.skillLevel
+    });
+    
+    if (globalConstraints.goalDate) {
+      params.set('goalDate', globalConstraints.goalDate.toISOString());
+    }
+    
+    // Include AI augmentation if toggle is on
+    if (includeAIAugmentation) {
+      params.set('useAIEnhanced', 'true');
+    }
+    
+    navigate(`/syllabus?${params.toString()}`);
   };
 
   const handleAdHocGeneration = () => {
@@ -109,11 +137,15 @@ export const SearchResults = ({
     }
     navigate(`/syllabus?${params.toString()}`);
   };
+
   if (searching) {
-    return <div className="flex items-center justify-center py-12">
+    return (
+      <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>;
+      </div>
+    );
   }
+
   if (results.length === 0) {
     return (
       <div className="py-12 max-w-2xl mx-auto">
@@ -125,7 +157,9 @@ export const SearchResults = ({
       </div>
     );
   }
-  return <div>
+
+  return (
+    <div>
       <h2 className="text-2xl font-serif font-bold mb-2">
         Search Results
       </h2>
@@ -135,10 +169,19 @@ export const SearchResults = ({
 
       <div className="grid gap-4">
         {results.map(discipline => {
-        const path = getDisciplinePath(discipline);
-        const level = getLevel(discipline);
-        const isExpanded = expandedId === discipline.id;
-        return <Card key={discipline.id} className="hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setExpandedId(isExpanded ? null : discipline.id)}>
+          const path = getDisciplinePath(discipline);
+          const level = getLevel(discipline);
+          const isExpanded = expandedId === discipline.id;
+          
+          return (
+            <Card 
+              key={discipline.id} 
+              className="hover:shadow-md transition-shadow cursor-pointer group" 
+              onClick={() => {
+                setExpandedId(isExpanded ? null : discipline.id);
+                setIncludeAIAugmentation(false); // Reset toggle when changing selection
+              }}
+            >
               <CardContent className="pt-6 rounded-sm">
                 <div className="flex items-center justify-between gap-4 mb-2">
                   <div className="flex-1">
@@ -149,71 +192,90 @@ export const SearchResults = ({
                     </div>
                     
                     <div className="flex items-center gap-2 flex-wrap text-sm">
-                      {path.map((segment, index) => <div key={index} className="flex items-center gap-2">
+                      {path.map((segment, index) => (
+                        <div key={index} className="flex items-center gap-2">
                           <span className={index === path.length - 1 ? "font-semibold" : "text-muted-foreground"}>
                             {segment}
                           </span>
                           {index < path.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                        </div>)}
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <ChevronDown className={`h-5 w-5 text-primary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
                 </div>
 
-                    {isExpanded && <div className="flex flex-col gap-3 mt-4" onClick={e => e.stopPropagation()}>
-                        {cachedSyllabus ? <>
-                            <div>
-                              <Button onClick={() => handleLoadCachedSyllabus(discipline)} className="w-full">
-                                Load Cached Syllabus
-                              </Button>
-                              {cacheDate && <p className="text-xs text-muted-foreground text-center mt-1">
-                                  Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
-                                </p>}
-                            </div>
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-2">Generate Fresh:</p>
-                              <div className="flex gap-2">
-                                <Button onClick={() => handleGenerateSyllabus(discipline, false)} variant="outline" className="flex-1">
-                                  <BookOpen className="mr-2 h-4 w-4" />
-                                  Traditional
-                                </Button>
-                                <Button onClick={() => handleGenerateSyllabus(discipline, true)} variant="outline" className="flex-1 border-purple-500/30 hover:bg-purple-500/10">
-                                  <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
-                                  AI-Enhanced
-                                </Button>
-                              </div>
-                              <p className="text-[10px] text-muted-foreground text-center mt-1">
-                                Traditional: Academic sources • AI-Enhanced: + Industry authorities
-                              </p>
-                            </div>
-                            <Button onClick={() => onBrowseInContext(discipline)} variant="ghost" size="sm">
-                              Browse in Context
-                            </Button>
-                          </> : <>
-                            <div>
-                              <p className="text-xs text-muted-foreground mb-2">Choose generation method:</p>
-                              <div className="flex gap-2">
-                                <Button onClick={() => handleGenerateSyllabus(discipline, false)} variant="outline" className="flex-1">
-                                  <BookOpen className="mr-2 h-4 w-4" />
-                                  Traditional
-                                </Button>
-                                <Button onClick={() => handleGenerateSyllabus(discipline, true)} className="flex-1 bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600">
-                                  <Sparkles className="mr-2 h-4 w-4" />
-                                  AI-Enhanced
-                                </Button>
-                              </div>
-                              <p className="text-[10px] text-muted-foreground text-center mt-1">
-                                Traditional: MIT, Yale, Coursera • AI-Enhanced: + Industry authorities
-                              </p>
-                            </div>
-                            <Button onClick={() => onBrowseInContext(discipline)} variant="ghost" size="sm">
-                              Browse in Context
-                            </Button>
-                          </>}
-                      </div>}
+                {isExpanded && (
+                  <div className="flex flex-col gap-4 mt-4" onClick={e => e.stopPropagation()}>
+                    {/* Database-first: Show provenance indicator */}
+                    {cachedSyllabus && (
+                      <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                        <ProvenanceBadge source="database" size="sm" />
+                        <span className="text-sm text-muted-foreground">
+                          Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Primary action: Load Academic Syllabus */}
+                    <Button 
+                      onClick={() => handleLoadSyllabus(discipline)} 
+                      className="w-full"
+                      size="lg"
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      {cachedSyllabus ? 'Load Academic Syllabus' : 'Generate Academic Syllabus'}
+                    </Button>
+
+                    {/* AI Augmentation toggle */}
+                    <label 
+                      className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={e => e.stopPropagation()}
+                    >
+                      <Checkbox 
+                        checked={includeAIAugmentation}
+                        onCheckedChange={(checked) => setIncludeAIAugmentation(!!checked)}
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-4 w-4 text-violet-500" />
+                          <span className="font-medium text-sm">Include AI Augmentation</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Discover industry authorities and additional sources
+                        </p>
+                      </div>
+                    </label>
+
+                    {/* Secondary actions */}
+                    <div className="flex gap-2">
+                      {cachedSyllabus && (
+                        <Button 
+                          onClick={() => handleGenerateFresh(discipline)} 
+                          variant="outline" 
+                          size="sm"
+                          className="flex-1"
+                        >
+                          <BookOpen className="mr-2 h-3 w-3" />
+                          Generate Fresh
+                        </Button>
+                      )}
+                      <Button 
+                        onClick={() => onBrowseInContext(discipline)} 
+                        variant="ghost" 
+                        size="sm"
+                        className={cachedSyllabus ? 'flex-1' : 'w-full'}
+                      >
+                        Browse in Context
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
-            </Card>;
-      })}
+            </Card>
+          );
+        })}
       </div>
-    </div>;
+    </div>
+  );
 };
