@@ -241,10 +241,10 @@ const Syllabus = () => {
   const [useMissionControl, setUseMissionControl] = useState(true); // Enable by default
   const [regenerationKey, setRegenerationKey] = useState(0); // Forces SyllabusMissionControl remount
   
-  // Progressive AI Enhancement states
-  const [hasEnhancedWithAI, setHasEnhancedWithAI] = useState(false); // Has enhancement been done?
-  const [aiEnabled, setAiEnabled] = useState(false); // Is AI view currently active (show/hide AI-discovered modules)
-  const [enhancingWithAI, setEnhancingWithAI] = useState(false); // Loading state for AI enhancement
+  // AI Enhancement lifecycle states (properly separated)
+  // aiStatus: 'idle' (not generated) | 'loading' (generating) | 'ready' (generated, can toggle visibility)
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [showAIContent, setShowAIContent] = useState(true); // visibility toggle (only matters when ready)
 
   const discipline = searchParams.get("discipline") || "";
   const path = searchParams.get("path") || "";
@@ -312,13 +312,19 @@ const Syllabus = () => {
     }
   }, [stepToScroll, syllabusData, loading]);
 
-  // Sync AI enabled state from URL or syllabus data - but only if arriving with AI pre-enabled
+  // Detect if loaded syllabus already has AI content - set status to 'ready' if so
   useEffect(() => {
-    if (useAIEnhanced || syllabusData?.isAIEnhanced) {
-      setAiEnabled(true);
-      setHasEnhancedWithAI(true);
+    if (syllabusData && !loading) {
+      const hasAIModules = syllabusData.modules.some(m => m.isAIDiscovered);
+      const wasEnhanced = syllabusData.isAIEnhanced === true;
+      
+      if (hasAIModules || wasEnhanced) {
+        // AI content already exists in loaded data
+        setAiStatus('ready');
+        setShowAIContent(true);
+      }
     }
-  }, [useAIEnhanced, syllabusData?.isAIEnhanced]);
+  }, [syllabusData, loading]);
 
   useEffect(() => {
     if (savedId) {
@@ -331,11 +337,11 @@ const Syllabus = () => {
     }
   }, [discipline, savedId, useCache]);
 
-  // Handle initial "Enhance with AI" button click
+  // Handler for "Enhance with AI" button click - triggers AI-enhanced regeneration
   const handleEnhanceWithAI = async () => {
-    if (enhancingWithAI || !syllabusData) return;
+    if (aiStatus === 'loading' || !syllabusData) return;
     
-    setEnhancingWithAI(true);
+    setAiStatus('loading');
     
     try {
       // Update URL to include AI enhancement
@@ -346,32 +352,29 @@ const Syllabus = () => {
       // Force regeneration with AI
       await generateSyllabus(undefined, preGenerationConstraints, true);
       
-      // After generation, the new syllabusData will be the enhanced version
-      // We'll capture it in the useEffect that watches syllabusData
+      // After generation completes successfully, set to ready and show content
+      setAiStatus('ready');
+      setShowAIContent(true);
       
       toast({
         title: "AI Enhancement Complete",
         description: "Syllabus enhanced with AI-discovered sources and authorities.",
       });
-      
-      setHasEnhancedWithAI(true);
-      setAiEnabled(true);
     } catch (error) {
       console.error('Error enhancing with AI:', error);
+      setAiStatus('idle'); // Reset to idle on failure
       toast({
         title: "Enhancement Failed",
         description: "Could not enhance syllabus with AI. Please try again.",
         variant: "destructive"
       });
-    } finally {
-      setEnhancingWithAI(false);
     }
   };
 
-  // Handle toggle between showing/hiding AI-discovered modules
-  // No data swapping needed - just toggle the aiEnabled state which filters the display
+  // Handler for AI toggle - only toggles visibility, never triggers generation
   const handleAIViewToggle = (enabled: boolean) => {
-    setAiEnabled(enabled);
+    if (aiStatus !== 'ready') return; // Safeguard
+    setShowAIContent(enabled);
   };
 
   const loadCachedSyllabus = async () => {
@@ -1139,7 +1142,7 @@ const Syllabus = () => {
               const contentSource = determineContentSource({
                 fromCache: useCache,
                 isAdHoc: syllabusData.isAdHoc,
-                isAIEnhanced: aiEnabled || syllabusData.isAIEnhanced,
+                isAIEnhanced: aiStatus === 'ready' || syllabusData.isAIEnhanced,
                 source: syllabusData.source
               });
               
@@ -1158,49 +1161,51 @@ const Syllabus = () => {
                     )}
                   </div>
                   
-                  {/* Progressive AI Enhancement UI */}
+                  {/* Progressive AI Enhancement UI - 3-state lifecycle */}
                   {showAIEnhancement && (
                     <div className="flex items-center gap-3 p-3 border rounded-lg bg-card">
-                      {!hasEnhancedWithAI ? (
+                      {aiStatus === 'idle' ? (
                         // Initial state: Button to trigger enhancement
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleEnhanceWithAI}
-                          disabled={enhancingWithAI || loading}
+                          disabled={loading}
                           className="gap-2"
                         >
-                          {enhancingWithAI ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              <span>Enhancing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="h-4 w-4 text-violet-500" />
-                              <span>Enhance with AI</span>
-                            </>
-                          )}
+                          <Sparkles className="h-4 w-4 text-violet-500" />
+                          <span>Enhance with AI</span>
+                        </Button>
+                      ) : aiStatus === 'loading' ? (
+                        // Loading state: Disabled button with spinner
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                          className="gap-2"
+                        >
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Enhancing...</span>
                         </Button>
                       ) : (
-                        // After enhancement: Switch to toggle between showing/hiding AI modules
+                        // Ready state: Toggle visibility of AI modules
                         <>
                           <div className={cn(
                             "flex items-center gap-2 transition-opacity",
-                            !aiEnabled && "opacity-50"
+                            !showAIContent && "opacity-50"
                           )}>
                             <Sparkles className={cn(
                               "h-4 w-4 transition-colors",
-                              aiEnabled ? "text-violet-500" : "text-muted-foreground"
+                              showAIContent ? "text-violet-500" : "text-muted-foreground"
                             )} />
                             <span className={cn(
                               "text-sm font-medium transition-all",
-                              !aiEnabled && "line-through decoration-muted-foreground"
+                              !showAIContent && "line-through decoration-muted-foreground"
                             )}>
                               AI Enhanced
                             </span>
                             {/* Show count of hidden AI modules when toggle is off */}
-                            {!aiEnabled && syllabusData && (() => {
+                            {!showAIContent && syllabusData && (() => {
                               const hiddenCount = syllabusData.modules.filter(m => m.isAIDiscovered).length;
                               if (hiddenCount === 0) return null;
                               return (
@@ -1211,7 +1216,7 @@ const Syllabus = () => {
                             })()}
                           </div>
                           <Switch
-                            checked={aiEnabled}
+                            checked={showAIContent}
                             onCheckedChange={handleAIViewToggle}
                             disabled={loading}
                           />
@@ -1229,7 +1234,7 @@ const Syllabus = () => {
                 source={determineContentSource({
                   fromCache: useCache,
                   isAdHoc: syllabusData.isAdHoc,
-                  isAIEnhanced: aiEnabled || syllabusData.isAIEnhanced,
+                  isAIEnhanced: aiStatus === 'ready' || syllabusData.isAIEnhanced,
                   source: syllabusData.source
                 })}
                 className="mt-4"
@@ -1422,8 +1427,8 @@ const Syllabus = () => {
               <div className="mt-8">
                 <h2 className="text-2xl font-semibold mb-4">Course Modules</h2>
                 <SyllabusMissionControl
-                  key={`mission-control-${regenerationKey}-${aiEnabled}`}
-                  modules={syllabusData.modules}
+                  key={`mission-control-${regenerationKey}-${showAIContent}`}
+                  modules={syllabusData.modules.filter(m => showAIContent || !m.isAIDiscovered)}
                   discipline={discipline}
                   rawSources={originalSources.length > 0 ? originalSources : syllabusData.rawSources}
                   onConfirm={async (selectedIndices) => {
@@ -1438,7 +1443,7 @@ const Syllabus = () => {
                   extractCourseCode={extractCourseCode}
                   getSourceColorByUrl={getSourceColorByUrl}
                   regenerationKey={regenerationKey}
-                  aiEnabled={aiEnabled}
+                  aiEnabled={showAIContent}
                 />
               </div>
 
