@@ -1402,8 +1402,8 @@ const Syllabus = () => {
                 );
               })()}
 
-              {/* New Authorities Discovered Section - For Ad-Hoc or AI-Enhanced syllabi with discovered authorities */}
-              {(syllabusData.isAdHoc || syllabusData.isAIEnhanced) && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
+              {/* New Authorities Discovered Section - Only show when AI content is visible */}
+              {showAIContent && (syllabusData.isAdHoc || syllabusData.isAIEnhanced) && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
                 <NewAuthoritiesSection 
                   authorities={syllabusData.discoveredAuthorities}
                   discipline={discipline}
