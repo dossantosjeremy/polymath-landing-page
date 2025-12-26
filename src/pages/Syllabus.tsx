@@ -1074,44 +1074,6 @@ const Syllabus = () => {
             ))}
           </nav>
 
-          {/* Ad-Hoc Generation Banner - Enhanced Curriculum Architect UI (only show when AI content is visible) */}
-          {!loading && showAIContent && (syllabusData?.isAdHoc || syllabusData?.isAIEnhanced) && (
-            <AdHocHeader
-              discipline={discipline}
-              compositionType={syllabusData.compositionType}
-              derivedFrom={syllabusData.derivedFrom}
-              topicPillars={syllabusData.topicPillars}
-              narrativeFlow={syllabusData.narrativeFlow}
-              synthesisRationale={syllabusData.synthesisRationale}
-              sourceCount={syllabusData.rawSources?.length || 0}
-              sourceNames={(syllabusData.rawSources || []).map(s => getDomainShortName(s.url)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5)}
-              discoveredAuthorities={syllabusData.discoveredAuthorities}
-            />
-          )}
-
-          {/* AI-Enhanced Mode Banner for database disciplines (only show when AI content is visible) */}
-          {!loading && showAIContent && !syllabusData?.isAdHoc && useAIEnhanced && syllabusData?.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/20 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="h-5 w-5 text-violet-500" />
-                <span className="font-semibold">AI-Enhanced Search Active</span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                Combining academic sources with industry authorities discovered for "{discipline}"
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {syllabusData.discoveredAuthorities.slice(0, 5).map((auth, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-violet-500/20 text-violet-700 dark:text-violet-300">
-                    {auth.authorityType === 'industry_standard' && '🏆'}
-                    {auth.authorityType === 'practitioner' && '⭐'}
-                    {auth.authorityType === 'standard_body' && '📋'}
-                    {auth.authorityType === 'academic' && '🎓'}
-                    {auth.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Header with Provenance Badge */}
           <div className="mb-8">
@@ -1402,13 +1364,6 @@ const Syllabus = () => {
                 );
               })()}
 
-              {/* New Authorities Discovered Section - Only show when AI content is visible */}
-              {showAIContent && (syllabusData.isAdHoc || syllabusData.isAIEnhanced) && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
-                <NewAuthoritiesSection 
-                  authorities={syllabusData.discoveredAuthorities}
-                  discipline={discipline}
-                />
-              )}
 
               {/* Mission Control Split-Screen Interface */}
               <div className="mt-8">
@@ -1434,6 +1389,54 @@ const Syllabus = () => {
                 />
               </div>
 
+              {/* AI-Related Sections - Below Course Modules (only show when AI content is visible) */}
+              
+              {/* Ad-Hoc Generation Banner - Enhanced Curriculum Architect UI */}
+              {showAIContent && (syllabusData.isAdHoc || syllabusData.isAIEnhanced) && (
+                <AdHocHeader
+                  discipline={discipline}
+                  compositionType={syllabusData.compositionType}
+                  derivedFrom={syllabusData.derivedFrom}
+                  topicPillars={syllabusData.topicPillars}
+                  narrativeFlow={syllabusData.narrativeFlow}
+                  synthesisRationale={syllabusData.synthesisRationale}
+                  sourceCount={syllabusData.rawSources?.length || 0}
+                  sourceNames={(syllabusData.rawSources || []).map(s => getDomainShortName(s.url)).filter((v, i, a) => a.indexOf(v) === i).slice(0, 5)}
+                  discoveredAuthorities={syllabusData.discoveredAuthorities}
+                />
+              )}
+
+              {/* AI-Enhanced Mode Banner for database disciplines */}
+              {showAIContent && !syllabusData.isAdHoc && useAIEnhanced && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
+                <div className="mt-6 p-4 bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/20 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-5 w-5 text-violet-500" />
+                    <span className="font-semibold">AI-Enhanced Search Active</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Combining academic sources with industry authorities discovered for "{discipline}"
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {syllabusData.discoveredAuthorities.slice(0, 5).map((auth, idx) => (
+                      <span key={idx} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-violet-500/20 text-violet-700 dark:text-violet-300">
+                        {auth.authorityType === 'industry_standard' && '🏆'}
+                        {auth.authorityType === 'practitioner' && '⭐'}
+                        {auth.authorityType === 'standard_body' && '📋'}
+                        {auth.authorityType === 'academic' && '🎓'}
+                        {auth.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* New Authorities Discovered Section */}
+              {showAIContent && (syllabusData.isAdHoc || syllabusData.isAIEnhanced) && syllabusData.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
+                <NewAuthoritiesSection 
+                  authorities={syllabusData.discoveredAuthorities}
+                  discipline={discipline}
+                />
+              )}
 
               {(() => {
                 const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
