@@ -1074,8 +1074,8 @@ const Syllabus = () => {
             ))}
           </nav>
 
-          {/* Ad-Hoc Generation Banner - Enhanced Curriculum Architect UI (also for AI-Enhanced mode) */}
-          {!loading && (syllabusData?.isAdHoc || syllabusData?.isAIEnhanced) && (
+          {/* Ad-Hoc Generation Banner - Enhanced Curriculum Architect UI (only show when AI content is visible) */}
+          {!loading && showAIContent && (syllabusData?.isAdHoc || syllabusData?.isAIEnhanced) && (
             <AdHocHeader
               discipline={discipline}
               compositionType={syllabusData.compositionType}
@@ -1089,11 +1089,11 @@ const Syllabus = () => {
             />
           )}
 
-          {/* AI-Enhanced Mode Banner for database disciplines */}
-          {!loading && !syllabusData?.isAdHoc && useAIEnhanced && syllabusData?.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
-            <div className="mb-6 p-4 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-lg">
+          {/* AI-Enhanced Mode Banner for database disciplines (only show when AI content is visible) */}
+          {!loading && showAIContent && !syllabusData?.isAdHoc && useAIEnhanced && syllabusData?.discoveredAuthorities && syllabusData.discoveredAuthorities.length > 0 && (
+            <div className="mb-6 p-4 bg-gradient-to-r from-violet-500/10 to-blue-500/10 border border-violet-500/20 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="h-5 w-5 text-purple-500" />
+                <Sparkles className="h-5 w-5 text-violet-500" />
                 <span className="font-semibold">AI-Enhanced Search Active</span>
               </div>
               <p className="text-sm text-muted-foreground mb-3">
@@ -1101,7 +1101,7 @@ const Syllabus = () => {
               </p>
               <div className="flex flex-wrap gap-2">
                 {syllabusData.discoveredAuthorities.slice(0, 5).map((auth, idx) => (
-                  <span key={idx} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-700 dark:text-purple-300">
+                  <span key={idx} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-violet-500/20 text-violet-700 dark:text-violet-300">
                     {auth.authorityType === 'industry_standard' && '🏆'}
                     {auth.authorityType === 'practitioner' && '⭐'}
                     {auth.authorityType === 'standard_body' && '📋'}
