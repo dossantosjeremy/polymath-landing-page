@@ -29,6 +29,7 @@ const Explore = () => {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [searchResults, setSearchResults] = useState<Discipline[]>([]);
   const [searching, setSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [showSearch, setShowSearch] = useState(!!searchParams.get("q"));
   const [contextPath, setContextPath] = useState<string[] | undefined>(undefined);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -52,6 +53,7 @@ const Explore = () => {
     if (!query.trim()) return;
 
     setSearching(true);
+    setHasSearched(false);
     try {
       const searchTerm = query.toLowerCase();
       
@@ -69,6 +71,7 @@ const Explore = () => {
       setSearchResults(data || []);
     } finally {
       setSearching(false);
+      setHasSearched(true);
     }
   };
 
@@ -172,6 +175,7 @@ const Explore = () => {
               results={searchResults} 
               query={searchQuery}
               searching={searching}
+              hasSearched={hasSearched}
               onBrowseInContext={handleBrowseInContext}
               globalConstraints={legacyConstraints}
             />

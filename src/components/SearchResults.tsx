@@ -22,6 +22,7 @@ interface SearchResultsProps {
   results: Discipline[];
   query: string;
   searching: boolean;
+  hasSearched: boolean;
   onBrowseInContext: (discipline: Discipline) => void;
   globalConstraints: PreGenerationConstraints;
 }
@@ -30,6 +31,7 @@ export const SearchResults = ({
   results,
   query,
   searching,
+  hasSearched,
   onBrowseInContext,
   globalConstraints
 }: SearchResultsProps) => {
@@ -120,9 +122,9 @@ export const SearchResults = ({
     navigate(`/syllabus?${params.toString()}`);
   };
 
-  // Auto-navigate for ad-hoc topics (not in database)
+  // Auto-navigate for ad-hoc topics (not in database) - only after search has completed
   useEffect(() => {
-    if (!searching && results.length === 0 && query.trim()) {
+    if (hasSearched && !searching && results.length === 0 && query.trim()) {
       const params = new URLSearchParams({
         discipline: query,
         isAdHoc: 'true',
@@ -136,7 +138,7 @@ export const SearchResults = ({
       }
       navigate(`/syllabus?${params.toString()}`);
     }
-  }, [searching, results.length, query, globalConstraints, navigate]);
+  }, [hasSearched, searching, results.length, query, globalConstraints, navigate]);
 
   if (searching) {
     return (
