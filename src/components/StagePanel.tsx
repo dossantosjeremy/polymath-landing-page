@@ -1,4 +1,5 @@
 import { MapPin, Sparkles, BookOpen, Award, ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { MissionControlStep, ViewMode } from "@/hooks/useMissionControl";
 import { StepSummary } from "@/components/StepSummary";
 import { CuratedLearningPlayer } from "@/components/CuratedLearningPlayer";
@@ -101,21 +102,37 @@ export function StagePanel({
           "p-3 sm:p-6 rounded-lg border-l-4",
           isCapstone
             ? "bg-[hsl(var(--gold))]/5 border-l-[hsl(var(--gold))]"
-            : "bg-primary/5 border-l-primary"
+            : currentStep.isAIDiscovered
+              ? "bg-violet-50/50 border-l-violet-400 dark:bg-violet-950/20"
+              : "bg-primary/5 border-l-primary"
         )}>
           <div className="flex items-start gap-3 mb-4">
             {isCapstone ? (
               <Award className="h-6 w-6 text-[hsl(var(--gold))] flex-shrink-0 mt-1" />
+            ) : currentStep.isAIDiscovered ? (
+              <Sparkles className="h-6 w-6 text-violet-500 flex-shrink-0 mt-1" />
             ) : (
               <BookOpen className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
             )}
             <div className="min-w-0 flex-1">
+              {/* AI Discovered Badge */}
+              {currentStep.isAIDiscovered && (
+                <Badge 
+                  variant="outline" 
+                  className="text-xs mb-2 border-violet-300 text-violet-600 dark:border-violet-400 dark:text-violet-400 gap-1"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  AI Discovered
+                </Badge>
+              )}
               <h1 className="text-base sm:text-xl font-bold mb-1 break-words">{currentStep.title}</h1>
               <span className={cn(
                 "text-xs px-2 py-1 rounded inline-block",
                 isCapstone
                   ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]"
-                  : "bg-primary/10 text-primary"
+                  : currentStep.isAIDiscovered
+                    ? "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
+                    : "bg-primary/10 text-primary"
               )}>
                 {currentStep.tag}
               </span>
