@@ -26,6 +26,7 @@ import { SyllabusMissionControl } from "@/components/SyllabusMissionControl";
 import { GenerationProgressIndicator } from "@/components/GenerationProgressIndicator";
 import { setPendingAction, getPendingAction, clearPendingAction } from "@/lib/pendingActions";
 import { ProvenanceBadge, ProvenanceDisclaimer, determineContentSource, ContentSource } from "@/components/ProvenanceBadge";
+import { ResourceCacheProvider, useResourceCache } from "@/contexts/ResourceCacheContext";
 
 interface Module {
   title: string;
@@ -219,11 +220,12 @@ function NewAuthoritiesSection({ authorities, discipline }: NewAuthoritiesSectio
   );
 }
 
-const Syllabus = () => {
+const SyllabusContent = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { getAllCachedResources, clearCache } = useResourceCache();
   const [loading, setLoading] = useState(true);
   const [syllabusData, setSyllabusData] = useState<SyllabusData | null>(null);
   const [expandedModules, setExpandedModules] = useState<Set<number>>(new Set());
@@ -746,6 +748,7 @@ const Syllabus = () => {
     const isRegenerating = !!selectedSourceUrls || forceRefresh === true;
     if (isRegenerating) {
       setRegenerating(true);
+      clearCache(); // Clear resource cache when regenerating syllabus
     } else {
       setLoading(true);
     }
@@ -1046,17 +1049,22 @@ const Syllabus = () => {
 
   const pathArray = path ? path.split(' > ') : [];
 
-  // Export syllabus to markdown
+  // Export syllabus to markdown with cached resources
   const handleExportMarkdown = () => {
     if (!syllabusData) return;
     
-    const markdown = generateSyllabusMarkdown(syllabusData);
+    const cachedResources = getAllCachedResources();
+    const resourceCount = Object.keys(cachedResources).length;
+    
+    const markdown = generateSyllabusMarkdown(syllabusData, cachedResources);
     const filename = generateFilename(syllabusData.discipline);
     downloadMarkdown(markdown, filename);
     
     toast({
       title: "Syllabus Exported",
-      description: `Downloaded ${filename}`,
+      description: resourceCount > 0 
+        ? `Downloaded ${filename} with resources from ${resourceCount} steps`
+        : `Downloaded ${filename}`,
     });
   };
 
@@ -1524,6 +1532,15 @@ const Syllabus = () => {
 
       <Footer />
     </div>
+  );
+};
+
+// Wrapper component that provides the ResourceCache context
+const Syllabus = () => {
+  return (
+    <ResourceCacheProvider>
+      <SyllabusContent />
+    </ResourceCacheProvider>
   );
 };
 

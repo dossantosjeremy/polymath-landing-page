@@ -9,7 +9,8 @@ import { KnowledgeCheck } from './KnowledgeCheck';
 import { ExpansionPack } from './ExpansionPack';
 import { CapstoneAssignment } from './CapstoneAssignment';
 import { MOOCSection } from './MOOCSection';
-import { useCuratedResources } from '@/hooks/useCuratedResources';
+import { useCuratedResources, CuratedStepResources } from '@/hooks/useCuratedResources';
+import { useResourceCache } from '@/contexts/ResourceCacheContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -53,12 +54,34 @@ export const CuratedLearningPlayer = ({
   isCapstone = false 
 }: CuratedLearningPlayerProps) => {
   const { resources, isLoading, error, fetchResources, findMoreResources } = useCuratedResources();
+  const { getResource, setResource, hasResource } = useResourceCache();
+  const [localResources, setLocalResources] = useState<CuratedStepResources | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [showExpansion, setShowExpansion] = useState(false);
   const [coreCompleted, setCoreCompleted] = useState(false);
   const [loadingStage, setLoadingStage] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const { toast } = useToast();
+
+  // Check cache on mount and when stepTitle changes
+  useEffect(() => {
+    const cached = getResource(stepTitle);
+    if (cached) {
+      setLocalResources(cached);
+      setHasLoaded(true);
+    } else {
+      setLocalResources(null);
+      setHasLoaded(false);
+    }
+  }, [stepTitle, getResource]);
+
+  // Sync fetched resources to cache and local state
+  useEffect(() => {
+    if (resources && !isLoading) {
+      setLocalResources(resources);
+      setResource(stepTitle, resources);
+    }
+  }, [resources, isLoading, stepTitle, setResource]);
   
   // Progress through stages based on elapsed time
   useEffect(() => {
@@ -131,13 +154,13 @@ export const CuratedLearningPlayer = ({
   };
 
   const handleFindMore = async (type: 'video' | 'reading') => {
-    if (!resources) return;
+    if (!localResources) return;
     
     const existingUrls = [
-      resources.coreVideo?.url,
-      resources.coreReading?.url,
-      ...resources.deepDive.map(r => r.url),
-      ...resources.expansionPack.map(r => r.url)
+      localResources.coreVideo?.url,
+      localResources.coreReading?.url,
+      ...localResources.deepDive.map(r => r.url),
+      ...localResources.expansionPack.map(r => r.url)
     ].filter(Boolean) as string[];
 
     try {
@@ -155,8 +178,8 @@ export const CuratedLearningPlayer = ({
     }
   };
 
-  // Show load button initially
-  if (!hasLoaded && !resources) {
+  // Show load button initially (only if not cached)
+  if (!hasLoaded && !localResources) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-4">
@@ -263,13 +286,13 @@ export const CuratedLearningPlayer = ({
     );
   }
 
-  if (!resources) {
+  if (!localResources) {
     return null;
   }
 
-  const hasCore = resources.coreVideo || resources.coreReading;
-  const hasExpansion = resources.deepDive.length > 0 || resources.expansionPack.length > 0;
-  const moocCount = resources.moocs?.length || 0;
+  const hasCore = localResources.coreVideo || localResources.coreReading;
+  const hasExpansion = localResources.deepDive.length > 0 || localResources.expansionPack.length > 0;
+  const moocCount = localResources.moocs?.length || 0;
 
   if (!hasCore && !hasExpansion && moocCount === 0) {
     return (
@@ -309,18 +332,18 @@ export const CuratedLearningPlayer = ({
         <TabsContent value="essential" className="space-y-4 sm:space-y-6 mt-0 w-full max-w-full overflow-x-hidden">
           {hasCore && (
             <CriticalPath
-              learningObjective={resources.learningObjective}
-              coreVideo={resources.coreVideo}
-              coreReading={resources.coreReading}
-              totalCoreTime={resources.totalCoreTime}
+              learningObjective={localResources.learningObjective}
+              coreVideo={localResources.coreVideo}
+              coreReading={localResources.coreReading}
+              totalCoreTime={localResources.totalCoreTime}
               discipline={discipline}
               stepTitle={stepTitle}
             />
           )}
 
-          {hasCore && resources.knowledgeCheck && !coreCompleted && (
+          {hasCore && localResources.knowledgeCheck && !coreCompleted && (
             <KnowledgeCheck
-              question={resources.knowledgeCheck.question}
+              question={localResources.knowledgeCheck.question}
               onUnderstand={handleUnderstand}
               onNeedMore={handleNeedMore}
             />
@@ -330,7 +353,7 @@ export const CuratedLearningPlayer = ({
         {/* Online Courses Tab */}
         <TabsContent value="courses" className="mt-0 w-full max-w-full overflow-x-hidden">
           <MOOCSection
-            moocs={resources?.moocs || []}
+            moocs={localResources?.moocs || []}
             stepTitle={stepTitle}
             discipline={discipline}
             isLoading={isLoading}
@@ -341,9 +364,9 @@ export const CuratedLearningPlayer = ({
         <TabsContent value="all" className="mt-0 w-full max-w-full overflow-x-hidden">
           {hasExpansion && (
             <ExpansionPack
-              deepDive={resources.deepDive}
-              expansionPack={resources.expansionPack}
-              totalExpandedTime={resources.totalExpandedTime}
+              deepDive={localResources.deepDive}
+              expansionPack={localResources.expansionPack}
+              totalExpandedTime={localResources.totalExpandedTime}
               onFindMore={handleFindMore}
               isExpanded={showExpansion}
             />

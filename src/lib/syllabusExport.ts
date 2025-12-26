@@ -1,5 +1,7 @@
 // Syllabus Export Utility - generates clean markdown from syllabus data
 
+import { CuratedStepResources, CuratedResource } from '@/hooks/useCuratedResources';
+
 interface Module {
   title: string;
   tag: string;
@@ -39,6 +41,10 @@ interface TopicPillar {
   priority: 'core' | 'important' | 'nice-to-have';
 }
 
+export interface ResourceCache {
+  [stepTitle: string]: CuratedStepResources;
+}
+
 export interface SyllabusExportData {
   discipline: string;
   modules: Module[];
@@ -54,7 +60,8 @@ export interface SyllabusExportData {
 }
 
 export function generateSyllabusMarkdown(
-  syllabusData: SyllabusExportData
+  syllabusData: SyllabusExportData,
+  cachedResources?: ResourceCache
 ): string {
   const lines: string[] = [];
   const date = new Date().toLocaleDateString('en-US', { 
@@ -143,6 +150,55 @@ export function generateSyllabusMarkdown(
       lines.push('');
     }
 
+    // Include resources if available
+    const stepResources = cachedResources?.[module.title];
+    if (stepResources) {
+      lines.push('#### Resources');
+      lines.push('');
+      
+      // Core Video
+      if (stepResources.coreVideo) {
+        lines.push('**📺 Core Video:**');
+        lines.push(formatResourceLine(stepResources.coreVideo));
+        lines.push('');
+      }
+      
+      // Core Reading
+      if (stepResources.coreReading) {
+        lines.push('**📖 Core Reading:**');
+        lines.push(formatResourceLine(stepResources.coreReading));
+        lines.push('');
+      }
+      
+      // Deep Dive Resources
+      if (stepResources.deepDive && stepResources.deepDive.length > 0) {
+        lines.push('**🔍 Deep Dive:**');
+        stepResources.deepDive.forEach(r => {
+          lines.push(formatResourceLine(r));
+        });
+        lines.push('');
+      }
+      
+      // MOOCs
+      if (stepResources.moocs && stepResources.moocs.length > 0) {
+        lines.push('**🎓 Online Courses:**');
+        stepResources.moocs.forEach((mooc: any) => {
+          const provider = mooc.source || mooc.provider || '';
+          lines.push(`- [${mooc.title}](${mooc.url})${provider ? ` - ${provider}` : ''}`);
+        });
+        lines.push('');
+      }
+      
+      // Expansion Pack
+      if (stepResources.expansionPack && stepResources.expansionPack.length > 0) {
+        lines.push('**📚 Additional Resources:**');
+        stepResources.expansionPack.forEach(r => {
+          lines.push(formatResourceLine(r));
+        });
+        lines.push('');
+      }
+    }
+
     lines.push('---');
     lines.push('');
   });
@@ -178,6 +234,13 @@ export function generateSyllabusMarkdown(
   lines.push(`*Exported from Syllabus Generator on ${date}*`);
 
   return lines.join('\n');
+}
+
+function formatResourceLine(resource: CuratedResource): string {
+  const authorPart = resource.author ? ` by ${resource.author}` : '';
+  const durationPart = resource.duration ? ` (${resource.duration})` : '';
+  const rationalePart = resource.rationale ? ` - ${resource.rationale}` : '';
+  return `- [${resource.title}](${resource.url})${authorPart}${durationPart}${rationalePart}`;
 }
 
 export function downloadMarkdown(content: string, filename: string): void {
