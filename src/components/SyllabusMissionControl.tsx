@@ -20,6 +20,7 @@ interface Module {
   priority?: 'core' | 'important' | 'nice-to-have';
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
+  isAIDiscovered?: boolean; // True if this module was added via AI enhancement
 }
 
 interface DiscoveredSource {
@@ -40,6 +41,7 @@ interface SyllabusMissionControlProps {
   extractCourseCode: (url: string, courseName?: string) => string;
   getSourceColorByUrl: (url: string) => string;
   regenerationKey?: number; // Forces remount on regeneration
+  aiEnabled?: boolean; // Whether to show AI-discovered modules
 }
 
 export function SyllabusMissionControl({
@@ -51,20 +53,23 @@ export function SyllabusMissionControl({
   extractCourseCode,
   getSourceColorByUrl,
   regenerationKey = 0,
+  aiEnabled = true, // Default to showing all modules
 }: SyllabusMissionControlProps) {
   const isMobile = useIsMobile();
   // IMPORTANT: All hooks must be called before any conditional returns (React Rules of Hooks)
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   // Transform modules to MissionControlStep format - memoize to detect changes
+  // Filter based on visibility flags AND aiEnabled toggle
   const steps: MissionControlStep[] = useMemo(() => {
     return modules
       .filter(m => !m.isHiddenForTime && !m.isHiddenForDepth)
+      .filter(m => aiEnabled || !m.isAIDiscovered) // Hide AI-discovered modules when toggle is off
       .map((module, idx) => ({
         ...module,
         originalIndex: idx,
       }));
-  }, [modules, regenerationKey]); // Include regenerationKey as dependency
+  }, [modules, regenerationKey, aiEnabled]); // Include aiEnabled as dependency
 
   const {
     mode,
