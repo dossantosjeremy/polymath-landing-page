@@ -1113,122 +1113,6 @@ const Syllabus = () => {
             </div>
           )}
 
-          {/* Header with Provenance Badge */}
-          <div className="mb-8">
-            <div className="flex items-start justify-between gap-4 mb-3">
-              <div>
-                <h1 className="text-4xl font-serif font-bold mb-2">{discipline}</h1>
-                <p className="text-lg text-muted-foreground">Course Syllabus Blueprint</p>
-              </div>
-              {!loading && syllabusData && (
-                <Button
-                  onClick={saveSyllabus}
-                  disabled={saving || isSaved}
-                  variant="outline"
-                  className="flex-shrink-0"
-                >
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : isSaved ? (
-                    <BookmarkCheck className="h-4 w-4 mr-2" />
-                  ) : (
-                    <Bookmark className="h-4 w-4 mr-2" />
-                  )}
-                  {isSaved ? 'Saved' : 'Save for Later'}
-                </Button>
-              )}
-            </div>
-            
-            {/* Provenance Badge and AI Enhancement */}
-            {!loading && syllabusData && (() => {
-              const contentSource = determineContentSource({
-                fromCache: useCache,
-                isAdHoc: syllabusData.isAdHoc,
-                isAIEnhanced: aiStatus === 'ready' || syllabusData.isAIEnhanced,
-                source: syllabusData.source
-              });
-              
-              // Hide AI enhancement UI when content is already AI-generated (ad-hoc/web-sourced)
-              const showAIEnhancement = contentSource !== 'tier3_ai_generated' 
-                && contentSource !== 'web_sourced';
-              
-              return (
-                <div className="flex items-center justify-between gap-4 flex-wrap">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <ProvenanceBadge source={contentSource} size="md" />
-                    {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
-                      <span className="text-sm text-muted-foreground">
-                        • {syllabusData.rawSources.length} source{syllabusData.rawSources.length !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Progressive AI Enhancement UI - 3-state lifecycle */}
-                  {showAIEnhancement && (
-                    <div className="flex items-center gap-3">
-                      {aiStatus === 'idle' ? (
-                        // Initial state: Button to trigger enhancement
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleEnhanceWithAI}
-                          disabled={loading}
-                          className="gap-2"
-                        >
-                          <Sparkles className="h-4 w-4 text-violet-500" />
-                          <span>Enhance with AI</span>
-                        </Button>
-                      ) : aiStatus === 'loading' ? (
-                        // Loading state: Show progress component
-                        <AIEnhancementProgress discipline={discipline} />
-                      ) : (
-                        // Ready state: Tabs for toggling visibility
-                        <Tabs 
-                          value={showAIContent ? "enhanced" : "academic"} 
-                          onValueChange={(val) => handleAIViewToggle(val === "enhanced")}
-                          className="w-auto"
-                        >
-                          <TabsList className="h-9">
-                            <TabsTrigger value="academic" className="text-sm px-3 gap-1.5">
-                              <BookOpen className="h-3.5 w-3.5" />
-                              Academic Only
-                            </TabsTrigger>
-                            <TabsTrigger value="enhanced" className="text-sm px-3 gap-1.5">
-                              <Sparkles className="h-3.5 w-3.5" />
-                              AI Enhanced
-                              {syllabusData && (() => {
-                                const aiCount = syllabusData.modules.filter(m => m.isAIDiscovered).length;
-                                if (aiCount === 0) return null;
-                                return (
-                                  <span className="ml-1 text-xs opacity-70">
-                                    +{aiCount}
-                                  </span>
-                                );
-                              })()}
-                            </TabsTrigger>
-                          </TabsList>
-                        </Tabs>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-            
-            {/* Provenance Disclaimer for AI-generated content */}
-            {!loading && syllabusData && (
-              <ProvenanceDisclaimer 
-                source={determineContentSource({
-                  fromCache: useCache,
-                  isAdHoc: syllabusData.isAdHoc,
-                  isAIEnhanced: aiStatus === 'ready' || syllabusData.isAIEnhanced,
-                  source: syllabusData.source
-                })}
-                className="mt-4"
-              />
-            )}
-          </div>
-
           {/* Learning Path Settings - only show when syllabus is loaded */}
           {!loading && syllabusData && (
             <SmartLearningPathSettings
@@ -1434,7 +1318,118 @@ const Syllabus = () => {
                 />
               </div>
 
-              {/* Curriculum Audit Card - Ivy League Benchmark Widget (at bottom) */}
+              {/* Header with Provenance Badge - Moved below Course Modules */}
+              <div className="mt-8 pt-8 border-t">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <div>
+                    <h1 className="text-4xl font-serif font-bold mb-2">{discipline}</h1>
+                    <p className="text-lg text-muted-foreground">Course Syllabus Blueprint</p>
+                  </div>
+                  <Button
+                    onClick={saveSyllabus}
+                    disabled={saving || isSaved}
+                    variant="outline"
+                    className="flex-shrink-0"
+                  >
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : isSaved ? (
+                      <BookmarkCheck className="h-4 w-4 mr-2" />
+                    ) : (
+                      <Bookmark className="h-4 w-4 mr-2" />
+                    )}
+                    {isSaved ? 'Saved' : 'Save for Later'}
+                  </Button>
+                </div>
+                
+                {/* Provenance Badge and AI Enhancement */}
+                {(() => {
+                  const contentSource = determineContentSource({
+                    fromCache: useCache,
+                    isAdHoc: syllabusData.isAdHoc,
+                    isAIEnhanced: aiStatus === 'ready' || syllabusData.isAIEnhanced,
+                    source: syllabusData.source
+                  });
+                  
+                  // Hide AI enhancement UI when content is already AI-generated (ad-hoc/web-sourced)
+                  const showAIEnhancement = contentSource !== 'tier3_ai_generated' 
+                    && contentSource !== 'web_sourced';
+                  
+                  return (
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <ProvenanceBadge source={contentSource} size="md" />
+                        {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
+                          <span className="text-sm text-muted-foreground">
+                            • {syllabusData.rawSources.length} source{syllabusData.rawSources.length !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Progressive AI Enhancement UI - 3-state lifecycle */}
+                      {showAIEnhancement && (
+                        <div className="flex items-center gap-3">
+                          {aiStatus === 'idle' ? (
+                            // Initial state: Button to trigger enhancement
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleEnhanceWithAI}
+                              disabled={loading}
+                              className="gap-2"
+                            >
+                              <Sparkles className="h-4 w-4 text-violet-500" />
+                              <span>Enhance with AI</span>
+                            </Button>
+                          ) : aiStatus === 'loading' ? (
+                            // Loading state: Show progress component
+                            <AIEnhancementProgress discipline={discipline} />
+                          ) : (
+                            // Ready state: Tabs for toggling visibility
+                            <Tabs 
+                              value={showAIContent ? "enhanced" : "academic"} 
+                              onValueChange={(val) => handleAIViewToggle(val === "enhanced")}
+                              className="w-auto"
+                            >
+                              <TabsList className="h-9">
+                                <TabsTrigger value="academic" className="text-sm px-3 gap-1.5">
+                                  <BookOpen className="h-3.5 w-3.5" />
+                                  Academic Only
+                                </TabsTrigger>
+                                <TabsTrigger value="enhanced" className="text-sm px-3 gap-1.5">
+                                  <Sparkles className="h-3.5 w-3.5" />
+                                  AI Enhanced
+                                  {(() => {
+                                    const aiCount = syllabusData.modules.filter(m => m.isAIDiscovered).length;
+                                    if (aiCount === 0) return null;
+                                    return (
+                                      <span className="ml-1 text-xs opacity-70">
+                                        +{aiCount}
+                                      </span>
+                                    );
+                                  })()}
+                                </TabsTrigger>
+                              </TabsList>
+                            </Tabs>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                
+                {/* Provenance Disclaimer for AI-generated content */}
+                <ProvenanceDisclaimer 
+                  source={determineContentSource({
+                    fromCache: useCache,
+                    isAdHoc: syllabusData.isAdHoc,
+                    isAIEnhanced: aiStatus === 'ready' || syllabusData.isAIEnhanced,
+                    source: syllabusData.source
+                  })}
+                  className="mt-4"
+                />
+              </div>
+
               {(() => {
                 const sourcesToDisplay = originalSources.length > 0 ? originalSources : syllabusData.rawSources || [];
                 
