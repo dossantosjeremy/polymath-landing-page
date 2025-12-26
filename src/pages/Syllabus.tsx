@@ -20,6 +20,7 @@ import { AuthorityBadge } from "@/components/AuthorityBadge";
 import { SyllabusMissionControl } from "@/components/SyllabusMissionControl";
 import { GenerationProgressIndicator } from "@/components/GenerationProgressIndicator";
 import { setPendingAction, getPendingAction, clearPendingAction } from "@/lib/pendingActions";
+import { ProvenanceBadge, ProvenanceDisclaimer, determineContentSource, ContentSource } from "@/components/ProvenanceBadge";
 
 interface Module {
   title: string;
@@ -1049,28 +1050,63 @@ const Syllabus = () => {
             </div>
           )}
 
-          {/* Header */}
-          <div className="mb-8 flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-serif font-bold mb-2">{discipline}</h1>
-              <p className="text-lg text-muted-foreground">Course Syllabus Blueprint</p>
+          {/* Header with Provenance Badge */}
+          <div className="mb-8">
+            <div className="flex items-start justify-between gap-4 mb-3">
+              <div>
+                <h1 className="text-4xl font-serif font-bold mb-2">{discipline}</h1>
+                <p className="text-lg text-muted-foreground">Course Syllabus Blueprint</p>
+              </div>
+              {!loading && syllabusData && (
+                <Button
+                  onClick={saveSyllabus}
+                  disabled={saving || isSaved}
+                  variant="outline"
+                  className="flex-shrink-0"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : isSaved ? (
+                    <BookmarkCheck className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Bookmark className="h-4 w-4 mr-2" />
+                  )}
+                  {isSaved ? 'Saved' : 'Save for Later'}
+                </Button>
+              )}
             </div>
+            
+            {/* Provenance Badge - shows content source */}
             {!loading && syllabusData && (
-              <Button
-                onClick={saveSyllabus}
-                disabled={saving || isSaved}
-                variant="outline"
-                className="flex-shrink-0"
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : isSaved ? (
-                  <BookmarkCheck className="h-4 w-4 mr-2" />
-                ) : (
-                  <Bookmark className="h-4 w-4 mr-2" />
+              <div className="flex items-center gap-3 flex-wrap">
+                <ProvenanceBadge 
+                  source={determineContentSource({
+                    fromCache: useCache,
+                    isAdHoc: syllabusData.isAdHoc,
+                    isAIEnhanced: syllabusData.isAIEnhanced,
+                    source: syllabusData.source
+                  })} 
+                  size="md"
+                />
+                {syllabusData.rawSources && syllabusData.rawSources.length > 0 && (
+                  <span className="text-sm text-muted-foreground">
+                    • {syllabusData.rawSources.length} source{syllabusData.rawSources.length !== 1 ? 's' : ''}
+                  </span>
                 )}
-                {isSaved ? 'Saved' : 'Save for Later'}
-              </Button>
+              </div>
+            )}
+            
+            {/* Provenance Disclaimer for AI-generated content */}
+            {!loading && syllabusData && (
+              <ProvenanceDisclaimer 
+                source={determineContentSource({
+                  fromCache: useCache,
+                  isAdHoc: syllabusData.isAdHoc,
+                  isAIEnhanced: syllabusData.isAIEnhanced,
+                  source: syllabusData.source
+                })}
+                className="mt-4"
+              />
             )}
           </div>
 

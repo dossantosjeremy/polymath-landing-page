@@ -5,9 +5,11 @@ import { SubDomainCarousel } from "./SubDomainCarousel";
 import { SpecializationCarousel } from "./SpecializationCarousel";
 import { ExploreBreadcrumb } from "./ExploreBreadcrumb";
 import { Button } from "@/components/ui/button";
-import { BookOpen, Sparkles, Check } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Building2, BookOpen, Sparkles } from "lucide-react";
 import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
+import { ProvenanceBadge } from "@/components/ProvenanceBadge";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ExploreState {
@@ -25,6 +27,7 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
   const navigate = useNavigate();
   const [state, setState] = useState<ExploreState>({});
   const [hasL3, setHasL3] = useState<boolean | null>(null);
+  const [includeAIAugmentation, setIncludeAIAugmentation] = useState(false);
 
   // Determine the deepest selected discipline for cache checking
   const selectedDiscipline = state.selectedSpecialization || state.selectedSubDomain || state.selectedDomain || '';
@@ -202,55 +205,81 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
         />
       )}
 
-      {/* CTA Section */}
+      {/* CTA Section - Database First */}
       {canGenerate() && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 p-6 bg-card border rounded-lg">
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 p-6 bg-card border rounded-lg space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Selected discipline:</p>
               <p className="font-semibold text-lg">{getFullPath()}</p>
               {cachedSyllabus && cacheDate && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
-                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <ProvenanceBadge source="database" size="sm" />
+                  <span className="text-xs text-muted-foreground">
+                    Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
               )}
             </div>
             
-            <div className="flex flex-wrap gap-2">
-              {cachedSyllabus ? (
-                <>
-                  <Button onClick={handleLoadCached} className="gap-2" disabled={cacheLoading}>
-                    <Check className="h-4 w-4" />
-                    Load Cached
-                  </Button>
-                  <Button onClick={() => handleGenerate(false)} variant="outline" className="gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Traditional
-                  </Button>
-                  <Button 
-                    onClick={() => handleGenerate(true)} 
-                    variant="outline" 
-                    className="gap-2 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/30"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    AI-Enhanced
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button onClick={() => handleGenerate(false)} className="gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Traditional
-                  </Button>
-                  <Button 
-                    onClick={() => handleGenerate(true)} 
-                    variant="outline" 
-                    className="gap-2 bg-gradient-to-r from-primary/10 to-accent/10 border-primary/30"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    AI-Enhanced
-                  </Button>
-                </>
+            <div className="flex flex-col gap-3 w-full sm:w-auto">
+              {/* Primary action: Load/Generate Academic Syllabus */}
+              <Button 
+                onClick={() => handleGenerate(includeAIAugmentation)} 
+                className="gap-2 w-full sm:w-auto" 
+                size="lg"
+                disabled={cacheLoading}
+              >
+                <Building2 className="h-4 w-4" />
+                {cachedSyllabus ? 'Load Academic Syllabus' : 'Generate Academic Syllabus'}
+              </Button>
+              
+              {/* AI Augmentation toggle */}
+              <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                <Checkbox 
+                  checked={includeAIAugmentation}
+                  onCheckedChange={(checked) => setIncludeAIAugmentation(!!checked)}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-violet-500" />
+                    <span className="font-medium text-sm">Include AI Augmentation</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Discover industry authorities and additional sources
+                  </p>
+                </div>
+              </label>
+              
+              {/* Secondary: Generate Fresh (only if cached exists) */}
+              {cachedSyllabus && (
+                <Button 
+                  onClick={() => {
+                    // Force fresh generation by not using cache
+                    const discipline = state.selectedSpecialization || state.selectedSubDomain || state.selectedDomain;
+                    if (!discipline) return;
+                    const params = new URLSearchParams({
+                      discipline,
+                      path: getFullPath(),
+                      depth: globalConstraints.depth,
+                      hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
+                      skillLevel: globalConstraints.skillLevel,
+                    });
+                    if (globalConstraints.goalDate) {
+                      params.set('goalDate', globalConstraints.goalDate.toISOString());
+                    }
+                    if (includeAIAugmentation) {
+                      params.set('useAIEnhanced', 'true');
+                    }
+                    navigate(`/syllabus?${params.toString()}`);
+                  }} 
+                  variant="ghost" 
+                  size="sm"
+                  className="gap-2"
+                >
+                  <BookOpen className="h-3 w-3" />
+                  Generate Fresh Instead
+                </Button>
               )}
             </div>
           </div>
