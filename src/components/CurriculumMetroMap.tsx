@@ -1,10 +1,11 @@
-import { CheckCircle2, Circle, Award, Lock, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Award, Lock, ChevronDown, ChevronUp, Sparkles, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ViewMode, MissionControlStep } from "@/hooks/useMissionControl";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CurriculumMetroMapProps {
   steps: MissionControlStep[];
@@ -96,6 +97,7 @@ export function CurriculumMetroMap({
                 steps.map((step, index) => {
                   const isSelected = selectedSteps.has(index);
                   const isCapstone = isCapstoneStep(step);
+                  const isFromCustomPillar = !!step.fromCustomPillar;
 
                   return (
                     <div key={index} className="relative">
@@ -106,7 +108,9 @@ export function CurriculumMetroMap({
                           isSelected
                             ? isCapstone
                               ? "bg-[hsl(var(--gold))]"
-                              : "bg-primary"
+                              : isFromCustomPillar
+                                ? "bg-accent border-2 border-dashed border-accent-foreground/50"
+                                : "bg-primary"
                             : "bg-muted border-2 border-border"
                         )}>
                           {isCapstone && (
@@ -115,24 +119,46 @@ export function CurriculumMetroMap({
                               isSelected ? "text-white" : "text-muted-foreground"
                             )} />
                           )}
+                          {isFromCustomPillar && !isCapstone && isSelected && (
+                            <Plus className="h-3 w-3 text-accent-foreground" />
+                          )}
                         </div>
                       </div>
 
                       {/* Station Card */}
                       <div className={cn(
-                        "ml-2 p-3 rounded-lg border transition-all",
+                        "ml-2 p-3 rounded-lg transition-all",
                         isSelected
                           ? isCapstone
-                            ? "bg-[hsl(var(--gold))]/5 border-[hsl(var(--gold))]/30"
-                            : step.isAIDiscovered
-                              ? "bg-violet-50/50 border-violet-300/50 dark:bg-violet-950/20 dark:border-violet-400/30"
-                              : "bg-primary/5 border-primary/30"
-                          : "bg-muted/30 border-border opacity-60"
+                            ? "bg-[hsl(var(--gold))]/5 border border-[hsl(var(--gold))]/30"
+                            : isFromCustomPillar
+                              ? "bg-accent/10 border-2 border-dashed border-accent/50"
+                              : step.isAIDiscovered
+                                ? "bg-violet-50/50 border border-violet-300/50 dark:bg-violet-950/20 dark:border-violet-400/30"
+                                : "bg-primary/5 border border-primary/30"
+                          : "bg-muted/30 border border-border opacity-60"
                       )}>
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
+                            {/* Custom Focus Badge */}
+                            {isFromCustomPillar && isSelected && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Badge 
+                                    variant="outline" 
+                                    className="text-xs mb-1.5 border-dashed border-accent text-accent-foreground gap-1 cursor-help"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                    From: {step.fromCustomPillar}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Added because of your custom focus area</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
                             {/* AI Discovered Badge */}
-                            {step.isAIDiscovered && isSelected && (
+                            {step.isAIDiscovered && isSelected && !isFromCustomPillar && (
                               <Badge 
                                 variant="outline" 
                                 className="text-xs mb-1.5 border-violet-300 text-violet-600 dark:border-violet-400 dark:text-violet-400 gap-1"
@@ -156,9 +182,11 @@ export function CurriculumMetroMap({
                               "text-xs px-1.5 py-0.5 rounded mt-2 inline-block",
                               isCapstone
                                 ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]"
-                                : step.isAIDiscovered
-                                  ? "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
-                                  : "bg-primary/10 text-primary"
+                                : isFromCustomPillar
+                                  ? "bg-accent/20 text-accent-foreground"
+                                  : step.isAIDiscovered
+                                    ? "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
+                                    : "bg-primary/10 text-primary"
                             )}>
                               {step.tag}
                             </span>

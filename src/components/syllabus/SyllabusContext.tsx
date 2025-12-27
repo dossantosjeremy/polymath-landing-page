@@ -14,6 +14,7 @@ export interface Module {
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
   isAIDiscovered?: boolean;
+  fromCustomPillar?: string; // Track which custom focus area this step came from
 }
 
 export interface DiscoveredSource {

@@ -15,6 +15,7 @@ export interface MissionControlStep {
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
   isAIDiscovered?: boolean;
+  fromCustomPillar?: string; // Track which custom focus area this step came from
   originalIndex: number;
 }
 
