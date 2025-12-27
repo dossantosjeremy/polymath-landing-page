@@ -120,43 +120,38 @@ export function SyllabusTab() {
         <ProvenanceDisclaimer source={contentSource} className="mt-4" />
       </div>
 
-      {/* Topic Focus Pills - ALWAYS show for ad-hoc/AI-enhanced syllabi to allow adding custom topics */}
-      {(syllabusData.isAdHoc || syllabusData.isAIEnhanced || 
-        (syllabusData.topicPillars && syllabusData.topicPillars.length > 0) || 
-        customPillars.length > 0) && (
-        <CustomFocusPills
-          pillars={syllabusData.topicPillars || []}
-          selectedPillars={selectedPillars}
-          customPillars={customPillars}
-          onTogglePillar={togglePillar}
-          onAddCustomPillar={addCustomPillar}
-          onRemoveCustomPillar={removeCustomPillar}
-          onApplyFocus={regenerateWithPillars}
-          onResetToDefaults={() => {
-            // Reset custom pillars
-            customPillars.forEach(p => removeCustomPillar(p));
-            // Reset to default: select core and important
-            if (syllabusData.topicPillars) {
-              const defaultSelected = new Set(
-                syllabusData.topicPillars
-                  .filter(p => p.priority === 'core' || p.priority === 'important')
-                  .map(p => p.name)
-              );
-              // Toggle all off then toggle defaults on
-              syllabusData.topicPillars.forEach(p => {
-                if (selectedPillars.has(p.name) && !defaultSelected.has(p.name)) {
-                  togglePillar(p.name);
-                } else if (!selectedPillars.has(p.name) && defaultSelected.has(p.name)) {
-                  togglePillar(p.name);
-                }
-              });
-            }
-          }}
-          isApplying={isApplyingPillars}
-          alwaysShowAddButton={syllabusData.isAdHoc || syllabusData.isAIEnhanced}
-        />
-      )}
-
+      {/* Topic Focus Pills - always visible so users can add focus areas at any time */}
+      <CustomFocusPills
+        pillars={syllabusData.topicPillars || []}
+        selectedPillars={selectedPillars}
+        customPillars={customPillars}
+        onTogglePillar={togglePillar}
+        onAddCustomPillar={addCustomPillar}
+        onRemoveCustomPillar={removeCustomPillar}
+        onApplyFocus={regenerateWithPillars}
+        onResetToDefaults={() => {
+          // Reset custom pillars
+          customPillars.forEach(p => removeCustomPillar(p));
+          // Reset to default: select core and important
+          if (syllabusData.topicPillars) {
+            const defaultSelected = new Set(
+              syllabusData.topicPillars
+                .filter(p => p.priority === 'core' || p.priority === 'important')
+                .map(p => p.name)
+            );
+            // Toggle all off then toggle defaults on
+            syllabusData.topicPillars.forEach(p => {
+              if (selectedPillars.has(p.name) && !defaultSelected.has(p.name)) {
+                togglePillar(p.name);
+              } else if (!selectedPillars.has(p.name) && defaultSelected.has(p.name)) {
+                togglePillar(p.name);
+              }
+            });
+          }
+        }}
+        isApplying={isApplyingPillars}
+        alwaysShowAddButton={true}
+      />
       {/* Learning Path Settings */}
       <div className="p-4 border rounded-lg bg-card">
         <h3 className="font-semibold mb-4">Learning Path Configuration</h3>
