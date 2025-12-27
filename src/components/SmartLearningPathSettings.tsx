@@ -8,19 +8,22 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChevronDown, Settings, Info, Clock, Calendar, Target, AlertTriangle, CheckCircle2, XCircle, Sparkles, Loader2 } from "lucide-react";
-import { format, addWeeks } from "date-fns";
+import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import {
   SmartConstraints,
-  FeasibilityResult,
   computeRecommendedDepth,
   validateFeasibility,
   calculateCompletionDate,
-  toLegacyConstraints,
   DEPTH_DESCRIPTIONS,
   DEPTH_COVERAGE,
+  sliderIndexToDepth,
+  depthToSliderIndex,
+  computeRecommendedHoursFromDepth,
 } from "@/lib/learningPathConstraints";
+import { LearningDepthSlider, DEPTH_STEPS } from "@/components/ui/learning-depth-slider";
 
 // Re-export types for backward compatibility
 export type { SmartConstraints };
@@ -82,11 +85,17 @@ export const SmartLearningPathSettings = ({
 }: SmartLearningPathSettingsProps) => {
   const [open, setOpen] = useState(defaultOpen);
   
-  // User inputs
+  // Configuration mode: 'time' or 'coverage'
+  const [configMode, setConfigMode] = useState<'time' | 'coverage'>('time');
+  
+  // User inputs - Time mode
   const [skillLevel, setSkillLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
   const [hoursPerWeek, setHoursPerWeek] = useState<number>(5);
   const [durationValue, setDurationValue] = useState<number>(4);
   const [durationUnit, setDurationUnit] = useState<'weeks' | 'months'>('weeks');
+  
+  // User inputs - Coverage mode
+  const [coverageIndex, setCoverageIndex] = useState<0 | 1 | 2>(1); // Default to "Balanced"
   
   // Generation progress
   const [elapsedTime, setElapsedTime] = useState(0);
@@ -130,7 +139,7 @@ export const SmartLearningPathSettings = ({
     }
   }, [elapsedTime, isGenerating, totalEstimatedTime]);
 
-  // Computed values
+  // Computed values - Time mode
   const durationWeeks = useMemo(() => {
     return durationUnit === 'months' ? durationValue * 4 : durationValue;
   }, [durationValue, durationUnit]);
@@ -139,30 +148,79 @@ export const SmartLearningPathSettings = ({
     return hoursPerWeek * durationWeeks;
   }, [hoursPerWeek, durationWeeks]);
 
-  const depthResult = useMemo(() => {
+  const depthResultFromTime = useMemo(() => {
     return computeRecommendedDepth(totalAvailableHours, skillLevel);
   }, [totalAvailableHours, skillLevel]);
 
+  // Computed values - Coverage mode
+  const selectedDepth = useMemo(() => {
+    return sliderIndexToDepth(coverageIndex);
+  }, [coverageIndex]);
+
+  const estimatedHoursFromCoverage = useMemo(() => {
+    return computeRecommendedHoursFromDepth(selectedDepth, skillLevel);
+  }, [selectedDepth, skillLevel]);
+
+  // Final values based on mode
+  const finalDepth = useMemo(() => {
+    if (configMode === 'coverage') {
+      return selectedDepth;
+    }
+    return depthResultFromTime.depth;
+  }, [configMode, selectedDepth, depthResultFromTime.depth]);
+
+  const finalTotalHours = useMemo(() => {
+    if (configMode === 'coverage') {
+      return estimatedHoursFromCoverage.typicalHours;
+    }
+    return totalAvailableHours;
+  }, [configMode, estimatedHoursFromCoverage.typicalHours, totalAvailableHours]);
+
+  const finalDurationWeeks = useMemo(() => {
+    if (configMode === 'coverage') {
+      return estimatedHoursFromCoverage.recommendedWeeksAt5HoursPerWeek;
+    }
+    return durationWeeks;
+  }, [configMode, estimatedHoursFromCoverage.recommendedWeeksAt5HoursPerWeek, durationWeeks]);
+
   const feasibility = useMemo(() => {
+    if (configMode === 'coverage') {
+      // Coverage mode is always valid since we derive time from depth
+      return {
+        status: 'valid' as const,
+        message: 'Your plan is achievable! Time estimates are based on your chosen coverage level.',
+        suggestions: [],
+      };
+    }
     return validateFeasibility(hoursPerWeek, durationWeeks, skillLevel);
-  }, [hoursPerWeek, durationWeeks, skillLevel]);
+  }, [configMode, hoursPerWeek, durationWeeks, skillLevel]);
 
   const estimatedCompletionDate = useMemo(() => {
-    return calculateCompletionDate(durationWeeks);
-  }, [durationWeeks]);
+    return calculateCompletionDate(finalDurationWeeks);
+  }, [finalDurationWeeks]);
 
-  const isValid = feasibility.status !== 'impossible';
-  const isCustomSettings = hoursPerWeek !== 5 || durationWeeks !== 4 || skillLevel !== 'beginner';
+  const isValid = feasibility.status !== 'impossible' && finalDepth !== null;
+  const isCustomSettings = hoursPerWeek !== 5 || durationWeeks !== 4 || skillLevel !== 'beginner' || configMode === 'coverage';
 
   const handleGenerate = () => {
-    if (!isValid || !depthResult.depth) return;
+    if (!isValid || !finalDepth) return;
     
     onGenerate({
-      depth: depthResult.depth,
-      hoursPerWeek,
+      depth: finalDepth,
+      hoursPerWeek: configMode === 'coverage' ? 5 : hoursPerWeek, // Default 5 hrs/week for coverage mode
       goalDate: estimatedCompletionDate,
       skillLevel,
     });
+  };
+
+  // Sync coverage index when time mode depth changes
+  const handleModeChange = (mode: string) => {
+    const newMode = mode as 'time' | 'coverage';
+    if (newMode === 'coverage' && depthResultFromTime.depth) {
+      // Sync slider to match current computed depth from time
+      setCoverageIndex(depthToSliderIndex(depthResultFromTime.depth));
+    }
+    setConfigMode(newMode);
   };
 
   const handleApplySuggestion = (action: () => Partial<{ hoursPerWeek: number; durationWeeks: number; skillLevel: 'beginner' | 'intermediate' | 'advanced' }>) => {
@@ -226,64 +284,109 @@ export const SmartLearningPathSettings = ({
             </p>
           </div>
 
-          {/* Step 2: Hours per Week */}
-          <div className="space-y-2">
+          {/* Step 2: Configuration Mode Toggle */}
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">2</span>
-              <Label htmlFor="hours-per-week" className="text-base font-medium">How much time can you commit each week?</Label>
+              <Label className="text-base font-medium">How do you want to plan?</Label>
             </div>
-            <div className="flex items-center gap-2 max-w-xs">
-              <Input
-                id="hours-per-week"
-                type="number"
-                min={1}
-                max={80}
-                value={hoursPerWeek}
-                onChange={(e) => setHoursPerWeek(Math.max(1, Math.min(80, parseInt(e.target.value) || 1)))}
-                className="w-24"
-              />
-              <span className="text-muted-foreground">hours</span>
-            </div>
-            {hoursPerWeek > 40 && (
-              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm pl-8">
-                <AlertTriangle className="h-4 w-4" />
-                <span>That's quite intensive! Make sure you have the time.</span>
-              </div>
-            )}
-            <p className="text-sm text-muted-foreground pl-8">
-              Most learners dedicate 3-10 hours per week
-            </p>
+            
+            <Tabs value={configMode} onValueChange={handleModeChange} className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="time" className="text-sm">
+                  <Clock className="h-4 w-4 mr-2" />
+                  By Time & Schedule
+                </TabsTrigger>
+                <TabsTrigger value="coverage" className="text-sm">
+                  <Target className="h-4 w-4 mr-2" />
+                  By Coverage Depth
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
 
-          {/* Step 3: Duration */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">3</span>
-              <Label className="text-base font-medium">How long do you want to learn?</Label>
-            </div>
-            <div className="flex items-center gap-2 max-w-xs">
-              <Input
-                type="number"
-                min={1}
-                max={durationUnit === 'months' ? 24 : 52}
-                value={durationValue}
-                onChange={(e) => setDurationValue(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-24"
+          {/* Time Mode Inputs */}
+          {configMode === 'time' && (
+            <>
+              {/* Hours per Week */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">3</span>
+                  <Label htmlFor="hours-per-week" className="text-base font-medium">How much time can you commit each week?</Label>
+                </div>
+                <div className="flex items-center gap-2 max-w-xs">
+                  <Input
+                    id="hours-per-week"
+                    type="number"
+                    min={1}
+                    max={80}
+                    value={hoursPerWeek}
+                    onChange={(e) => setHoursPerWeek(Math.max(1, Math.min(80, parseInt(e.target.value) || 1)))}
+                    className="w-24"
+                  />
+                  <span className="text-muted-foreground">hours</span>
+                </div>
+                {hoursPerWeek > 40 && (
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm pl-8">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>That's quite intensive! Make sure you have the time.</span>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground pl-8">
+                  Most learners dedicate 3-10 hours per week
+                </p>
+              </div>
+
+              {/* Duration */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">4</span>
+                  <Label className="text-base font-medium">How long do you want to learn?</Label>
+                </div>
+                <div className="flex items-center gap-2 max-w-xs">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={durationUnit === 'months' ? 24 : 52}
+                    value={durationValue}
+                    onChange={(e) => setDurationValue(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-24"
+                  />
+                  <Select value={durationUnit} onValueChange={(value: any) => setDurationUnit(value)}>
+                    <SelectTrigger className="w-28">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weeks">Weeks</SelectItem>
+                      <SelectItem value="months">Months</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-sm text-muted-foreground pl-8">
+                  Longer durations unlock deeper coverage
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Coverage Mode Input */}
+          {configMode === 'coverage' && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-medium">3</span>
+                <Label className="text-base font-medium">How complete do you want your learning to be?</Label>
+              </div>
+              <LearningDepthSlider
+                value={coverageIndex}
+                onChange={(index) => setCoverageIndex(index as 0 | 1 | 2)}
+                estimatedHours={estimatedHoursFromCoverage.typicalHours}
+                estimatedWeeks={estimatedHoursFromCoverage.recommendedWeeksAt5HoursPerWeek}
               />
-              <Select value={durationUnit} onValueChange={(value: any) => setDurationUnit(value)}>
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weeks">Weeks</SelectItem>
-                  <SelectItem value="months">Months</SelectItem>
-                </SelectContent>
-              </Select>
+              <p className="text-sm text-muted-foreground mt-4">
+                Time estimates assume ~5 hours per week. Adjust based on your availability.
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground pl-8">
-              Longer durations unlock deeper coverage
-            </p>
-          </div>
+          )}
 
           {/* Your Learning Plan Summary */}
           <div className="rounded-lg border-2 border-primary/20 bg-primary/5 p-5 space-y-4">
@@ -296,7 +399,7 @@ export const SmartLearningPathSettings = ({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Target className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">Recommended Depth:</span>
+                <span className="text-sm">{configMode === 'coverage' ? 'Selected Depth:' : 'Recommended Depth:'}</span>
               </div>
               <TooltipProvider>
                 <Tooltip>
@@ -305,21 +408,23 @@ export const SmartLearningPathSettings = ({
                       <Badge 
                         className={cn(
                           "text-sm font-medium",
-                          getDepthBadgeColor(depthResult.depth)
+                          getDepthBadgeColor(finalDepth)
                         )}
                       >
-                        {depthResult.depth ? depthResult.depth.charAt(0).toUpperCase() + depthResult.depth.slice(1) : 'Insufficient Time'}
+                        {finalDepth ? finalDepth.charAt(0).toUpperCase() + finalDepth.slice(1) : 'Insufficient Time'}
                       </Badge>
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
                     <p>
-                      {depthResult.depth 
-                        ? DEPTH_DESCRIPTIONS[depthResult.depth]
+                      {finalDepth 
+                        ? DEPTH_DESCRIPTIONS[finalDepth]
                         : 'Your available time is not enough for even an overview. Please increase hours or duration.'}
                     </p>
                     <p className="text-xs mt-1 text-muted-foreground">
-                      Depth is automatically determined based on your available time.
+                      {configMode === 'coverage' 
+                        ? 'You selected this depth level. Time estimates are derived from it.'
+                        : 'Depth is automatically determined based on your available time.'}
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -332,7 +437,11 @@ export const SmartLearningPathSettings = ({
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm">Total:</span>
               </div>
-              <span className="font-medium">{totalAvailableHours} hours over {durationWeeks} weeks</span>
+              <span className="font-medium">
+                {configMode === 'coverage' 
+                  ? `~${finalTotalHours} hours over ~${finalDurationWeeks} weeks`
+                  : `${finalTotalHours} hours over ${finalDurationWeeks} weeks`}
+              </span>
             </div>
 
             {/* Estimated Completion */}
@@ -345,13 +454,13 @@ export const SmartLearningPathSettings = ({
             </div>
 
             {/* Coverage */}
-            {depthResult.depth && (
+            {finalDepth && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Info className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">Covers:</span>
                 </div>
-                <span className="font-medium">~{DEPTH_COVERAGE[depthResult.depth]}% of comprehensive curriculum</span>
+                <span className="font-medium">~{DEPTH_COVERAGE[finalDepth]}% of comprehensive curriculum</span>
               </div>
             )}
           </div>
