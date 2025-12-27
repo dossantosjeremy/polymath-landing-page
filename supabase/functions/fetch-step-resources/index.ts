@@ -58,11 +58,26 @@ function sanitizeJSON(jsonString: string): string {
     .trim();
 }
 
-// Search for MOOC courses from major platforms using Perplexity
-async function searchMOOCVideoLessons(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+// Atomic MOOC Resource interface - individual lessons, not full courses
+interface AtomicMOOCResource {
+  type: 'video' | 'text' | 'lesson' | 'exercise';
+  title: string;           // Lesson/module title
+  url: string;             // Direct lesson URL (or course URL if unavailable)
+  provider: string;        // "Coursera" | "Udemy" | "Khan Academy" | etc.
+  course_title: string;    // Parent course name
+  course_url: string;      // Course landing page
+  authority_level: 'academic' | 'professional' | 'community';
+  duration?: string;       // Lesson duration (e.g., "15 mins")
+  instructor?: string;
+  description?: string;
+  is_atomic: boolean;      // true = direct lesson, false = course fallback
+}
+
+// Search for ATOMIC learning units (individual lessons) from MOOC platforms
+async function searchAtomicLearningUnits(stepTitle: string, discipline: string, blacklist: string[]): Promise<AtomicMOOCResource[]> {
   const apiKey = Deno.env.get('PERPLEXITY_API_KEY');
   if (!apiKey) {
-    console.log('PERPLEXITY_API_KEY not configured, skipping MOOC search');
+    console.log('PERPLEXITY_API_KEY not configured, skipping atomic MOOC search');
     return [];
   }
 
@@ -71,42 +86,56 @@ async function searchMOOCVideoLessons(stepTitle: string, discipline: string, bla
     .replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '')
     .trim();
   
-  console.log('🎓 Searching for MOOC courses about:', cleanedTitle);
+  console.log('🎓 Searching for ATOMIC learning units about:', cleanedTitle);
 
   const blacklistClause = blacklist.length > 0 
     ? `\nDO NOT return these URLs: ${blacklist.join(', ')}`
     : '';
 
-  const prompt = `SEARCH for online courses and educational content about: "${cleanedTitle}" in ${discipline}
+  // STRICT ATOMIC CONSTRAINT PROMPT
+  const prompt = `SEARCH for INDIVIDUAL LESSONS, VIDEOS, or MODULES (NOT full courses) about: "${cleanedTitle}" in ${discipline}
 
-Target platforms (search these specific sites):
-- coursera.org/learn/* (Coursera courses)
-- edx.org/course/* (edX courses)  
-- khanacademy.org (Khan Academy - free videos and courses)
-- udemy.com/course/* (Udemy courses)
-- linkedin.com/learning/* (LinkedIn Learning)
-- skillshare.com (Skillshare classes)
+CRITICAL CONSTRAINT:
+- Select ONLY atomic learning units that directly match this SPECIFIC topic
+- DO NOT include full courses as primary resources
+- Each resource must be a SINGLE lesson, video, or reading (under 30 minutes)
 
-REQUIREMENTS:
-1. Find relevant courses that teach this specific topic
-2. Prefer courses with good ratings/reviews if visible
-3. Include free courses and courses with free preview content
-4. Khan Academy content is always free - prioritize if available
+Preferred sources (in order):
+1. Coursera individual lectures: coursera.org/learn/COURSE/lecture/...
+2. edX specific modules/videos: edx.org/course/.../video/...
+3. Khan Academy individual videos: khanacademy.org/.../v/...
+4. LinkedIn Learning individual videos: linkedin.com/learning/.../lesson/...
+5. YouTube videos from official course channels
+
+For EACH resource, you MUST find:
+- The SPECIFIC lesson/video URL (not the course landing page)
+- The parent course name (for attribution)
+- The estimated duration (prefer under 20 minutes)
+
+HARD LIMITS:
+- Max 2 resources TOTAL
+- Max 1 resource per provider
+- Prefer content under 20 minutes
+
+If a URL points to a full course landing page (not a specific lesson), mark is_atomic: false.
 ${blacklistClause}
 
 Return ONLY a JSON array (no markdown, no explanation):
 [
   {
-    "url": "course URL",
-    "title": "Course title",
-    "source": "Platform name (Coursera/Khan Academy/edX/Udemy/LinkedIn Learning/Skillshare)",
-    "duration": "course length if visible (e.g., '4 weeks', '2 hours')",
-    "instructor": "Instructor name if visible",
-    "description": "Brief description of what the course covers"
+    "type": "video",
+    "title": "Specific lesson title",
+    "url": "direct lesson URL",
+    "provider": "Coursera",
+    "course_title": "Parent Course Name",
+    "course_url": "course landing page URL",
+    "authority_level": "academic",
+    "duration": "12 mins",
+    "instructor": "Instructor Name",
+    "description": "What this specific lesson covers",
+    "is_atomic": true
   }
-]
-
-Find 5-10 relevant courses.`;
+]`;
 
   try {
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
@@ -118,7 +147,7 @@ Find 5-10 relevant courses.`;
       body: JSON.stringify({
         model: 'sonar',
         messages: [
-          { role: 'system', content: 'You are a learning resource discovery assistant. Return ONLY valid JSON arrays, no markdown formatting.' },
+          { role: 'system', content: 'You are a learning resource discovery assistant specialized in finding INDIVIDUAL lessons and videos, NOT full courses. Return ONLY valid JSON arrays, no markdown formatting.' },
           { role: 'user', content: prompt }
         ],
         max_tokens: 2000,
@@ -127,7 +156,7 @@ Find 5-10 relevant courses.`;
     });
 
     if (!response.ok) {
-      console.error('Perplexity MOOC search failed:', response.status);
+      console.error('Perplexity atomic MOOC search failed:', response.status);
       return [];
     }
 
@@ -135,68 +164,99 @@ Find 5-10 relevant courses.`;
     const content = data.choices?.[0]?.message?.content || '[]';
     
     // Log raw response for debugging
-    console.log('MOOC search raw response (first 500 chars):', content.substring(0, 500));
+    console.log('Atomic MOOC search raw response (first 500 chars):', content.substring(0, 500));
     
     // Parse JSON from response with sanitization and fallback
-    let courses: any[] = [];
+    let lessons: AtomicMOOCResource[] = [];
     try {
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       if (jsonMatch) {
         // First try direct parse
         try {
-          courses = JSON.parse(jsonMatch[0]);
+          lessons = JSON.parse(jsonMatch[0]);
         } catch (directParseError) {
           // Sanitize and retry
           console.log('Direct JSON parse failed, attempting sanitization...');
           const sanitized = sanitizeJSON(jsonMatch[0]);
-          courses = JSON.parse(sanitized);
+          lessons = JSON.parse(sanitized);
         }
       }
     } catch (parseError) {
-      console.error('Failed to parse MOOC courses JSON after sanitization:', parseError);
+      console.error('Failed to parse atomic lessons JSON after sanitization:', parseError);
       // Fallback: Try to extract individual objects
-      console.log('Attempting individual object extraction from MOOC response...');
+      console.log('Attempting individual object extraction from atomic response...');
       const objectMatches = content.matchAll(/\{[^{}]*"url"\s*:\s*"[^"]+[^{}]*\}/g);
       for (const match of objectMatches) {
         try {
           const obj = JSON.parse(sanitizeJSON(match[0]));
-          if (obj.url) courses.push(obj);
+          if (obj.url) lessons.push(obj);
         } catch (e) {
           // Skip malformed individual objects
         }
       }
-      console.log(`Extracted ${courses.length} courses via fallback`);
+      console.log(`Extracted ${lessons.length} lessons via fallback`);
     }
 
-    if (!Array.isArray(courses)) {
+    if (!Array.isArray(lessons)) {
       return [];
     }
 
-    console.log(`✓ Found ${courses.length} MOOC courses`);
+    // Determine if each URL is truly atomic
+    const enhancedLessons = lessons.map(lesson => {
+      const url = lesson.url?.toLowerCase() || '';
+      
+      // Detect if this is a course landing page (NOT atomic)
+      const isCourseLandingPage = 
+        (url.includes('coursera.org/learn/') && !url.includes('/lecture/') && !url.includes('/video/') && !url.includes('/quiz/')) ||
+        (url.includes('edx.org/course') && !url.includes('/video/') && !url.includes('/block/')) ||
+        (url.includes('udemy.com/course/') && !url.includes('/learn/') && !url.includes('/lecture/')) ||
+        (url.includes('linkedin.com/learning/') && !url.includes('/lesson/'));
+      
+      // Mark as atomic only if it's a specific lesson URL
+      const is_atomic = !isCourseLandingPage && (
+        url.includes('/lecture/') ||
+        url.includes('/video/') ||
+        url.includes('/lesson/') ||
+        url.includes('/v/') ||  // Khan Academy
+        url.includes('youtube.com/watch') ||
+        url.includes('youtu.be/')
+      );
 
-    // Transform to standard format
-    return courses
-      .filter((course: any) => {
-        const url = course.url?.toLowerCase() || '';
-        // Only filter out obvious non-course pages
-        const isInvalidPage = url.includes('pricing') || url.includes('enterprise') || url.includes('business');
-        return course.url && !isInvalidPage && !blacklist.includes(course.url);
-      })
-      .slice(0, 10)
-      .map((course: any) => ({
-        type: 'mooc' as const,
-        url: course.url,
-        title: course.title || 'Online Course',
-        source: inferMOOCSource(course.url, course.source),
-        duration: course.duration || '',
-        courseName: '',
-        author: course.instructor || '',
-        description: course.description || '',
-        verified: false,
-        thumbnailUrl: ''
-      }));
+      return {
+        ...lesson,
+        provider: lesson.provider || inferMOOCSource(lesson.url),
+        authority_level: lesson.authority_level || (
+          url.includes('coursera.org') || url.includes('edx.org') || url.includes('khanacademy.org')
+            ? 'academic'
+            : url.includes('udemy.com') || url.includes('linkedin.com')
+              ? 'professional'
+              : 'community'
+        ),
+        is_atomic: lesson.is_atomic !== false ? is_atomic : false,
+        course_title: lesson.course_title || '',
+        course_url: lesson.course_url || ''
+      };
+    });
+
+    // FALLBACK STRATEGY: If no atomic content found, return empty and let YouTube/articles handle it
+    const atomicOnly = enhancedLessons.filter(l => l.is_atomic);
+    if (atomicOnly.length === 0) {
+      console.log('⚠️ No atomic MOOC content found, falling back to videos/articles');
+      // Still return non-atomic with warning, but limited
+      return enhancedLessons
+        .filter(l => l.url && !blacklist.includes(l.url))
+        .slice(0, 2);
+    }
+
+    console.log(`✓ Found ${atomicOnly.length} atomic learning units`);
+
+    // Return only atomic content, max 2
+    return atomicOnly
+      .filter(l => l.url && !blacklist.includes(l.url))
+      .slice(0, 2);
+      
   } catch (error) {
-    console.error('MOOC search error:', error);
+    console.error('Atomic MOOC search error:', error);
     return [];
   }
 }
@@ -312,7 +372,7 @@ interface StepResources {
   }>;
 }
 
-// Scoring function for resources
+// Scoring function for resources - enhanced for atomic content
 function scoreResource(
   resource: any, 
   syllabusContent: string,
@@ -360,27 +420,36 @@ function scoreResource(
     }
   }
 
-  // Criterion C: Atomic Scope (20 points or -50 penalty)
+  // Criterion C: Atomic Scope (30 points for atomic, -30 penalty for full courses)
   const url = resource.url || '';
-  const isLandingPage = 
-    (url.includes('/learn/') && !url.includes('/lecture/') && !url.includes('/video/')) ||
-    (url.includes('coursera.org') && !url.includes('/lecture')) ||
-    (url.includes('edx.org') && url.endsWith('/course'));
-  const isBookSalesPage = url.includes('amazon.com') || url.includes('/buy') || url.includes('/purchase');
-  const isSpecificContent = 
-    url.includes('youtube.com/watch') ||
-    url.includes('youtu.be/') ||
-    url.includes('.pdf') ||
-    url.includes('/article/') ||
-    url.includes('/entry/') ||
-    url.includes('/wiki/');
-
-  if (isLandingPage || isBookSalesPage) {
-    atomicScope = -50; // Penalty for container pages
-  } else if (isSpecificContent) {
-    atomicScope = 20; // Reward for atomic content
+  
+  // Check for explicit is_atomic flag from AtomicMOOCResource
+  if (resource.is_atomic === true) {
+    atomicScope = 30; // High reward for confirmed atomic content
+  } else if (resource.is_atomic === false) {
+    atomicScope = -30; // Penalty for full course fallback
   } else {
-    atomicScope = 10; // Neutral
+    // Legacy logic for non-MOOC resources
+    const isLandingPage = 
+      (url.includes('/learn/') && !url.includes('/lecture/') && !url.includes('/video/')) ||
+      (url.includes('coursera.org') && !url.includes('/lecture')) ||
+      (url.includes('edx.org') && url.endsWith('/course'));
+    const isBookSalesPage = url.includes('amazon.com') || url.includes('/buy') || url.includes('/purchase');
+    const isSpecificContent = 
+      url.includes('youtube.com/watch') ||
+      url.includes('youtu.be/') ||
+      url.includes('.pdf') ||
+      url.includes('/article/') ||
+      url.includes('/entry/') ||
+      url.includes('/wiki/');
+
+    if (isLandingPage || isBookSalesPage) {
+      atomicScope = -50; // Penalty for container pages
+    } else if (isSpecificContent) {
+      atomicScope = 20; // Reward for atomic content
+    } else {
+      atomicScope = 10; // Neutral
+    }
   }
 
   const total = Math.max(0, syllabusMatch + authorityMatch + atomicScope);
@@ -546,17 +615,25 @@ function curateResources(
     totalExpandedTime: calculateTotalTime([...deepDive, ...expansionPack]),
     deepDive,
     expansionPack,
-    moocs: moocs.map(m => ({
-      url: m.url,
-      title: m.title,
-      source: inferMOOCSource(m.url, m.domain),
-      duration: m.consumptionTime || m.duration,
-      verified: m.verified,
-      thumbnailUrl: m.thumbnailUrl,
-      description: m.snippet,
-      author: m.author,
-      courseName: m.courseName || ''
-    })),
+    moocs: moocs.map(m => {
+      // Get original resource to preserve atomic fields
+      const original = (resources.alternatives || []).find((a: any) => a.url === m.url) as any || {};
+      return {
+        url: m.url,
+        title: m.title,
+        source: inferMOOCSource(m.url, m.domain),
+        duration: m.consumptionTime || m.duration,
+        verified: m.verified,
+        thumbnailUrl: m.thumbnailUrl,
+        description: m.snippet || (original as any).description || '',
+        author: m.author || (original as any).author || '',
+        // New atomic fields
+        course_title: (original as any).course_title || m.courseName || '',
+        course_url: (original as any).course_url || '',
+        authority_level: (original as any).authority_level || '',
+        is_atomic: (original as any).is_atomic
+      };
+    }),
     knowledgeCheck: generateKnowledgeCheck(stepTitle),
     // Legacy compatibility
     videos: resources.videos || [],
@@ -1341,16 +1418,32 @@ serve(async (req) => {
         
         // If no MOOCs in cache, fetch them now
         if (cachedMoocs.length === 0) {
-          console.log('🎓 No MOOCs in cache, fetching MOOC video lessons...');
-          const moocLessons = await searchMOOCVideoLessons(stepTitle, discipline, blacklist);
+          console.log('🎓 No MOOCs in cache, fetching atomic learning units...');
+          const atomicLessons = await searchAtomicLearningUnits(stepTitle, discipline, blacklist);
           
-          console.log(`✓ MOOC Lessons Found: ${moocLessons.length}`);
+          console.log(`✓ Atomic Lessons Found: ${atomicLessons.length}`);
           
-          if (moocLessons.length > 0) {
+          if (atomicLessons.length > 0) {
+            // Transform AtomicMOOCResource to alternatives format
+            const transformedLessons = atomicLessons.map(lesson => ({
+              type: 'mooc' as const,
+              url: lesson.url,
+              title: lesson.title,
+              source: lesson.provider,
+              duration: lesson.duration || '',
+              author: lesson.instructor || '',
+              verified: true,
+              course_title: lesson.course_title,
+              course_url: lesson.course_url,
+              authority_level: lesson.authority_level,
+              is_atomic: lesson.is_atomic,
+              description: lesson.description || ''
+            }));
+            
             resourcesWithMoocs = {
               ...cached.resources,
               alternatives: [
-                ...moocLessons,
+                ...transformedLessons,
                 ...(cached.resources.alternatives || [])
               ]
             };
@@ -1476,9 +1569,9 @@ RESPONSE FORMAT - CRITICAL:
     // Start resource discovery in parallel while hunting for videos
     const resourcePromise = callPerplexityAPI(prompt);
     
-    // Start MOOC video lesson search in parallel
-    console.log('🎓 Starting MOOC video lesson search...');
-    const moocLessonsPromise = searchMOOCVideoLessons(stepTitle, discipline, blacklist);
+    // Start atomic learning unit search in parallel
+    console.log('🎓 Starting atomic learning unit search...');
+    const atomicLessonsPromise = searchAtomicLearningUnits(stepTitle, discipline, blacklist);
     
     // Try YouTube API first - this is the most reliable method
     let videos = await searchYouTubeAPI(stepTitle, discipline, blacklist);
@@ -1564,15 +1657,31 @@ RESPONSE FORMAT - CRITICAL:
     
     const perplexityResources = extractJSON(perplexityContent) || {};
     
-    // Wait for MOOC video lesson results
-    const moocLessons = await moocLessonsPromise;
-    console.log(`✓ Found ${moocLessons.length} MOOC video lessons`);
+    // Wait for atomic learning unit results
+    const atomicLessons = await atomicLessonsPromise;
+    console.log(`✓ Found ${atomicLessons.length} atomic learning units`);
     
-    // Merge MOOC lessons with Perplexity alternatives (lessons first for higher quality)
+    // Transform AtomicMOOCResource to alternatives format
+    const transformedLessons = atomicLessons.map(lesson => ({
+      type: 'mooc' as const,
+      url: lesson.url,
+      title: lesson.title,
+      source: lesson.provider,
+      duration: lesson.duration || '',
+      author: lesson.instructor || '',
+      verified: true,
+      course_title: lesson.course_title,
+      course_url: lesson.course_url,
+      authority_level: lesson.authority_level,
+      is_atomic: lesson.is_atomic,
+      description: lesson.description || ''
+    }));
+    
+    // Merge transformed lessons with Perplexity alternatives (lessons first for higher quality)
     const perplexityAlternatives = (perplexityResources.alternatives || []).filter(
-      (alt: any) => alt.type !== 'mooc' || !moocLessons.some((m: any) => m.title === alt.title)
+      (alt: any) => alt.type !== 'mooc' || !transformedLessons.some((m: any) => m.title === alt.title)
     );
-    const mergedAlternatives = [...moocLessons, ...perplexityAlternatives];
+    const mergedAlternatives = [...transformedLessons, ...perplexityAlternatives];
     
     // Merge results with fallbacks
     let resources: StepResources = {
@@ -1587,7 +1696,7 @@ RESPONSE FORMAT - CRITICAL:
       readingCount: resources.readings?.length || 0,
       bookCount: resources.books?.length || 0,
       alternativesCount: resources.alternatives?.length || 0,
-      moocLessonCount: moocLessons.length
+      atomicLessonCount: atomicLessons.length
     });
 
     // Validate and enhance all URLs

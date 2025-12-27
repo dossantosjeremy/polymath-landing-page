@@ -9,16 +9,23 @@ import { useFindMoreResource } from '@/hooks/useFindMoreResource';
 import { useToast } from '@/hooks/use-toast';
 
 interface MOOC {
+  type?: 'video' | 'text' | 'lesson' | 'exercise';
   url: string;
   title: string;
-  source: string;
+  source: string;          // Provider name
   duration?: string;
   verified?: boolean;
   archivedUrl?: string;
   thumbnailUrl?: string;
   description?: string;
   author?: string;
-  courseName?: string; // Parent course name for individual lessons
+  // Atomic resource fields
+  course_title?: string;   // Parent course name
+  course_url?: string;     // Course landing page
+  authority_level?: 'academic' | 'professional' | 'community';
+  is_atomic?: boolean;     // true = direct lesson, false = course fallback
+  // Legacy field (deprecated)
+  courseName?: string;
 }
 
 interface MOOCSectionProps {
@@ -93,80 +100,131 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
     return 'bg-muted text-muted-foreground';
   };
 
-  const renderMOOCCard = (mooc: MOOC, index: number) => (
-    <Card key={index} className="border-2 border-border p-3 sm:p-5 space-y-3 sm:space-y-4 h-full w-full max-w-full overflow-hidden">
-      {/* Thumbnail */}
-      {mooc.thumbnailUrl && (
-        <div className="aspect-video rounded-md overflow-hidden bg-muted">
-          <img 
-            src={mooc.thumbnailUrl} 
-            alt={mooc.title}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
-        </div>
-      )}
-      
-      {/* Header */}
-      <div className="space-y-2 min-w-0">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-          <Badge className={`${getSourceBadgeColor(mooc.source)} w-fit text-xs`}>
-            {mooc.source}
-          </Badge>
-          {mooc.verified === false && (
-            <Badge variant="outline" className="text-[10px] sm:text-xs w-fit">
-              <AlertTriangle className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1" />
-              Unverified
+  const getAuthorityBadge = (level?: string) => {
+    if (!level) return null;
+    if (level === 'academic') return { label: 'Academic', class: 'bg-primary/10 text-primary border-primary/20' };
+    if (level === 'professional') return { label: 'Professional', class: 'bg-secondary/10 text-secondary-foreground border-secondary/20' };
+    return { label: 'Community', class: 'bg-muted text-muted-foreground border-border' };
+  };
+
+  // Get parent course name (supports both new and legacy fields)
+  const getParentCourse = (mooc: MOOC) => mooc.course_title || mooc.courseName;
+
+  const renderMOOCCard = (mooc: MOOC, index: number) => {
+    const parentCourse = getParentCourse(mooc);
+    const authorityBadge = getAuthorityBadge(mooc.authority_level);
+    const isAtomicLesson = mooc.is_atomic === true;
+    const isCourseFallback = mooc.is_atomic === false;
+
+    return (
+      <Card key={index} className={`border-2 p-3 sm:p-5 space-y-3 sm:space-y-4 h-full w-full max-w-full overflow-hidden ${isCourseFallback ? 'border-dashed border-muted-foreground/50' : 'border-border'}`}>
+        {/* Thumbnail */}
+        {mooc.thumbnailUrl && (
+          <div className="aspect-video rounded-md overflow-hidden bg-muted">
+            <img 
+              src={mooc.thumbnailUrl} 
+              alt={mooc.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+        
+        {/* Header with badges */}
+        <div className="space-y-2 min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge className={`${getSourceBadgeColor(mooc.source)} w-fit text-xs`}>
+              {mooc.source}
             </Badge>
+            {authorityBadge && (
+              <Badge variant="outline" className={`${authorityBadge.class} text-[10px] w-fit`}>
+                {authorityBadge.label}
+              </Badge>
+            )}
+            {isAtomicLesson && (
+              <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px] w-fit">
+                Lesson
+              </Badge>
+            )}
+            {mooc.verified === false && (
+              <Badge variant="outline" className="text-[10px] w-fit">
+                <AlertTriangle className="h-2.5 w-2.5 mr-1" />
+                Unverified
+              </Badge>
+            )}
+          </div>
+          
+          {/* Title */}
+          <h3 className="font-semibold text-sm sm:text-base line-clamp-2 break-words">{mooc.title}</h3>
+          
+          {/* Parent course attribution (KEY CHANGE) */}
+          {parentCourse && (
+            <p className="text-xs text-muted-foreground break-words">
+              From{' '}
+              {mooc.course_url ? (
+                <a 
+                  href={mooc.course_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="font-medium hover:underline"
+                >
+                  {parentCourse}
+                </a>
+              ) : (
+                <span className="font-medium">{parentCourse}</span>
+              )}
+            </p>
+          )}
+          
+          {mooc.author && (
+            <p className="text-xs text-muted-foreground break-words">by {mooc.author}</p>
+          )}
+          {mooc.duration && (
+            <p className="text-xs text-muted-foreground">{mooc.duration}</p>
           )}
         </div>
-        <h3 className="font-semibold text-sm sm:text-base line-clamp-2 break-words">{mooc.title}</h3>
-        {/* Parent course name */}
-        {mooc.courseName && (
-          <p className="text-xs text-muted-foreground break-words">
-            from <span className="font-medium">{mooc.courseName}</span>
+
+        {/* Course fallback warning */}
+        {isCourseFallback && (
+          <div className="bg-muted/50 rounded-md p-2 text-xs text-muted-foreground">
+            <AlertTriangle className="h-3 w-3 inline mr-1" />
+            Full course – browse to find relevant lessons
+          </div>
+        )}
+
+        {mooc.description && (
+          <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 break-words">
+            {mooc.description}
           </p>
         )}
-        {mooc.author && (
-          <p className="text-xs text-muted-foreground break-words">by {mooc.author}</p>
+
+        {/* Actions */}
+        <div className="pt-2 border-t border-border">
+          <Button
+            size="sm"
+            variant="default"
+            className="w-full text-xs sm:text-sm"
+            onClick={() => window.open(mooc.url, '_blank')}
+          >
+            <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4 mr-2 shrink-0" />
+            <span className="truncate">{isAtomicLesson ? 'Watch Lesson' : 'View Course'}</span>
+          </Button>
+        </div>
+
+        {mooc.verified === false && (
+          <ResourceFallback
+            title={mooc.title}
+            originalUrl={mooc.url}
+            archivedUrl={mooc.archivedUrl}
+            searchQuery={`${stepTitle} ${discipline} lesson`}
+            resourceType="video"
+          />
         )}
-        {mooc.duration && (
-          <p className="text-xs text-muted-foreground">{mooc.duration}</p>
-        )}
-      </div>
-
-      {mooc.description && (
-        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2 break-words">
-          {mooc.description}
-        </p>
-      )}
-
-      {/* Actions */}
-      <div className="pt-2 border-t border-border">
-        <Button
-          size="sm"
-          variant="default"
-          className="w-full text-xs sm:text-sm"
-          onClick={() => window.open(mooc.url, '_blank')}
-        >
-          <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4 mr-2 shrink-0" />
-          <span className="truncate">View Course</span>
-        </Button>
-      </div>
-
-      {mooc.verified === false && (
-        <ResourceFallback
-          title={mooc.title}
-          originalUrl={mooc.url}
-          archivedUrl={mooc.archivedUrl}
-          searchQuery={`${stepTitle} ${discipline} lesson`}
-          resourceType="video"
-        />
-      )}
-    </Card>
-  );
+      </Card>
+    );
+  };
 
   const renderMOOCGroup = (groupMOOCs: MOOC[], label: string, badgeClass: string) => {
     if (groupMOOCs.length === 0) return null;
