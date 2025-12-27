@@ -22,6 +22,7 @@ interface CustomFocusPillsProps {
   onApplyFocus: () => void;
   onResetToDefaults: () => void;
   isApplying?: boolean;
+  alwaysShowAddButton?: boolean; // Always show the add button even when no pillars exist
 }
 
 const FOCUS_STAGES = [
@@ -56,6 +57,7 @@ export function CustomFocusPills({
   onApplyFocus,
   onResetToDefaults,
   isApplying = false,
+  alwaysShowAddButton = false,
 }: CustomFocusPillsProps) {
   const [inputValue, setInputValue] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -125,7 +127,8 @@ export function CustomFocusPills({
     selectedPillars.size !== defaultSelected.size ||
     ![...selectedPillars].every(p => defaultSelected.has(p));
 
-  if (pillars.length === 0 && customPillars.length === 0) return null;
+  // Only hide if there's nothing AND we don't have the alwaysShowAddButton flag
+  if (pillars.length === 0 && customPillars.length === 0 && !alwaysShowAddButton) return null;
 
   const corePillars = pillars.filter(p => p.priority === 'core');
   const importantPillars = pillars.filter(p => p.priority === 'important');
