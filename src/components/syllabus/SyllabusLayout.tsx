@@ -1,0 +1,98 @@
+import { BookOpen, Settings, Library } from "lucide-react";
+import { NestedTabs, NestedTabItem } from "@/components/ui/nested-tabs";
+import { ContentTab } from "./ContentTab";
+import { SyllabusTab } from "./SyllabusTab";
+import { SourcesTab } from "./SourcesTab";
+import { SyllabusProvider, SyllabusData, DiscoveredSource } from "./SyllabusContext";
+import { LearningPathConstraints, PruningStats } from "@/components/SmartLearningPathSettings";
+
+interface SyllabusLayoutProps {
+  // Data
+  syllabusData: SyllabusData | null;
+  discipline: string;
+  path: string;
+  loading: boolean;
+  regenerating: boolean;
+  
+  // AI State
+  aiStatus: 'idle' | 'loading' | 'ready';
+  showAIContent: boolean;
+  handleEnhanceWithAI: () => Promise<void>;
+  handleAIViewToggle: (enabled: boolean) => void;
+  
+  // Sources
+  originalSources: DiscoveredSource[];
+  selectedSources: Set<number>;
+  toggleSourceSelection: (index: number) => void;
+  selectAllSources: () => void;
+  deselectAllSources: () => void;
+  regenerateWithSelectedSources: () => Promise<void>;
+  
+  // Learning Settings
+  learningSettings: LearningPathConstraints;
+  pruningStats: PruningStats | undefined;
+  handleApplyConstraints: (constraints: LearningPathConstraints) => Promise<void>;
+  applyingConstraints: boolean;
+  
+  // Save/Export
+  saving: boolean;
+  isSaved: boolean;
+  saveSyllabus: () => Promise<void>;
+  handleExportMarkdown: () => void;
+  
+  // Helpers
+  getDomainShortName: (url: string) => string;
+  extractCourseCode: (url: string, courseName?: string) => string;
+  getSourceColorByUrl: (url: string) => string;
+  regenerationKey: number;
+  
+  // URL params
+  useCache: boolean;
+  isAdHoc: boolean;
+  useAIEnhanced: boolean;
+  savedId: string | null;
+  
+  // Active tab (controlled)
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
+}
+
+export function SyllabusLayout(props: SyllabusLayoutProps) {
+  const {
+    activeTab = "content",
+    onTabChange,
+    ...contextValue
+  } = props;
+
+  const tabs: NestedTabItem[] = [
+    {
+      value: "content",
+      label: "Content",
+      icon: <BookOpen className="h-4 w-4" />,
+      content: <ContentTab />,
+    },
+    {
+      value: "syllabus",
+      label: "Syllabus",
+      icon: <Settings className="h-4 w-4" />,
+      content: <SyllabusTab />,
+    },
+    {
+      value: "sources",
+      label: "Sources",
+      icon: <Library className="h-4 w-4" />,
+      content: <SourcesTab />,
+    },
+  ];
+
+  return (
+    <SyllabusProvider value={contextValue}>
+      <NestedTabs
+        tabs={tabs}
+        value={activeTab}
+        onValueChange={onTabChange}
+        className="w-full"
+      />
+    </SyllabusProvider>
+  );
+}
