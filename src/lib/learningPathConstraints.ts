@@ -177,3 +177,54 @@ export function calculateCompletionDate(durationWeeks: number): Date {
   date.setDate(date.getDate() + durationWeeks * 7);
   return date;
 }
+
+/**
+ * Map slider index (0, 1, 2) to depth level
+ */
+export function sliderIndexToDepth(index: 0 | 1 | 2): 'overview' | 'standard' | 'detailed' {
+  const mapping: Record<0 | 1 | 2, 'overview' | 'standard' | 'detailed'> = {
+    0: 'overview',
+    1: 'standard',
+    2: 'detailed',
+  };
+  return mapping[index];
+}
+
+/**
+ * Map depth level to slider index
+ */
+export function depthToSliderIndex(depth: 'overview' | 'standard' | 'detailed' | null): 0 | 1 | 2 {
+  if (!depth) return 1; // default to balanced
+  const mapping: Record<'overview' | 'standard' | 'detailed', 0 | 1 | 2> = {
+    overview: 0,
+    standard: 1,
+    detailed: 2,
+  };
+  return mapping[depth];
+}
+
+/**
+ * Compute recommended hours from depth and skill level
+ * Returns typical hours needed to achieve the given depth
+ */
+export function computeRecommendedHoursFromDepth(
+  depth: 'overview' | 'standard' | 'detailed',
+  skillLevel: 'beginner' | 'intermediate' | 'advanced'
+): { typicalHours: number; recommendedWeeksAt5HoursPerWeek: number } {
+  const multiplier = SKILL_MULTIPLIERS[skillLevel];
+  const baseHours = DEPTH_THRESHOLDS[depth].typical;
+  const typicalHours = Math.round(baseHours * multiplier);
+  const recommendedWeeksAt5HoursPerWeek = Math.ceil(typicalHours / 5);
+  
+  return {
+    typicalHours,
+    recommendedWeeksAt5HoursPerWeek,
+  };
+}
+
+/**
+ * Get coverage percentage for a given depth
+ */
+export function getCoverageForDepth(depth: 'overview' | 'standard' | 'detailed'): number {
+  return DEPTH_COVERAGE[depth];
+}
