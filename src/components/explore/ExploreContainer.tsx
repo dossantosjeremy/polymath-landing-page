@@ -264,6 +264,7 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
                       depth: globalConstraints.depth,
                       hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
                       skillLevel: globalConstraints.skillLevel,
+                      forceRefresh: 'true', // Bypass cache and regenerate
                     });
                     if (globalConstraints.goalDate) {
                       params.set('goalDate', globalConstraints.goalDate.toISOString());
