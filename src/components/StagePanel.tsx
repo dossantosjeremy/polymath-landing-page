@@ -199,6 +199,7 @@ export function StagePanel({
                 discipline={discipline}
                 syllabusUrls={syllabusUrls}
                 isCapstone={false}
+                autoLoad={true}
               />
               <StepSummary
                 stepTitle={currentStep.title}
