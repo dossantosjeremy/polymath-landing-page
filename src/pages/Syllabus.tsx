@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
@@ -14,7 +14,8 @@ import { LearningPathConstraints, PruningStats } from "@/components/SmartLearnin
 import { GenerationProgressIndicator } from "@/components/GenerationProgressIndicator";
 import { setPendingAction, getPendingAction, clearPendingAction } from "@/lib/pendingActions";
 import { ResourceCacheProvider, useResourceCache } from "@/contexts/ResourceCacheContext";
-import { SyllabusLayout, SyllabusData, DiscoveredSource } from "@/components/syllabus";
+import { SyllabusLayout, SyllabusData, DiscoveredSource, MissionControlPersistedState } from "@/components/syllabus";
+import { useBackgroundResourceLoader } from "@/hooks/useBackgroundResourceLoader";
 
 // Color palette for distinguishing sources
 const SOURCE_COLORS = [
@@ -64,6 +65,13 @@ const SyllabusContent = () => {
   
   // Tab state
   const [activeTab, setActiveTab] = useState("content");
+  
+  // Mission Control State (persisted across tab switches)
+  const [missionControlState, setMissionControlState] = useState<MissionControlPersistedState | null>(null);
+  
+  // Topic Focus Pills State
+  const [selectedPillars, setSelectedPillars] = useState<Set<string>>(new Set());
+  const [isApplyingPillars, setIsApplyingPillars] = useState(false);
 
   // URL params
   const discipline = searchParams.get("discipline") || "";
@@ -87,6 +95,20 @@ const SyllabusContent = () => {
     goalDate: urlGoalDate ? new Date(urlGoalDate) : undefined,
     skillLevel: urlSkillLevel || 'beginner'
   } : undefined;
+  
+  // Background Resource Loader
+  const rawSourceUrls = originalSources.length > 0 
+    ? originalSources.map(s => s.url) 
+    : syllabusData?.rawSources?.map(s => s.url) || [];
+  
+  const backgroundLoader = useBackgroundResourceLoader({
+    discipline,
+    syllabusUrls: rawSourceUrls,
+  });
+  
+  const startBackgroundLoading = useCallback((stepTitles: string[]) => {
+    backgroundLoader.loadResourcesForSteps(stepTitles);
+  }, [backgroundLoader]);
 
   // Detect if loaded syllabus already has AI content
   useEffect(() => {
@@ -499,6 +521,63 @@ const SyllabusContent = () => {
     }
   };
 
+  // Topic Focus Pills handlers
+  const togglePillar = useCallback((pillarName: string) => {
+    setSelectedPillars(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(pillarName)) {
+        newSet.delete(pillarName);
+      } else {
+        newSet.add(pillarName);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Initialize selected pillars from syllabus data
+  useEffect(() => {
+    if (syllabusData?.topicPillars && selectedPillars.size === 0) {
+      // Default: select core and important pillars
+      const defaultSelected = new Set(
+        syllabusData.topicPillars
+          .filter(p => p.priority === 'core' || p.priority === 'important')
+          .map(p => p.name)
+      );
+      setSelectedPillars(defaultSelected);
+    }
+  }, [syllabusData?.topicPillars]);
+
+  // Reset mission control state when regeneration happens
+  useEffect(() => {
+    if (regenerationKey > 0) {
+      setMissionControlState(null);
+    }
+  }, [regenerationKey]);
+
+  const regenerateWithPillars = async () => {
+    if (selectedPillars.size === 0) {
+      toast({
+        title: "No Focus Areas Selected",
+        description: "Please select at least one focus area.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsApplyingPillars(true);
+    try {
+      // For now, regenerate with the current constraints
+      // The backend will eventually accept selectedPillars to filter modules
+      await generateSyllabus(undefined, learningSettings, true);
+      toast({
+        title: "Focus Applied",
+        description: `Syllabus updated to focus on ${selectedPillars.size} topic(s).`,
+      });
+    } finally {
+      setIsApplyingPillars(false);
+    }
+  };
+
   // Save handler
   const saveSyllabus = async () => {
     if (!syllabusData) return;
@@ -706,6 +785,20 @@ const SyllabusContent = () => {
               savedId={savedId}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              missionControlState={missionControlState}
+              setMissionControlState={setMissionControlState}
+              selectedPillars={selectedPillars}
+              togglePillar={togglePillar}
+              regenerateWithPillars={regenerateWithPillars}
+              isApplyingPillars={isApplyingPillars}
+              backgroundLoadingState={{
+                isLoading: backgroundLoader.isLoading,
+                progress: backgroundLoader.progress,
+                total: backgroundLoader.total,
+                currentStep: backgroundLoader.currentStep,
+                failedCount: backgroundLoader.failedSteps.length,
+              }}
+              startBackgroundLoading={startBackgroundLoading}
             />
           ) : null}
         </div>

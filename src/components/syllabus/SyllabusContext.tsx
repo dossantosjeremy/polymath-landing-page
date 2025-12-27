@@ -25,6 +25,13 @@ export interface DiscoveredSource {
   moduleCount?: number;
 }
 
+export interface TopicPillar {
+  name: string;
+  searchTerms: string[];
+  recommendedSources: string[];
+  priority: 'core' | 'important' | 'nice-to-have';
+}
+
 export interface SyllabusData {
   discipline: string;
   modules: Module[];
@@ -38,12 +45,7 @@ export interface SyllabusData {
   compositionType?: 'single' | 'composite_program' | 'vocational';
   derivedFrom?: string[];
   searchTerm?: string;
-  topicPillars?: Array<{
-    name: string;
-    searchTerms: string[];
-    recommendedSources: string[];
-    priority: 'core' | 'important' | 'nice-to-have';
-  }>;
+  topicPillars?: TopicPillar[];
   narrativeFlow?: string;
   synthesisRationale?: string;
   discoveredAuthorities?: Array<{
@@ -53,6 +55,14 @@ export interface SyllabusData {
     authorityReason: string;
     focusAreas: string[];
   }>;
+}
+
+// Mission Control State (persisted across tab switches)
+export interface MissionControlPersistedState {
+  mode: 'draft' | 'active';
+  confirmedStepTitles: string[];
+  activeStepIndex: number | null;
+  selectedStepIndices: number[];
 }
 
 interface SyllabusContextValue {
@@ -100,6 +110,26 @@ interface SyllabusContextValue {
   isAdHoc: boolean;
   useAIEnhanced: boolean;
   savedId: string | null;
+  
+  // Mission Control State (persisted across tabs)
+  missionControlState: MissionControlPersistedState | null;
+  setMissionControlState: (state: MissionControlPersistedState) => void;
+  
+  // Topic Focus Pills
+  selectedPillars: Set<string>;
+  togglePillar: (pillarName: string) => void;
+  regenerateWithPillars: () => Promise<void>;
+  isApplyingPillars: boolean;
+  
+  // Background Resource Loading
+  backgroundLoadingState: {
+    isLoading: boolean;
+    progress: number;
+    total: number;
+    currentStep: string | null;
+    failedCount: number;
+  };
+  startBackgroundLoading: (stepTitles: string[]) => void;
 }
 
 const SyllabusContext = createContext<SyllabusContextValue | null>(null);

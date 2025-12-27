@@ -3,6 +3,7 @@ import { CurriculumAuditCard } from "@/components/CurriculumAuditCard";
 import { AdHocHeader } from "@/components/AdHocHeader";
 import { AIEnhancementProgress } from "@/components/AIEnhancementProgress";
 import { ProvenanceBadge, ProvenanceDisclaimer, determineContentSource } from "@/components/ProvenanceBadge";
+import { TopicFocusPills } from "@/components/TopicFocusPills";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -27,6 +28,10 @@ export function SyllabusTab() {
     getDomainShortName,
     extractCourseCode,
     getSourceColorByUrl,
+    selectedPillars,
+    togglePillar,
+    regenerateWithPillars,
+    isApplyingPillars,
   } = useSyllabusContext();
 
   if (!syllabusData) return null;
@@ -111,6 +116,33 @@ export function SyllabusTab() {
         
         <ProvenanceDisclaimer source={contentSource} className="mt-4" />
       </div>
+
+      {/* Topic Focus Pills (only show if pillars exist) */}
+      {syllabusData.topicPillars && syllabusData.topicPillars.length > 0 && (
+        <TopicFocusPills
+          pillars={syllabusData.topicPillars}
+          selectedPillars={selectedPillars}
+          onTogglePillar={togglePillar}
+          onApplyFocus={regenerateWithPillars}
+          onResetToDefaults={() => {
+            // Reset to default: select core and important
+            const defaultSelected = new Set(
+              syllabusData.topicPillars!
+                .filter(p => p.priority === 'core' || p.priority === 'important')
+                .map(p => p.name)
+            );
+            // Toggle all off then toggle defaults on
+            syllabusData.topicPillars!.forEach(p => {
+              if (selectedPillars.has(p.name) && !defaultSelected.has(p.name)) {
+                togglePillar(p.name);
+              } else if (!selectedPillars.has(p.name) && defaultSelected.has(p.name)) {
+                togglePillar(p.name);
+              }
+            });
+          }}
+          isApplying={isApplyingPillars}
+        />
+      )}
 
       {/* Learning Path Settings */}
       <div className="p-4 border rounded-lg bg-card">

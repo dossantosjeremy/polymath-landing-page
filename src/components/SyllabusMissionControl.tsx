@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { CurriculumMetroMap } from "@/components/CurriculumMetroMap";
 import { StagePanel } from "@/components/StagePanel";
-import { useMissionControl, MissionControlStep } from "@/hooks/useMissionControl";
+import { useMissionControl, MissionControlStep, MissionControlPersistedState } from "@/hooks/useMissionControl";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,10 @@ interface SyllabusMissionControlProps {
   getSourceColorByUrl: (url: string) => string;
   regenerationKey?: number; // Forces remount on regeneration
   aiEnabled?: boolean; // Whether to show AI-discovered modules
+  // NEW: Persistence props
+  initialPersistedState?: MissionControlPersistedState | null;
+  onStateChange?: (state: MissionControlPersistedState) => void;
+  onPathConfirmed?: (stepTitles: string[]) => void;
 }
 
 export function SyllabusMissionControl({
@@ -54,6 +58,9 @@ export function SyllabusMissionControl({
   getSourceColorByUrl,
   regenerationKey = 0,
   aiEnabled = true, // Default to showing all modules
+  initialPersistedState,
+  onStateChange,
+  onPathConfirmed,
 }: SyllabusMissionControlProps) {
   const isMobile = useIsMobile();
   // IMPORTANT: All hooks must be called before any conditional returns (React Rules of Hooks)
@@ -84,7 +91,13 @@ export function SyllabusMissionControl({
     confirmPath,
     navigateToStep,
     reEnableStep,
-  } = useMissionControl({ steps, onConfirm });
+  } = useMissionControl({ 
+    steps, 
+    onConfirm,
+    initialPersistedState,
+    onStateChange,
+    onPathConfirmed,
+  });
 
   const syllabusUrls = rawSources.map(s => s.url);
 
