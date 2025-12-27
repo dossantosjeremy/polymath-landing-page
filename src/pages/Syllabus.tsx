@@ -413,6 +413,16 @@ const SyllabusContent = () => {
         setPruningStats(data.pruningStats);
       }
       
+      // AUTO-LOAD RESOURCES: Start background loading for all steps immediately
+      const allStepTitles = (updatedData.modules || []).flatMap((m: any) => 
+        (m.steps || []).map((step: any) => typeof step === 'string' ? step : step.title || step)
+      ).filter((title: string) => title);
+      
+      if (allStepTitles.length > 0) {
+        console.log(`🚀 Auto-loading resources for ${allStepTitles.length} steps...`);
+        startBackgroundLoading(allStepTitles);
+      }
+      
       if (savedId && isRegenerating && constraintsOverride) {
         try {
           await supabase

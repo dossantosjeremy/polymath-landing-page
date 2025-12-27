@@ -76,6 +76,9 @@ export function useBackgroundResourceLoader({
     const completed: string[] = [...stepTitles.filter(t => hasResource(t))];
     const failed: string[] = [];
     
+    // Track used video URLs across all steps to avoid duplicates
+    const usedVideoUrls: string[] = [];
+    
     for (let i = 0; i < stepsToLoad.length; i++) {
       if (abortRef.current) break;
       
@@ -95,7 +98,7 @@ export function useBackgroundResourceLoader({
         
         if (abortRef.current) break;
         
-        // Fetch resources for this step
+        // Fetch resources for this step, passing used video URLs to avoid duplicates
         const { data, error } = await supabase.functions.invoke('fetch-step-resources', {
           body: {
             stepTitle,
@@ -104,6 +107,7 @@ export function useBackgroundResourceLoader({
             rawSourcesContent,
             userTimeBudget,
             isCapstone: false,
+            usedVideoUrls, // Pass used URLs to avoid duplicates
           },
         });
         
@@ -112,6 +116,11 @@ export function useBackgroundResourceLoader({
         if (data && !abortRef.current) {
           setResource(stepTitle, data);
           completed.push(stepTitle);
+          
+          // Track the core video URL if it exists
+          if (data.coreVideo?.url) {
+            usedVideoUrls.push(data.coreVideo.url);
+          }
         }
       } catch (err) {
         console.error(`[Background Loader] Failed to load resources for "${stepTitle}":`, err);
