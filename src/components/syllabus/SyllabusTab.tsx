@@ -120,8 +120,10 @@ export function SyllabusTab() {
         <ProvenanceDisclaimer source={contentSource} className="mt-4" />
       </div>
 
-      {/* Topic Focus Pills (show if pillars exist or we have custom pillars) */}
-      {(syllabusData.topicPillars && syllabusData.topicPillars.length > 0) || customPillars.length > 0 ? (
+      {/* Topic Focus Pills - always show for ad-hoc/AI-enhanced syllabi to allow customization */}
+      {(syllabusData.isAdHoc || syllabusData.isAIEnhanced || 
+        (syllabusData.topicPillars && syllabusData.topicPillars.length > 0) || 
+        customPillars.length > 0) ? (
         <CustomFocusPills
           pillars={syllabusData.topicPillars || []}
           selectedPillars={selectedPillars}
