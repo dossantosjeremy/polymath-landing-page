@@ -87,6 +87,21 @@ export function SyllabusLayout(props: SyllabusLayoutProps) {
     ...contextValue
   } = props;
 
+  return (
+    <SyllabusProvider value={contextValue}>
+      <SyllabusLayoutInner activeTab={activeTab} onTabChange={onTabChange} />
+    </SyllabusProvider>
+  );
+}
+
+// Inner component that uses context - tabs are defined inside the provider tree
+function SyllabusLayoutInner({ 
+  activeTab, 
+  onTabChange 
+}: { 
+  activeTab: string; 
+  onTabChange?: (tab: string) => void;
+}) {
   const tabs: NestedTabItem[] = [
     {
       value: "content",
@@ -109,13 +124,11 @@ export function SyllabusLayout(props: SyllabusLayoutProps) {
   ];
 
   return (
-    <SyllabusProvider value={contextValue}>
-      <NestedTabs
-        tabs={tabs}
-        value={activeTab}
-        onValueChange={onTabChange}
-        className="w-full"
-      />
-    </SyllabusProvider>
+    <NestedTabs
+      tabs={tabs}
+      value={activeTab}
+      onValueChange={onTabChange}
+      className="w-full"
+    />
   );
 }
