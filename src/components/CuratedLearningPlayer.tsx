@@ -21,6 +21,7 @@ interface CuratedLearningPlayerProps {
   rawSourcesContent?: string;
   userTimeBudget?: number;
   isCapstone?: boolean;
+  autoLoad?: boolean;
 }
 
 interface LoadingStage {
@@ -51,7 +52,8 @@ export const CuratedLearningPlayer = ({
   syllabusUrls = [],
   rawSourcesContent = '',
   userTimeBudget,
-  isCapstone = false 
+  isCapstone = false,
+  autoLoad = true
 }: CuratedLearningPlayerProps) => {
   const { resources, isLoading, error, fetchResources, findMoreResources } = useCuratedResources();
   const { getResource, setResource, hasResource } = useResourceCache();
@@ -74,6 +76,18 @@ export const CuratedLearningPlayer = ({
       setHasLoaded(false);
     }
   }, [stepTitle, getResource]);
+
+  // Auto-load resources when step changes (with 500ms debounce)
+  useEffect(() => {
+    if (!autoLoad || hasLoaded || localResources || isCapstone) return;
+    
+    const timeoutId = setTimeout(() => {
+      setHasLoaded(true);
+      fetchResources(stepTitle, discipline, syllabusUrls, rawSourcesContent, userTimeBudget, false);
+    }, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [stepTitle, autoLoad, hasLoaded, localResources, isCapstone, discipline, syllabusUrls, rawSourcesContent, userTimeBudget, fetchResources]);
 
   // Sync fetched resources to cache and local state
   useEffect(() => {
@@ -178,8 +192,21 @@ export const CuratedLearningPlayer = ({
     }
   };
 
-  // Show load button initially (only if not cached)
+  // Show loading state when auto-loading, or show manual button if autoLoad is disabled
   if (!hasLoaded && !localResources) {
+    if (autoLoad) {
+      // Auto-load is pending (waiting for debounce)
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center space-y-4">
+            <Loader2 className="h-8 w-8 mx-auto text-muted-foreground animate-spin" />
+            <p className="text-sm text-muted-foreground">Preparing to load resources...</p>
+          </div>
+        </div>
+      );
+    }
+    
+    // Manual load button (when autoLoad is false)
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-4">
