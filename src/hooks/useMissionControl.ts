@@ -26,33 +26,93 @@ export interface MissionControlState {
   confirmedSteps: MissionControlStep[];
 }
 
+// Serializable version for persistence across tab switches
+export interface MissionControlPersistedState {
+  mode: 'draft' | 'active';
+  confirmedStepTitles: string[];
+  activeStepIndex: number | null;
+  selectedStepIndices: number[];
+}
+
 interface UseMissionControlProps {
   steps: MissionControlStep[];
   onConfirm: (selectedStepIndices: number[]) => Promise<void>;
+  // NEW: Optional initial state from context (for persistence across tabs)
+  initialPersistedState?: MissionControlPersistedState | null;
+  // NEW: Callback to sync state changes back to context
+  onStateChange?: (state: MissionControlPersistedState) => void;
+  // NEW: Callback when path is confirmed (for background loading)
+  onPathConfirmed?: (confirmedStepTitles: string[]) => void;
 }
 
-export function useMissionControl({ steps, onConfirm }: UseMissionControlProps) {
-  const [mode, setMode] = useState<ViewMode>('draft');
+export function useMissionControl({ 
+  steps, 
+  onConfirm, 
+  initialPersistedState,
+  onStateChange,
+  onPathConfirmed,
+}: UseMissionControlProps) {
+  // Initialize from persisted state if available
+  const initFromPersisted = useCallback(() => {
+    if (initialPersistedState && initialPersistedState.mode === 'active') {
+      // Reconstruct confirmed steps from titles
+      const confirmedSteps = initialPersistedState.confirmedStepTitles
+        .map(title => steps.find(s => s.title === title))
+        .filter((s): s is MissionControlStep => s !== undefined);
+      
+      return {
+        mode: initialPersistedState.mode as ViewMode,
+        selectedSteps: new Set(initialPersistedState.selectedStepIndices),
+        activeStepIndex: initialPersistedState.activeStepIndex,
+        confirmedSteps,
+      };
+    }
+    return null;
+  }, [initialPersistedState, steps]);
+
+  const persistedInit = initFromPersisted();
+
+  const [mode, setMode] = useState<ViewMode>(persistedInit?.mode || 'draft');
   const [selectedSteps, setSelectedSteps] = useState<Set<number>>(() => 
-    new Set(steps.map((_, idx) => idx))
+    persistedInit?.selectedSteps || new Set(steps.map((_, idx) => idx))
   );
-  const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
+  const [activeStepIndex, setActiveStepIndex] = useState<number | null>(
+    persistedInit?.activeStepIndex ?? null
+  );
   const [isConfirming, setIsConfirming] = useState(false);
-  const [confirmedSteps, setConfirmedSteps] = useState<MissionControlStep[]>([]);
+  const [confirmedSteps, setConfirmedSteps] = useState<MissionControlStep[]>(
+    persistedInit?.confirmedSteps || []
+  );
 
   // Track previous steps to detect changes
   const prevStepsRef = useRef<MissionControlStep[]>(steps);
+  const hasInitialized = useRef(persistedInit !== null);
+
+  // Sync state changes to context
+  useEffect(() => {
+    if (onStateChange && hasInitialized.current) {
+      onStateChange({
+        mode,
+        confirmedStepTitles: confirmedSteps.map(s => s.title),
+        activeStepIndex,
+        selectedStepIndices: Array.from(selectedSteps),
+      });
+    }
+  }, [mode, confirmedSteps, activeStepIndex, selectedSteps, onStateChange]);
 
   // Reset state when steps change (e.g., after regeneration)
   useEffect(() => {
     const stepsChanged = steps.length !== prevStepsRef.current.length ||
       steps.some((s, i) => s.title !== prevStepsRef.current[i]?.title);
     
-    if (stepsChanged) {
+    if (stepsChanged && hasInitialized.current) {
       setMode('draft');
       setSelectedSteps(new Set(steps.map((_, idx) => idx)));
       setActiveStepIndex(null);
       setConfirmedSteps([]);
+      prevStepsRef.current = steps;
+    } else if (!hasInitialized.current) {
+      hasInitialized.current = true;
       prevStepsRef.current = steps;
     }
   }, [steps]);
@@ -104,10 +164,15 @@ export function useMissionControl({ steps, onConfirm }: UseMissionControlProps) 
       }
       
       setMode('active');
+      
+      // Trigger background loading for all confirmed steps
+      if (onPathConfirmed) {
+        onPathConfirmed(confirmed.map(s => s.title));
+      }
     } finally {
       setIsConfirming(false);
     }
-  }, [selectedSteps, steps, onConfirm]);
+  }, [selectedSteps, steps, onConfirm, onPathConfirmed]);
 
   // Navigate to a step in active mode
   const navigateToStep = useCallback((index: number) => {

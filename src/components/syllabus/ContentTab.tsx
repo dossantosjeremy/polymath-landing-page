@@ -13,6 +13,9 @@ export function ContentTab() {
     extractCourseCode,
     getSourceColorByUrl,
     regenerationKey,
+    missionControlState,
+    setMissionControlState,
+    startBackgroundLoading,
   } = useSyllabusContext();
 
   if (!syllabusData) return null;
@@ -35,6 +38,9 @@ export function ContentTab() {
         getSourceColorByUrl={getSourceColorByUrl}
         regenerationKey={regenerationKey}
         aiEnabled={showAIContent}
+        initialPersistedState={missionControlState}
+        onStateChange={setMissionControlState}
+        onPathConfirmed={startBackgroundLoading}
       />
     </div>
   );

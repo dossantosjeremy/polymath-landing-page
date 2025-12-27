@@ -3,7 +3,7 @@ import { NestedTabs, NestedTabItem } from "@/components/ui/nested-tabs";
 import { ContentTab } from "./ContentTab";
 import { SyllabusTab } from "./SyllabusTab";
 import { SourcesTab } from "./SourcesTab";
-import { SyllabusProvider, SyllabusData, DiscoveredSource } from "./SyllabusContext";
+import { SyllabusProvider, SyllabusData, DiscoveredSource, MissionControlPersistedState } from "./SyllabusContext";
 import { LearningPathConstraints, PruningStats } from "@/components/SmartLearningPathSettings";
 
 interface SyllabusLayoutProps {
@@ -55,6 +55,26 @@ interface SyllabusLayoutProps {
   // Active tab (controlled)
   activeTab?: string;
   onTabChange?: (tab: string) => void;
+  
+  // Mission Control State (persisted across tabs)
+  missionControlState: MissionControlPersistedState | null;
+  setMissionControlState: (state: MissionControlPersistedState) => void;
+  
+  // Topic Focus Pills
+  selectedPillars: Set<string>;
+  togglePillar: (pillarName: string) => void;
+  regenerateWithPillars: () => Promise<void>;
+  isApplyingPillars: boolean;
+  
+  // Background Resource Loading
+  backgroundLoadingState: {
+    isLoading: boolean;
+    progress: number;
+    total: number;
+    currentStep: string | null;
+    failedCount: number;
+  };
+  startBackgroundLoading: (stepTitles: string[]) => void;
 }
 
 export function SyllabusLayout(props: SyllabusLayoutProps) {
