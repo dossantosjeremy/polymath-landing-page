@@ -117,7 +117,10 @@ interface SyllabusContextValue {
   
   // Topic Focus Pills
   selectedPillars: Set<string>;
+  customPillars: string[];
   togglePillar: (pillarName: string) => void;
+  addCustomPillar: (pillarName: string) => void;
+  removeCustomPillar: (pillarName: string) => void;
   regenerateWithPillars: () => Promise<void>;
   isApplyingPillars: boolean;
   

@@ -96,8 +96,47 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
     if (s.includes('coursera')) return 'bg-primary text-primary-foreground';
     if (s.includes('udemy')) return 'bg-secondary text-secondary-foreground';
     if (s.includes('edx')) return 'bg-accent text-accent-foreground';
-    if (s.includes('khan') || s.includes('udacity')) return 'bg-muted text-muted-foreground';
+    if (s.includes('khan')) return 'bg-green-600 text-white';
+    if (s.includes('linkedin')) return 'bg-blue-600 text-white';
+    if (s.includes('skillshare')) return 'bg-emerald-600 text-white';
+    if (s.includes('masterclass')) return 'bg-foreground text-background';
+    if (s.includes('brilliant')) return 'bg-orange-500 text-white';
+    if (s.includes('futurelearn')) return 'bg-purple-600 text-white';
+    if (s.includes('mit') || s.includes('ocw')) return 'bg-red-700 text-white';
     return 'bg-muted text-muted-foreground';
+  };
+
+  // Pricing info per provider
+  const getPricingInfo = (source: string): { label: string; class: string; note: string } => {
+    const s = source?.toLowerCase() || '';
+    if (s.includes('khan') || s.includes('mit') || s.includes('ocw')) {
+      return { label: 'Free', class: 'bg-green-500/10 text-green-700 border-green-500/20', note: 'Always free' };
+    }
+    if (s.includes('coursera')) {
+      return { label: 'Audit Free', class: 'bg-blue-500/10 text-blue-700 border-blue-500/20', note: 'Free to audit, paid for certificate' };
+    }
+    if (s.includes('edx')) {
+      return { label: 'Audit Free', class: 'bg-blue-500/10 text-blue-700 border-blue-500/20', note: 'Free to audit, paid for verified certificate' };
+    }
+    if (s.includes('linkedin')) {
+      return { label: 'Subscription', class: 'bg-amber-500/10 text-amber-700 border-amber-500/20', note: 'LinkedIn Learning subscription required' };
+    }
+    if (s.includes('skillshare')) {
+      return { label: 'Subscription', class: 'bg-amber-500/10 text-amber-700 border-amber-500/20', note: 'Skillshare Premium required' };
+    }
+    if (s.includes('masterclass')) {
+      return { label: 'Subscription', class: 'bg-amber-500/10 text-amber-700 border-amber-500/20', note: 'MasterClass membership required' };
+    }
+    if (s.includes('udemy')) {
+      return { label: 'Paid', class: 'bg-orange-500/10 text-orange-700 border-orange-500/20', note: 'Individual course purchase' };
+    }
+    if (s.includes('brilliant')) {
+      return { label: 'Freemium', class: 'bg-purple-500/10 text-purple-700 border-purple-500/20', note: 'Limited free content, Premium for full access' };
+    }
+    if (s.includes('futurelearn')) {
+      return { label: 'Freemium', class: 'bg-purple-500/10 text-purple-700 border-purple-500/20', note: 'Free limited access, Unlimited for full' };
+    }
+    return { label: 'Check', class: 'bg-muted text-muted-foreground border-border', note: 'Check provider for pricing' };
   };
 
   const getAuthorityBadge = (level?: string) => {
@@ -115,6 +154,8 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
     const authorityBadge = getAuthorityBadge(mooc.authority_level);
     const isAtomicLesson = mooc.is_atomic === true;
     const isCourseFallback = mooc.is_atomic === false;
+    const pricingInfo = getPricingInfo(mooc.source);
+    const isCoursera = mooc.source?.toLowerCase().includes('coursera');
 
     return (
       <Card key={index} className={`border-2 p-3 sm:p-5 space-y-3 sm:space-y-4 h-full w-full max-w-full overflow-hidden ${isCourseFallback ? 'border-dashed border-muted-foreground/50' : 'border-border'}`}>
@@ -138,6 +179,10 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
             <Badge className={`${getSourceBadgeColor(mooc.source)} w-fit text-xs`}>
               {mooc.source}
             </Badge>
+            {/* Pricing badge */}
+            <Badge variant="outline" className={`${pricingInfo.class} text-[10px] w-fit`} title={pricingInfo.note}>
+              {pricingInfo.label}
+            </Badge>
             {authorityBadge && (
               <Badge variant="outline" className={`${authorityBadge.class} text-[10px] w-fit`}>
                 {authorityBadge.label}
@@ -159,7 +204,7 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
           {/* Title */}
           <h3 className="font-semibold text-sm sm:text-base line-clamp-2 break-words">{mooc.title}</h3>
           
-          {/* Parent course attribution (KEY CHANGE) */}
+          {/* Parent course attribution */}
           {parentCourse && (
             <p className="text-xs text-muted-foreground break-words">
               From{' '}
@@ -186,8 +231,22 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
           )}
         </div>
 
+        {/* Coursera-specific enrollment guidance */}
+        {isCoursera && (
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded-md p-2 text-xs border border-blue-200 dark:border-blue-800">
+            <p className="font-medium text-blue-700 dark:text-blue-400">
+              💡 To access for free:
+            </p>
+            <ol className="text-blue-600 dark:text-blue-500 mt-1 list-decimal list-inside space-y-0.5">
+              <li>Click "Enroll for Free"</li>
+              <li>Look for "Audit this course" link at bottom</li>
+              <li>Navigate to the specific lesson</li>
+            </ol>
+          </div>
+        )}
+
         {/* Course fallback warning with search tip */}
-        {isCourseFallback && (
+        {isCourseFallback && !isCoursera && (
           <div className="bg-amber-50 dark:bg-amber-950/30 rounded-md p-2 text-xs border border-amber-200 dark:border-amber-800">
             <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-3 w-3 shrink-0" />

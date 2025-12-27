@@ -3,7 +3,7 @@ import { CurriculumAuditCard } from "@/components/CurriculumAuditCard";
 import { AdHocHeader } from "@/components/AdHocHeader";
 import { AIEnhancementProgress } from "@/components/AIEnhancementProgress";
 import { ProvenanceBadge, ProvenanceDisclaimer, determineContentSource } from "@/components/ProvenanceBadge";
-import { TopicFocusPills } from "@/components/TopicFocusPills";
+import { CustomFocusPills } from "@/components/CustomFocusPills";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -29,7 +29,10 @@ export function SyllabusTab() {
     extractCourseCode,
     getSourceColorByUrl,
     selectedPillars,
+    customPillars,
     togglePillar,
+    addCustomPillar,
+    removeCustomPillar,
     regenerateWithPillars,
     isApplyingPillars,
   } = useSyllabusContext();
@@ -117,32 +120,39 @@ export function SyllabusTab() {
         <ProvenanceDisclaimer source={contentSource} className="mt-4" />
       </div>
 
-      {/* Topic Focus Pills (only show if pillars exist) */}
-      {syllabusData.topicPillars && syllabusData.topicPillars.length > 0 && (
-        <TopicFocusPills
-          pillars={syllabusData.topicPillars}
+      {/* Topic Focus Pills (show if pillars exist or we have custom pillars) */}
+      {(syllabusData.topicPillars && syllabusData.topicPillars.length > 0) || customPillars.length > 0 ? (
+        <CustomFocusPills
+          pillars={syllabusData.topicPillars || []}
           selectedPillars={selectedPillars}
+          customPillars={customPillars}
           onTogglePillar={togglePillar}
+          onAddCustomPillar={addCustomPillar}
+          onRemoveCustomPillar={removeCustomPillar}
           onApplyFocus={regenerateWithPillars}
           onResetToDefaults={() => {
+            // Reset custom pillars
+            customPillars.forEach(p => removeCustomPillar(p));
             // Reset to default: select core and important
-            const defaultSelected = new Set(
-              syllabusData.topicPillars!
-                .filter(p => p.priority === 'core' || p.priority === 'important')
-                .map(p => p.name)
-            );
-            // Toggle all off then toggle defaults on
-            syllabusData.topicPillars!.forEach(p => {
-              if (selectedPillars.has(p.name) && !defaultSelected.has(p.name)) {
-                togglePillar(p.name);
-              } else if (!selectedPillars.has(p.name) && defaultSelected.has(p.name)) {
-                togglePillar(p.name);
-              }
-            });
+            if (syllabusData.topicPillars) {
+              const defaultSelected = new Set(
+                syllabusData.topicPillars
+                  .filter(p => p.priority === 'core' || p.priority === 'important')
+                  .map(p => p.name)
+              );
+              // Toggle all off then toggle defaults on
+              syllabusData.topicPillars.forEach(p => {
+                if (selectedPillars.has(p.name) && !defaultSelected.has(p.name)) {
+                  togglePillar(p.name);
+                } else if (!selectedPillars.has(p.name) && defaultSelected.has(p.name)) {
+                  togglePillar(p.name);
+                }
+              });
+            }
           }}
           isApplying={isApplyingPillars}
         />
-      )}
+      ) : null}
 
       {/* Learning Path Settings */}
       <div className="p-4 border rounded-lg bg-card">

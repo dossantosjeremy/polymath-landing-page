@@ -2,11 +2,12 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrustBadge, ScoreBreakdownBadge, ResourceOrigin } from './TrustBadge';
-import { ExternalLink, Clock, Target, Play, FileText, Flag, Loader2, ChevronDown, ChevronUp, LinkIcon, Ban } from 'lucide-react';
+import { ExternalLink, Clock, Target, Play, FileText, Flag, Loader2, ChevronDown, ChevronUp, LinkIcon, Ban, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useReportResource } from '@/hooks/useReportResource';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ArticleReaderDialog } from './ArticleReaderDialog';
 import { useState } from 'react';
 interface CuratedResource {
   url: string;
@@ -148,6 +149,7 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
   const Icon = isVideo ? Play : FileText;
   const { reportAndReplace, isReporting } = useReportResource();
   const [isContentExpanded, setIsContentExpanded] = useState(false);
+  const [isReaderOpen, setIsReaderOpen] = useState(false);
   
   // Extract video ID for embed
   const videoId = resource.url?.match(/(?:v=|youtu\.be\/)([^&]+)/)?.[1];
@@ -222,20 +224,45 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace }: 
           )}
         </div>
         
-        {/* Embedded content for readings */}
+        {/* Embedded content for readings - enhanced with full reader */}
         {!isVideo && resource.embeddedContent && (
-          <Collapsible open={isContentExpanded} onOpenChange={setIsContentExpanded}>
-            <CollapsibleTrigger className="flex items-center gap-1 text-xs text-primary hover:underline">
-              {isContentExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-              {isContentExpanded ? 'Hide article content' : 'Show article content'}
-            </CollapsibleTrigger>
-            <CollapsibleContent className="mt-2">
-              <div 
-                className="prose prose-sm max-w-none text-xs text-muted-foreground max-h-60 overflow-y-auto border rounded p-3 bg-muted/30"
-                dangerouslySetInnerHTML={{ __html: resource.embeddedContent }}
-              />
-            </CollapsibleContent>
-          </Collapsible>
+          <>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsReaderOpen(true)}
+                className="gap-2"
+              >
+                <BookOpen className="h-4 w-4" />
+                Read In-App
+              </Button>
+              <Collapsible open={isContentExpanded} onOpenChange={setIsContentExpanded}>
+                <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+                  {isContentExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  {isContentExpanded ? 'Hide preview' : 'Show preview'}
+                </CollapsibleTrigger>
+              </Collapsible>
+            </div>
+            <Collapsible open={isContentExpanded} onOpenChange={setIsContentExpanded}>
+              <CollapsibleContent className="mt-2">
+                <div 
+                  className="prose prose-sm max-w-none text-xs text-muted-foreground max-h-60 overflow-y-auto border rounded p-3 bg-muted/30"
+                  dangerouslySetInnerHTML={{ __html: resource.embeddedContent }}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+            <ArticleReaderDialog
+              open={isReaderOpen}
+              onOpenChange={setIsReaderOpen}
+              title={resource.title}
+              author={resource.author}
+              domain={resource.domain}
+              content={resource.embeddedContent}
+              url={resource.url}
+              readingTime={resource.consumptionTime}
+            />
+          </>
         )}
         
         {/* Snippet fallback for readings without embedded content */}
