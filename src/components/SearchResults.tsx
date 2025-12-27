@@ -107,7 +107,8 @@ export const SearchResults = ({
       path: path,
       depth: globalConstraints.depth,
       hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
-      skillLevel: globalConstraints.skillLevel
+      skillLevel: globalConstraints.skillLevel,
+      forceRefresh: 'true',
     });
     
     if (globalConstraints.goalDate) {

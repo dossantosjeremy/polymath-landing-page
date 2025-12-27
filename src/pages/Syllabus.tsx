@@ -309,12 +309,19 @@ const SyllabusContent = () => {
     constraintsOverride?: LearningPathConstraints,
     forceRefresh?: boolean
   ) => {
-    const isRegenerating = !!selectedSourceUrls || forceRefresh === true;
+    // Force-refresh can be used on first load ("Generate fresh instead") or as an in-page regeneration.
+    // If we have no syllabus yet, we must drive the full-page loading state; otherwise use the lighter "regenerating" state.
+    const isInitialGeneration = syllabusData == null;
+    const isRegenerating = !isInitialGeneration && (!!selectedSourceUrls || forceRefresh === true);
+
     if (isRegenerating) {
       setRegenerating(true);
-      clearCache();
     } else {
       setLoading(true);
+    }
+
+    if (forceRefresh === true || !!selectedSourceUrls) {
+      clearCache();
     }
     
     try {
