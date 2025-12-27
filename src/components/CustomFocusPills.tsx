@@ -61,7 +61,7 @@ export function CustomFocusPills({
   const [elapsed, setElapsed] = useState(0);
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   
-  // Progress tracking when applying
+  // Progress tracking when applying - with timeout detection
   useEffect(() => {
     if (!isApplying) {
       setElapsed(0);
@@ -70,7 +70,13 @@ export function CustomFocusPills({
     }
     
     const interval = setInterval(() => {
-      setElapsed(prev => prev + 1);
+      setElapsed(prev => {
+        // After 90 seconds, consider it potentially stuck
+        if (prev >= 90) {
+          return prev; // Stop incrementing but keep showing progress
+        }
+        return prev + 1;
+      });
     }, 1000);
     
     return () => clearInterval(interval);
@@ -107,6 +113,12 @@ export function CustomFocusPills({
       .filter(p => p.priority === 'core' || p.priority === 'important')
       .map(p => p.name)
   );
+  
+  // Count actual changes: custom pillars + any new selections not in defaults
+  const addedTopics = customPillars.length + 
+    [...selectedPillars].filter(p => !defaultSelected.has(p) && !customPillars.includes(p)).length;
+  const removedTopics = [...defaultSelected].filter(p => !selectedPillars.has(p)).length;
+  const totalChanges = addedTopics + removedTopics;
   
   const hasChanges = 
     customPillars.length > 0 ||
@@ -239,7 +251,11 @@ export function CustomFocusPills({
           size="sm"
           className="w-full gap-2"
         >
-          Apply Changes ({selectedPillars.size} topics)
+          Apply Changes ({customPillars.length > 0 
+            ? `+${customPillars.length} custom${removedTopics > 0 ? `, -${removedTopics} removed` : ''}`
+            : removedTopics > 0 
+              ? `-${removedTopics} topics` 
+              : `${selectedPillars.size} topics`})
         </Button>
       )}
       
@@ -280,7 +296,11 @@ export function CustomFocusPills({
           {/* Time indicators */}
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Elapsed: {formatTime(elapsed)}</span>
-            <span>~{formatTime(estimatedRemaining)} remaining</span>
+            {elapsed >= 90 ? (
+              <span className="text-amber-600 dark:text-amber-400">Taking longer than expected...</span>
+            ) : (
+              <span>~{formatTime(estimatedRemaining)} remaining</span>
+            )}
           </div>
         </div>
       )}
