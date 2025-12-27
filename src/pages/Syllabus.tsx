@@ -73,6 +73,7 @@ const SyllabusContent = () => {
   const isAdHoc = searchParams.get("isAdHoc") === "true";
   const searchTerm = searchParams.get("searchTerm") || discipline;
   const useAIEnhanced = searchParams.get("useAIEnhanced") === "true";
+  const forceRefresh = searchParams.get("forceRefresh") === "true";
   
   // Parse pre-generation constraints from URL
   const urlDepth = searchParams.get("depth") as 'overview' | 'standard' | 'detailed' | null;
@@ -104,12 +105,12 @@ const SyllabusContent = () => {
   useEffect(() => {
     if (savedId) {
       loadSavedSyllabus(savedId);
-    } else if (useCache && discipline) {
+    } else if (useCache && discipline && !forceRefresh) {
       loadCachedSyllabus();
     } else if (discipline) {
-      generateSyllabus(undefined, preGenerationConstraints, false);
+      generateSyllabus(undefined, preGenerationConstraints, forceRefresh);
     }
-  }, [discipline, savedId, useCache]);
+  }, [discipline, savedId, useCache, forceRefresh]);
 
   // Initialize all sources as selected when syllabus data loads
   useEffect(() => {
