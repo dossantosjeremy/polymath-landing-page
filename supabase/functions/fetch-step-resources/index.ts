@@ -596,11 +596,13 @@ function transformToCuratedResource(
 }
 
 // Curate resources into MED format
+// usedVideoUrls: array of video URLs already used in other steps (to avoid duplicates)
 function curateResources(
   resources: StepResources, 
   stepTitle: string, 
   discipline: string,
-  syllabusContent: string
+  syllabusContent: string,
+  usedVideoUrls: string[] = []
 ): CuratedStepResources {
   // Transform and score all resources
   const scoredVideos = (resources.videos || [])
@@ -623,14 +625,30 @@ function curateResources(
     .map(a => transformToCuratedResource(a, a.type || 'article', syllabusContent))
     .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
 
-  // Select core resources (highest scoring)
-  const coreVideo = scoredVideos[0] || null;
+  // Select core video: skip videos already used in other steps
+  let coreVideo: CuratedResource | null = null;
+  for (const video of scoredVideos) {
+    if (!usedVideoUrls.includes(video.url)) {
+      coreVideo = video;
+      break;
+    }
+  }
+  // Fallback: if all videos are used, still pick the best one
+  if (!coreVideo && scoredVideos.length > 0) {
+    console.log(`⚠️ All videos already used, reusing best video for "${stepTitle}"`);
+    coreVideo = scoredVideos[0];
+  }
+  
+  // COMPULSORY: Always select a core reading if any readings exist
   const coreReading = scoredReadings[0] || null;
 
-  // Deep dive: next 2-3 best resources
+  // Deep dive: next 2-3 best resources (excluding core video and reading)
+  const remainingVideos = scoredVideos.filter(v => v !== coreVideo);
+  const remainingReadings = scoredReadings.filter(r => r !== coreReading);
+  
   const deepDive: CuratedResource[] = [
-    ...scoredVideos.slice(1, 2),
-    ...scoredReadings.slice(1, 3)
+    ...remainingVideos.slice(0, 2),
+    ...remainingReadings.slice(0, 3)
   ];
 
   // Expansion pack: everything else (excluding MOOCs which go in separate array)
@@ -638,8 +656,8 @@ function curateResources(
   const moocs = scoredAlternatives.filter(a => a.type === 'mooc');
   
   const expansionPack: CuratedResource[] = [
-    ...scoredVideos.slice(2),
-    ...scoredReadings.slice(3),
+    ...remainingVideos.slice(2),
+    ...remainingReadings.slice(3),
     ...scoredBooks,
     ...nonMoocAlternatives
   ];
@@ -1255,28 +1273,36 @@ async function validateAndEnhanceResources(resources: StepResources, stepTitle: 
     console.log(`${verifiedCount} videos passed verification`);
   }
   
-  // Validate and enhance readings with content extraction
+  // Validate and enhance readings with content extraction - CRITICAL for in-app reading
   if (enhanced.readings?.length) {
+    console.log(`📖 Extracting content from ${enhanced.readings.length} readings...`);
     enhanced.readings = await Promise.all(
       enhanced.readings.map(async (reading) => {
         const validation = await validateUrl(reading.url);
         const directPdf = await findDirectPdfUrl(reading.url);
         
-        // Attempt content extraction for high-authority sources
+        // Attempt content extraction for ALL readings (not just high-authority sources)
+        // This enables in-app reading for all resources
         let embeddedContent = undefined;
         let contentStatus: 'success' | 'partial' | 'failed' = 'failed';
         let extractedAuthor = reading.author;
         
-        if (reading.domain.includes('stanford.edu') || 
-            reading.domain.includes('wikipedia.org') ||
-            reading.domain.includes('gutenberg.org') ||
-            reading.domain.includes('archive.org')) {
+        // Always try to extract content to enable in-app reading
+        try {
           const extraction = await extractArticleContent(reading.url);
           embeddedContent = extraction.content || undefined;
           contentStatus = extraction.status;
           if (extraction.author) {
             extractedAuthor = extraction.author;
           }
+          
+          if (embeddedContent) {
+            console.log(`✓ Extracted content from ${reading.domain} (${contentStatus})`);
+          } else {
+            console.log(`⚠️ No content extracted from ${reading.domain}`);
+          }
+        } catch (extractError) {
+          console.log(`⚠️ Content extraction failed for ${reading.domain}:`, extractError);
         }
         
         const enhancedReading = {
@@ -1461,19 +1487,73 @@ async function extractArticleContent(url: string): Promise<{
       return { content: null, status: 'failed' };
     }
     
-    // Generic fallback for articles
-    const mainContentMatch = html.match(/<article[^>]*>([\s\S]*?)<\/article>/) ||
-                             html.match(/<main[^>]*>([\s\S]*?)<\/main>/) ||
-                             html.match(/<div class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/);
+    // Generic fallback for articles - enhanced for better extraction
+    // Try multiple selectors in order of preference
+    const contentSelectors = [
+      /<article[^>]*>([\s\S]*?)<\/article>/i,
+      /<main[^>]*>([\s\S]*?)<\/main>/i,
+      /<div[^>]*class="[^"]*article-body[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*post-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*blog-post[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*id="content"[^>]*>([\s\S]*?)<\/div>/i,
+      /<section[^>]*class="[^"]*content[^"]*"[^>]*>([\s\S]*?)<\/section>/i,
+    ];
+    
+    let mainContentMatch = null;
+    for (const selector of contentSelectors) {
+      mainContentMatch = html.match(selector);
+      if (mainContentMatch) break;
+    }
     
     if (mainContentMatch) {
       let content = mainContentMatch[1];
-      content = content.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-      content = content.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-      content = content.replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '');
-      content = content.replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '');
-      const truncated = content.substring(0, 10000);
-      return { content: truncated, status: 'partial' };
+      
+      // Comprehensive cleanup
+      content = content
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+        .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
+        .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+        .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+        .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
+        .replace(/<form[^>]*>[\s\S]*?<\/form>/gi, '')
+        .replace(/<button[^>]*>[\s\S]*?<\/button>/gi, '')
+        .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
+        .replace(/<img[^>]*>/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      // Limit to first 3000 words for readability
+      const words = content.split(/\s+/);
+      if (words.length > 3000) {
+        content = words.slice(0, 3000).join(' ') + '...';
+      }
+      
+      // Only return if we got substantial content (at least 100 words)
+      if (words.length >= 100) {
+        return { content, status: 'partial' };
+      }
+    }
+    
+    // Last resort: try to get all paragraph text
+    const paragraphs = html.match(/<p[^>]*>([\s\S]*?)<\/p>/gi);
+    if (paragraphs && paragraphs.length >= 3) {
+      let content = paragraphs.slice(0, 20).join(' ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      
+      if (content.length > 500) {
+        // Limit to ~3000 words
+        const words = content.split(/\s+/);
+        if (words.length > 3000) {
+          content = words.slice(0, 3000).join(' ') + '...';
+        }
+        return { content, status: 'partial' };
+      }
     }
     
     return { content: null, status: 'failed' };
@@ -1489,9 +1569,9 @@ serve(async (req) => {
   }
 
   try {
-    const { stepTitle, discipline, syllabusUrls = [], rawSourcesContent = '', userTimeBudget, forceRefresh = false } = await req.json();
+    const { stepTitle, discipline, syllabusUrls = [], rawSourcesContent = '', userTimeBudget, forceRefresh = false, usedVideoUrls = [] } = await req.json();
     
-    console.log('Fetching resources for:', { stepTitle, discipline, syllabusUrlsCount: syllabusUrls.length, forceRefresh, hasRawSources: !!rawSourcesContent });
+    console.log('Fetching resources for:', { stepTitle, discipline, syllabusUrlsCount: syllabusUrls.length, forceRefresh, hasRawSources: !!rawSourcesContent, usedVideoCount: usedVideoUrls.length });
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -1563,7 +1643,7 @@ serve(async (req) => {
         
         // CRITICAL: Curate the cached resources before returning
         const syllabusContent = rawSourcesContent || '';
-        const curatedResources = curateResources(resourcesWithMoocs, stepTitle, discipline, syllabusContent);
+        const curatedResources = curateResources(resourcesWithMoocs, stepTitle, discipline, syllabusContent, usedVideoUrls);
         
         console.log('📦 Returning curated cached resources with MOOCs:', curatedResources.moocs?.length || 0);
         
@@ -1885,7 +1965,7 @@ RESPONSE FORMAT - CRITICAL:
 
     // Curate resources into MED format
     const syllabusContent = rawSourcesContent || '';
-    const curatedResources = curateResources(resources, stepTitle, discipline, syllabusContent);
+    const curatedResources = curateResources(resources, stepTitle, discipline, syllabusContent, usedVideoUrls);
     
     console.log('✓ Curated resources:', {
       hasCoreVideo: !!curatedResources.coreVideo,
