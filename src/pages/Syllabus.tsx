@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
@@ -110,6 +110,28 @@ const SyllabusContent = () => {
   const startBackgroundLoading = useCallback((stepTitles: string[]) => {
     backgroundLoader.loadResourcesForSteps(stepTitles);
   }, [backgroundLoader]);
+
+  const lastAutoLoadedKeyRef = useRef<string | null>(null);
+
+  const extractStepTitles = useCallback((modules: any[]): string[] => {
+    return (modules || [])
+      .map((m: any) => (typeof m === "string" ? m : m?.title))
+      .filter((t: any): t is string => typeof t === "string" && t.trim().length > 0);
+  }, []);
+
+  // AUTO-LOAD RESOURCES whenever syllabus data is available (cached, saved, or freshly generated)
+  useEffect(() => {
+    if (!syllabusData || loading) return;
+
+    const titles = extractStepTitles((syllabusData as any).modules || []);
+    if (titles.length === 0) return;
+
+    const key = `${syllabusData.timestamp}|${titles.length}`;
+    if (lastAutoLoadedKeyRef.current === key) return;
+
+    lastAutoLoadedKeyRef.current = key;
+    startBackgroundLoading(titles);
+  }, [syllabusData, loading, extractStepTitles, startBackgroundLoading]);
 
   // Detect if loaded syllabus already has AI content
   useEffect(() => {
@@ -414,15 +436,14 @@ const SyllabusContent = () => {
       }
       
       // AUTO-LOAD RESOURCES: Start background loading for all steps immediately
-      const allStepTitles = (updatedData.modules || []).flatMap((m: any) => 
-        (m.steps || []).map((step: any) => typeof step === 'string' ? step : step.title || step)
-      ).filter((title: string) => title);
+      const allStepTitles = extractStepTitles((updatedData.modules || []) as any);
       
       if (allStepTitles.length > 0) {
+        const key = `${updatedData.timestamp}|${allStepTitles.length}`;
+        lastAutoLoadedKeyRef.current = key;
         console.log(`🚀 Auto-loading resources for ${allStepTitles.length} steps...`);
         startBackgroundLoading(allStepTitles);
       }
-      
       if (savedId && isRegenerating && constraintsOverride) {
         try {
           await supabase

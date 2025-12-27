@@ -199,7 +199,13 @@ serve(async (req) => {
           rawSources: cachedSyllabus.raw_sources,
           timestamp: cachedSyllabus.created_at,
           fromCache: true,
-          contentSource: 'database' // Explicit provenance tracking
+          contentSource: 'database', // Explicit provenance tracking
+          isAdHoc: cachedSyllabus.is_ad_hoc || false,
+          compositionType: cachedSyllabus.composition_type || undefined,
+          derivedFrom: cachedSyllabus.derived_from || undefined,
+          searchTerm: cachedSyllabus.search_term || undefined,
+          topicPillars: (cachedSyllabus as any).topic_pillars || undefined,
+          narrativeFlow: (cachedSyllabus as any).narrative_flow || undefined,
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
