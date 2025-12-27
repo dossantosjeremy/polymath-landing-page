@@ -186,11 +186,16 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
           )}
         </div>
 
-        {/* Course fallback warning */}
+        {/* Course fallback warning with search tip */}
         {isCourseFallback && (
-          <div className="bg-muted/50 rounded-md p-2 text-xs text-muted-foreground">
-            <AlertTriangle className="h-3 w-3 inline mr-1" />
-            Full course – browse to find relevant lessons
+          <div className="bg-amber-50 dark:bg-amber-950/30 rounded-md p-2 text-xs border border-amber-200 dark:border-amber-800">
+            <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3 shrink-0" />
+              <span className="font-medium">Full course</span>
+            </div>
+            <p className="text-amber-600 dark:text-amber-500 mt-1">
+              💡 Search for "{stepTitle.replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '').trim()}" within the course
+            </p>
           </div>
         )}
 
@@ -204,12 +209,18 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
         <div className="pt-2 border-t border-border">
           <Button
             size="sm"
-            variant="default"
+            variant={isCourseFallback ? "outline" : "default"}
             className="w-full text-xs sm:text-sm"
-            onClick={() => window.open(mooc.url, '_blank')}
+            onClick={() => {
+              // If not atomic, prefer course URL; otherwise use lesson URL
+              const targetUrl = isCourseFallback 
+                ? (mooc.course_url || mooc.url) 
+                : mooc.url;
+              window.open(targetUrl, '_blank');
+            }}
           >
             <GraduationCap className="h-3 w-3 sm:h-4 sm:w-4 mr-2 shrink-0" />
-            <span className="truncate">{isAtomicLesson ? 'Watch Lesson' : 'View Course'}</span>
+            <span className="truncate">{isAtomicLesson ? 'Watch Lesson' : 'Browse Course'}</span>
           </Button>
         </div>
 
