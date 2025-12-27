@@ -1,7 +1,8 @@
-import { useState, KeyboardEvent } from "react";
+import { useState, useEffect, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RotateCcw, Sparkles, X, Plus } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { RotateCcw, Sparkles, X, Plus, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TopicPillar {
@@ -22,6 +23,14 @@ interface CustomFocusPillsProps {
   onResetToDefaults: () => void;
   isApplying?: boolean;
 }
+
+const FOCUS_STAGES = [
+  { id: 'analyzing', label: 'Analyzing selected topics', seconds: 3 },
+  { id: 'searching', label: 'Searching for resources', seconds: 8 },
+  { id: 'filtering', label: 'Filtering by focus areas', seconds: 5 },
+  { id: 'organizing', label: 'Organizing curriculum', seconds: 4 },
+  { id: 'finalizing', label: 'Finalizing syllabus', seconds: 3 },
+];
 
 const priorityStyles: Record<string, string> = {
   core: "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20",
@@ -49,6 +58,48 @@ export function CustomFocusPills({
   isApplying = false,
 }: CustomFocusPillsProps) {
   const [inputValue, setInputValue] = useState("");
+  const [elapsed, setElapsed] = useState(0);
+  const [currentStageIndex, setCurrentStageIndex] = useState(0);
+  
+  // Progress tracking when applying
+  useEffect(() => {
+    if (!isApplying) {
+      setElapsed(0);
+      setCurrentStageIndex(0);
+      return;
+    }
+    
+    const interval = setInterval(() => {
+      setElapsed(prev => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isApplying]);
+  
+  useEffect(() => {
+    let cumulativeTime = 0;
+    for (let i = 0; i < FOCUS_STAGES.length; i++) {
+      cumulativeTime += FOCUS_STAGES[i].seconds;
+      if (elapsed < cumulativeTime) {
+        setCurrentStageIndex(i);
+        return;
+      }
+    }
+    setCurrentStageIndex(FOCUS_STAGES.length - 1);
+  }, [elapsed]);
+  
+  const totalEstimatedSeconds = FOCUS_STAGES.reduce((sum, s) => sum + s.seconds, 0);
+  const overallProgress = Math.min((elapsed / totalEstimatedSeconds) * 100, 95);
+  const estimatedRemaining = Math.max(totalEstimatedSeconds - elapsed, 0);
+  
+  const formatTime = (seconds: number) => {
+    if (seconds >= 60) {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}m ${secs}s`;
+    }
+    return `${seconds}s`;
+  };
   
   // Check if there are changes from defaults
   const defaultSelected = new Set(
@@ -181,19 +232,57 @@ export function CustomFocusPills({
         Core topics are selected by default. Add custom focus areas or toggle to customize.
       </p>
       
-      {hasChanges && (
+      {hasChanges && !isApplying && (
         <Button
           onClick={onApplyFocus}
-          disabled={isApplying || selectedPillars.size === 0}
+          disabled={selectedPillars.size === 0}
           size="sm"
           className="w-full gap-2"
         >
-          {isApplying ? (
-            <>Applying Focus...</>
-          ) : (
-            <>Apply Changes ({selectedPillars.size} topics)</>
-          )}
+          Apply Changes ({selectedPillars.size} topics)
         </Button>
+      )}
+      
+      {isApplying && (
+        <div className="space-y-3 p-3 border rounded-lg bg-muted/30">
+          {/* Stage indicators */}
+          <div className="space-y-2">
+            {FOCUS_STAGES.map((stage, idx) => {
+              const isComplete = idx < currentStageIndex;
+              const isCurrent = idx === currentStageIndex;
+              
+              return (
+                <div
+                  key={stage.id}
+                  className={cn(
+                    "flex items-center gap-2 text-sm transition-opacity",
+                    isComplete && "text-muted-foreground opacity-60",
+                    isCurrent && "text-foreground font-medium",
+                    !isComplete && !isCurrent && "text-muted-foreground opacity-40"
+                  )}
+                >
+                  {isComplete ? (
+                    <Check className="h-4 w-4 text-primary" />
+                  ) : isCurrent ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : (
+                    <div className="h-4 w-4 rounded-full border border-muted-foreground/30" />
+                  )}
+                  <span>{stage.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Progress bar */}
+          <Progress value={overallProgress} className="h-2" />
+          
+          {/* Time indicators */}
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>Elapsed: {formatTime(elapsed)}</span>
+            <span>~{formatTime(estimatedRemaining)} remaining</span>
+          </div>
+        </div>
       )}
     </div>
   );
