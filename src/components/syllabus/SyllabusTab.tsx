@@ -120,10 +120,10 @@ export function SyllabusTab() {
         <ProvenanceDisclaimer source={contentSource} className="mt-4" />
       </div>
 
-      {/* Topic Focus Pills - always show for ad-hoc/AI-enhanced syllabi to allow customization */}
+      {/* Topic Focus Pills - ALWAYS show for ad-hoc/AI-enhanced syllabi to allow adding custom topics */}
       {(syllabusData.isAdHoc || syllabusData.isAIEnhanced || 
         (syllabusData.topicPillars && syllabusData.topicPillars.length > 0) || 
-        customPillars.length > 0) ? (
+        customPillars.length > 0) && (
         <CustomFocusPills
           pillars={syllabusData.topicPillars || []}
           selectedPillars={selectedPillars}
@@ -153,8 +153,9 @@ export function SyllabusTab() {
             }
           }}
           isApplying={isApplyingPillars}
+          alwaysShowAddButton={syllabusData.isAdHoc || syllabusData.isAIEnhanced}
         />
-      ) : null}
+      )}
 
       {/* Learning Path Settings */}
       <div className="p-4 border rounded-lg bg-card">
