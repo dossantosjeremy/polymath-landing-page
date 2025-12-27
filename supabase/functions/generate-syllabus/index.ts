@@ -369,7 +369,9 @@ serve(async (req) => {
                   is_ad_hoc: true,
                   composition_type: compositionType,
                   derived_from: derivedFrom,
-                  search_term: searchTerm || discipline
+                  search_term: searchTerm || discipline,
+                  topic_pillars: topicPillars,
+                  narrative_flow: narrativeFlow
                 }, { 
                   onConflict: 'discipline' 
                 });

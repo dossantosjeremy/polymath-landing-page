@@ -287,7 +287,13 @@ const SyllabusContent = () => {
         modules: data.modules as any,
         source: data.source,
         rawSources: data.raw_sources as any,
-        timestamp: data.created_at || ''
+        timestamp: data.created_at || '',
+        isAdHoc: data.is_ad_hoc || false,
+        compositionType: data.composition_type as 'single' | 'composite_program' | 'vocational' | undefined,
+        derivedFrom: data.derived_from || undefined,
+        searchTerm: data.search_term || undefined,
+        topicPillars: (data as any).topic_pillars || undefined,
+        narrativeFlow: (data as any).narrative_flow || undefined
       });
       
       setIsSaved(false);
@@ -320,7 +326,9 @@ const SyllabusContent = () => {
         modules: data.modules as any,
         source: data.source,
         rawSources: data.raw_sources as any,
-        timestamp: data.created_at || ''
+        timestamp: data.created_at || '',
+        topicPillars: (data as any).topic_pillars || undefined,
+        narrativeFlow: (data as any).narrative_flow || undefined
       });
       
       setIsSaved(true);

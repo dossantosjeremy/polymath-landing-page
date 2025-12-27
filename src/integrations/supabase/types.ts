@@ -78,9 +78,11 @@ export type Database = {
           id: string
           is_ad_hoc: boolean | null
           modules: Json
+          narrative_flow: string | null
           raw_sources: Json | null
           search_term: string | null
           source: string
+          topic_pillars: Json | null
         }
         Insert: {
           composition_type?: string | null
@@ -91,9 +93,11 @@ export type Database = {
           id?: string
           is_ad_hoc?: boolean | null
           modules: Json
+          narrative_flow?: string | null
           raw_sources?: Json | null
           search_term?: string | null
           source: string
+          topic_pillars?: Json | null
         }
         Update: {
           composition_type?: string | null
@@ -104,9 +108,11 @@ export type Database = {
           id?: string
           is_ad_hoc?: boolean | null
           modules?: Json
+          narrative_flow?: string | null
           raw_sources?: Json | null
           search_term?: string | null
           source?: string
+          topic_pillars?: Json | null
         }
         Relationships: []
       }
@@ -292,9 +298,11 @@ export type Database = {
           discipline_path: string | null
           id: string
           modules: Json
+          narrative_flow: string | null
           raw_sources: Json | null
           source: string
           source_url: string | null
+          topic_pillars: Json | null
           updated_at: string | null
           user_id: string
         }
@@ -304,9 +312,11 @@ export type Database = {
           discipline_path?: string | null
           id?: string
           modules: Json
+          narrative_flow?: string | null
           raw_sources?: Json | null
           source: string
           source_url?: string | null
+          topic_pillars?: Json | null
           updated_at?: string | null
           user_id: string
         }
@@ -316,9 +326,11 @@ export type Database = {
           discipline_path?: string | null
           id?: string
           modules?: Json
+          narrative_flow?: string | null
           raw_sources?: Json | null
           source?: string
           source_url?: string | null
+          topic_pillars?: Json | null
           updated_at?: string | null
           user_id?: string
         }
