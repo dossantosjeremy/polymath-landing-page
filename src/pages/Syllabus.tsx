@@ -71,6 +71,7 @@ const SyllabusContent = () => {
   
   // Topic Focus Pills State
   const [selectedPillars, setSelectedPillars] = useState<Set<string>>(new Set());
+  const [customPillars, setCustomPillars] = useState<string[]>([]);
   const [isApplyingPillars, setIsApplyingPillars] = useState(false);
 
   // URL params
@@ -548,6 +549,22 @@ const SyllabusContent = () => {
     });
   }, []);
 
+  const addCustomPillar = useCallback((pillarName: string) => {
+    setCustomPillars(prev => [...prev, pillarName]);
+    // Also add to selected pillars automatically
+    setSelectedPillars(prev => new Set([...prev, pillarName]));
+  }, []);
+
+  const removeCustomPillar = useCallback((pillarName: string) => {
+    setCustomPillars(prev => prev.filter(p => p !== pillarName));
+    // Also remove from selected pillars
+    setSelectedPillars(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(pillarName);
+      return newSet;
+    });
+  }, []);
+
   // Initialize selected pillars from syllabus data
   useEffect(() => {
     if (syllabusData?.topicPillars && selectedPillars.size === 0) {
@@ -802,7 +819,10 @@ const SyllabusContent = () => {
               missionControlState={missionControlState}
               setMissionControlState={setMissionControlState}
               selectedPillars={selectedPillars}
+              customPillars={customPillars}
               togglePillar={togglePillar}
+              addCustomPillar={addCustomPillar}
+              removeCustomPillar={removeCustomPillar}
               regenerateWithPillars={regenerateWithPillars}
               isApplyingPillars={isApplyingPillars}
               backgroundLoadingState={{
