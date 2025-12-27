@@ -144,6 +144,20 @@ const SyllabusContent = () => {
     }
   }, [syllabusData?.rawSources]);
 
+  // Initialize topic pillars with core/important selection when syllabus loads
+  useEffect(() => {
+    if (syllabusData?.topicPillars && selectedPillars.size === 0) {
+      const defaultSelected = new Set(
+        syllabusData.topicPillars
+          .filter(p => p.priority === 'core' || p.priority === 'important')
+          .map(p => p.name)
+      );
+      if (defaultSelected.size > 0) {
+        setSelectedPillars(defaultSelected);
+      }
+    }
+  }, [syllabusData?.topicPillars]);
+
   // Execute pending action after login
   useEffect(() => {
     const executePendingAction = async () => {

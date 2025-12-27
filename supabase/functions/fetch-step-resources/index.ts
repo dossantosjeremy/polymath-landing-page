@@ -201,9 +201,17 @@ Return ONLY a JSON array (no markdown, no explanation):
       return [];
     }
 
-    // Determine if each URL is truly atomic
+    // Determine if each URL is truly atomic and extract course URL
     const enhancedLessons = lessons.map(lesson => {
       const url = lesson.url?.toLowerCase() || '';
+      const originalUrl = lesson.url || '';
+      
+      // Detect placeholder/fake URLs
+      const hasPlaceholderID = 
+        originalUrl.includes('VIDEO_ID') ||
+        originalUrl.includes('LECTURE_ID') ||
+        /\/lecture\/[A-Z_]+$/.test(originalUrl) ||  // e.g., /lecture/VIDEO_ID
+        /\/video\/[A-Z_]+$/.test(originalUrl);       // e.g., /video/LESSON_ID
       
       // Detect if this is a course landing page (NOT atomic)
       const isCourseLandingPage = 
@@ -212,15 +220,37 @@ Return ONLY a JSON array (no markdown, no explanation):
         (url.includes('udemy.com/course/') && !url.includes('/learn/') && !url.includes('/lecture/')) ||
         (url.includes('linkedin.com/learning/') && !url.includes('/lesson/'));
       
-      // Mark as atomic only if it's a specific lesson URL
-      const is_atomic = !isCourseLandingPage && (
-        url.includes('/lecture/') ||
-        url.includes('/video/') ||
-        url.includes('/lesson/') ||
+      // Check for real lesson URLs (not placeholders)
+      const hasRealLessonPath = !hasPlaceholderID && (
+        // Coursera: Real lecture URLs have alphanumeric IDs like /lecture/ABC123
+        (url.includes('/lecture/') && /\/lecture\/[a-zA-Z0-9]{5,}/.test(originalUrl)) ||
+        (url.includes('/video/') && /\/video\/[a-zA-Z0-9]{5,}/.test(originalUrl)) ||
+        (url.includes('/lesson/') && /\/lesson\/[a-zA-Z0-9-]{5,}/.test(originalUrl)) ||
         url.includes('/v/') ||  // Khan Academy
         url.includes('youtube.com/watch') ||
         url.includes('youtu.be/')
       );
+      
+      // Mark as atomic only if it has a real lesson URL, not a placeholder
+      const is_atomic = !isCourseLandingPage && !hasPlaceholderID && hasRealLessonPath;
+      
+      // Extract course URL from lesson URL if not provided
+      let course_url = lesson.course_url || '';
+      if (!course_url && originalUrl) {
+        if (url.includes('coursera.org/learn/')) {
+          // Extract course URL from: https://www.coursera.org/learn/COURSE/lecture/ID
+          const courseMatch = originalUrl.match(/(https?:\/\/[^/]+\/learn\/[^/]+)/i);
+          if (courseMatch) course_url = courseMatch[1];
+        } else if (url.includes('edx.org/course')) {
+          // Extract course URL from: https://www.edx.org/course/COURSE/video/...
+          const courseMatch = originalUrl.match(/(https?:\/\/[^/]+\/course\/[^/]+)/i);
+          if (courseMatch) course_url = courseMatch[1];
+        } else if (url.includes('udemy.com/course/')) {
+          // Extract course URL from: https://www.udemy.com/course/COURSE/learn/...
+          const courseMatch = originalUrl.match(/(https?:\/\/[^/]+\/course\/[^/]+)/i);
+          if (courseMatch) course_url = courseMatch[1];
+        }
+      }
 
       return {
         ...lesson,
@@ -234,7 +264,7 @@ Return ONLY a JSON array (no markdown, no explanation):
         ),
         is_atomic: lesson.is_atomic !== false ? is_atomic : false,
         course_title: lesson.course_title || '',
-        course_url: lesson.course_url || ''
+        course_url: course_url
       };
     });
 
@@ -999,6 +1029,76 @@ Return ONLY the first working video you find as JSON:
   }
 }
 
+// Dedicated reading search with broader sources for practical topics
+async function searchReadingsWithBroadSources(stepTitle: string, discipline: string, blacklist: string[]): Promise<any[]> {
+  const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+  if (!perplexityApiKey) {
+    console.warn('PERPLEXITY_API_KEY not configured, skipping reading search');
+    return [];
+  }
+
+  const cleanedTitle = stepTitle.replace(/^(Module\s+\d+\s*[-–—]\s*Step\s+\d+\s*[:.]?\s*|\d+\.\s*)/i, '').trim();
+  
+  const blacklistConstraint = blacklist.length > 0
+    ? `\n\nDO NOT return these URLs: ${blacklist.slice(0, 10).join(', ')}`
+    : '';
+
+  console.log(`📚 Searching for readings on: "${cleanedTitle}" in ${discipline}...`);
+
+  const prompt = `SEARCH for ARTICLES and TUTORIALS about: "${cleanedTitle}" in ${discipline}
+
+SEARCH THESE SOURCES (in order of priority):
+1. Wikipedia articles on the topic
+2. Industry blogs and authority sites (e.g., photography: fstoppers.com, petapixel.com, dpreview.com)
+3. Tutorial sites (e.g., Medium, Substack, specialized blogs)
+4. Official documentation and guides
+5. How-to guides from reputable publishers
+
+CRITICAL: 
+- Return REAL URLs that actually exist
+- Include a mix of beginner-friendly and intermediate content
+- DO NOT return only academic sources - include practical tutorials
+
+${blacklistConstraint}
+
+Return 3-5 high-quality articles as JSON array:
+[
+  {
+    "url": "https://real-url.com/article",
+    "title": "Exact article title",
+    "author": "Author name if available",
+    "domain": "domain.com",
+    "snippet": "2-3 sentences from the actual article",
+    "focusHighlight": "Which sections to focus on",
+    "readingTime": "5 mins"
+  }
+]
+
+If no articles found, return: []`;
+
+  try {
+    const data = await callPerplexityAPI(prompt, 'sonar-pro', 2000);
+    const content = data.choices[0]?.message?.content;
+    
+    if (!content) {
+      console.warn('No content in Perplexity readings response');
+      return [];
+    }
+    
+    const readings = extractJSON(content);
+    if (Array.isArray(readings) && readings.length > 0) {
+      console.log(`✓ Found ${readings.length} readings via dedicated search`);
+      return readings;
+    }
+    
+    console.log('No readings found in Perplexity response');
+    return [];
+  } catch (e) {
+    console.error('Readings search failed:', e);
+    return [];
+  }
+}
+
 function generateYouTubeThumbnail(url: string): string {
   const videoIdMatch = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
   if (videoIdMatch) {
@@ -1573,6 +1673,10 @@ RESPONSE FORMAT - CRITICAL:
     console.log('🎓 Starting atomic learning unit search...');
     const atomicLessonsPromise = searchAtomicLearningUnits(stepTitle, discipline, blacklist);
     
+    // Start dedicated reading search in parallel (covers practical topics better)
+    console.log('📚 Starting dedicated reading search...');
+    const readingsPromise = searchReadingsWithBroadSources(stepTitle, discipline, blacklist);
+    
     // Try YouTube API first - this is the most reliable method
     let videos = await searchYouTubeAPI(stepTitle, discipline, blacklist);
     
@@ -1683,10 +1787,28 @@ RESPONSE FORMAT - CRITICAL:
     );
     const mergedAlternatives = [...transformedLessons, ...perplexityAlternatives];
     
+    // Wait for dedicated reading search results
+    const dedicatedReadings = await readingsPromise;
+    console.log(`✓ Dedicated reading search found ${dedicatedReadings.length} readings`);
+    
+    // Merge readings: dedicated search results first (higher quality for practical topics), then Perplexity
+    const perplexityReadings = perplexityResources.readings || [];
+    const allReadings = [...dedicatedReadings, ...perplexityReadings];
+    
+    // Deduplicate by URL
+    const seenUrls = new Set<string>();
+    const mergedReadings = allReadings.filter(r => {
+      if (!r.url || seenUrls.has(r.url)) return false;
+      seenUrls.add(r.url);
+      return true;
+    });
+    
+    console.log(`📖 Total readings after merge: ${mergedReadings.length} (${dedicatedReadings.length} dedicated + ${perplexityReadings.length} general)`);
+    
     // Merge results with fallbacks
     let resources: StepResources = {
       videos: perplexityVideos || [],
-      readings: perplexityResources.readings || [],
+      readings: mergedReadings,
       books: perplexityResources.books || [],
       alternatives: mergedAlternatives,
     };

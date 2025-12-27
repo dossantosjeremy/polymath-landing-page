@@ -104,6 +104,26 @@ export function CriticalPath({
             onReplace={onResourceReplace ? (r) => onResourceReplace('reading', r) : undefined}
           />
         )}
+
+        {/* Fallback when no core reading but has video */}
+        {coreVideo && !coreReading && (
+          <div className="border rounded-lg p-4 bg-muted/30 text-center">
+            <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">
+              No reading found for this step. Check the "Deep Dive" or "Explore More" tabs for additional materials.
+            </p>
+          </div>
+        )}
+        
+        {/* Fallback when no core video but has reading */}
+        {!coreVideo && coreReading && (
+          <div className="border rounded-lg p-4 bg-muted/30 text-center">
+            <Play className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+            <p className="text-sm text-muted-foreground">
+              No video found for this step. Check the "Deep Dive" or "Explore More" tabs for additional materials.
+            </p>
+          </div>
+        )}
         
         {!coreVideo && !coreReading && (
           <p className="text-sm text-muted-foreground text-center py-4">
