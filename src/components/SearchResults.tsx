@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { ChevronRight, ChevronDown, BookOpen, Sparkles, Building2 } from "lucide-react";
+import { ChevronRight, ChevronDown, BookOpen, Sparkles, Building2, Search, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
 import { ProvenanceBadge } from "@/components/ProvenanceBadge";
@@ -16,6 +17,8 @@ interface Discipline {
   l4: string | null;
   l5: string | null;
   l6: string | null;
+  match_type?: 'exact' | 'fuzzy';
+  similarity_score?: number;
 }
 
 interface SearchResultsProps {
@@ -47,6 +50,12 @@ export const SearchResults = ({
     cacheDate,
     sourceCount
   } = useCommuniySyllabus(expandedDisciplineName);
+
+  // Separate exact and fuzzy matches
+  const exactMatches = results.filter(r => r.match_type === 'exact' || !r.match_type);
+  const fuzzyMatches = results.filter(r => r.match_type === 'fuzzy');
+  const hasAnyMatches = results.length > 0;
+  const hasOnlyFuzzyMatches = exactMatches.length === 0 && fuzzyMatches.length > 0;
 
   const getDisciplinePath = (discipline: Discipline): string[] => {
     const path = [discipline.l1];
@@ -123,7 +132,23 @@ export const SearchResults = ({
     navigate(`/syllabus?${params.toString()}`);
   };
 
-  // Auto-navigate for ad-hoc topics (not in database) - only after search has completed
+  const handleAISearch = () => {
+    // Navigate to ad-hoc AI search
+    const params = new URLSearchParams({
+      discipline: query,
+      isAdHoc: 'true',
+      searchTerm: query,
+      depth: globalConstraints.depth,
+      hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
+      skillLevel: globalConstraints.skillLevel
+    });
+    if (globalConstraints.goalDate) {
+      params.set('goalDate', globalConstraints.goalDate.toISOString());
+    }
+    navigate(`/syllabus?${params.toString()}`);
+  };
+
+  // Only auto-navigate for ad-hoc when NO matches (exact or fuzzy) exist
   useEffect(() => {
     if (hasSearched && !searching && results.length === 0 && query.trim()) {
       const params = new URLSearchParams({
@@ -149,7 +174,7 @@ export const SearchResults = ({
     );
   }
 
-  // Return null while auto-navigating for ad-hoc topics
+  // Return null while auto-navigating for ad-hoc topics (no matches at all)
   if (results.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -158,6 +183,120 @@ export const SearchResults = ({
       </div>
     );
   }
+
+  const renderDisciplineCard = (discipline: Discipline, showFuzzyBadge: boolean = false) => {
+    const path = getDisciplinePath(discipline);
+    const level = getLevel(discipline);
+    const isExpanded = expandedId === discipline.id;
+    const similarityPercent = discipline.similarity_score ? Math.round(discipline.similarity_score * 100) : null;
+    
+    return (
+      <Card 
+        key={discipline.id} 
+        className="hover:shadow-md transition-shadow cursor-pointer group" 
+        onClick={() => {
+          setExpandedId(isExpanded ? null : discipline.id);
+          setIncludeAIAugmentation(false); // Reset toggle when changing selection
+        }}
+      >
+        <CardContent className="pt-6 rounded-sm">
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-medium px-2 py-1 bg-accent text-accent-foreground rounded-full">
+                  {level}
+                </span>
+                {showFuzzyBadge && similarityPercent && (
+                  <Badge variant="outline" className="text-xs">
+                    {similarityPercent}% match
+                  </Badge>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2 flex-wrap text-sm">
+                {path.map((segment, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <span className={index === path.length - 1 ? "font-semibold" : "text-muted-foreground"}>
+                      {segment}
+                    </span>
+                    {index < path.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <ChevronDown className={`h-5 w-5 text-primary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+          </div>
+
+          {isExpanded && (
+            <div className="flex flex-col gap-4 mt-4" onClick={e => e.stopPropagation()}>
+              {/* Database-first: Show provenance indicator */}
+              {cachedSyllabus && (
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <ProvenanceBadge source="database" size="sm" />
+                  <span className="text-sm text-muted-foreground">
+                    Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                  </span>
+                </div>
+              )}
+
+              {/* Primary action: Load Academic Syllabus */}
+              <Button 
+                onClick={() => handleLoadSyllabus(discipline)} 
+                className="w-full"
+                size="lg"
+              >
+                <Building2 className="mr-2 h-4 w-4" />
+                {cachedSyllabus ? 'Load Academic Syllabus' : 'Generate Academic Syllabus'}
+              </Button>
+
+              {/* AI Augmentation toggle */}
+              <label 
+                className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={e => e.stopPropagation()}
+              >
+                <Checkbox 
+                  checked={includeAIAugmentation}
+                  onCheckedChange={(checked) => setIncludeAIAugmentation(!!checked)}
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-violet-500" />
+                    <span className="font-medium text-sm">Include AI Augmentation</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Discover industry authorities and additional sources
+                  </p>
+                </div>
+              </label>
+
+              {/* Secondary actions */}
+              <div className="flex gap-2">
+                {cachedSyllabus && (
+                  <Button 
+                    onClick={() => handleGenerateFresh(discipline)} 
+                    variant="outline" 
+                    size="sm"
+                    className="flex-1"
+                  >
+                    <BookOpen className="mr-2 h-3 w-3" />
+                    Generate Fresh
+                  </Button>
+                )}
+                <Button 
+                  onClick={() => onBrowseInContext(discipline)} 
+                  variant="ghost" 
+                  size="sm"
+                  className={cachedSyllabus ? 'flex-1' : 'w-full'}
+                >
+                  Browse in Context
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div>
@@ -168,114 +307,63 @@ export const SearchResults = ({
         Found {results.length} result{results.length !== 1 ? "s" : ""} for "{query}"
       </p>
 
-      <div className="grid gap-4">
-        {results.map(discipline => {
-          const path = getDisciplinePath(discipline);
-          const level = getLevel(discipline);
-          const isExpanded = expandedId === discipline.id;
-          
-          return (
-            <Card 
-              key={discipline.id} 
-              className="hover:shadow-md transition-shadow cursor-pointer group" 
-              onClick={() => {
-                setExpandedId(isExpanded ? null : discipline.id);
-                setIncludeAIAugmentation(false); // Reset toggle when changing selection
-              }}
-            >
-              <CardContent className="pt-6 rounded-sm">
-                <div className="flex items-center justify-between gap-4 mb-2">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-medium px-2 py-1 bg-accent text-accent-foreground rounded-full">
-                        {level}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 flex-wrap text-sm">
-                      {path.map((segment, index) => (
-                        <div key={index} className="flex items-center gap-2">
-                          <span className={index === path.length - 1 ? "font-semibold" : "text-muted-foreground"}>
-                            {segment}
-                          </span>
-                          {index < path.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <ChevronDown className={`h-5 w-5 text-primary transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                </div>
+      <div className="space-y-6">
+        {/* Exact Matches Section */}
+        {exactMatches.length > 0 && (
+          <div className="space-y-4">
+            {fuzzyMatches.length > 0 && (
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Search className="h-4 w-4" />
+                <span>Exact Matches</span>
+                <Badge variant="secondary" className="ml-1">{exactMatches.length}</Badge>
+              </div>
+            )}
+            <div className="grid gap-4">
+              {exactMatches.map(discipline => renderDisciplineCard(discipline, false))}
+            </div>
+          </div>
+        )}
 
-                {isExpanded && (
-                  <div className="flex flex-col gap-4 mt-4" onClick={e => e.stopPropagation()}>
-                    {/* Database-first: Show provenance indicator */}
-                    {cachedSyllabus && (
-                      <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
-                        <ProvenanceBadge source="database" size="sm" />
-                        <span className="text-sm text-muted-foreground">
-                          Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    )}
+        {/* Fuzzy/Similar Matches Section */}
+        {fuzzyMatches.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+              <Zap className="h-4 w-4" />
+              <span>{hasOnlyFuzzyMatches ? 'Closest matches in our catalog' : 'Similar matches'}</span>
+              <Badge variant="outline" className="ml-1">{fuzzyMatches.length}</Badge>
+            </div>
+            <div className="grid gap-4">
+              {fuzzyMatches.map(discipline => renderDisciplineCard(discipline, true))}
+            </div>
+          </div>
+        )}
 
-                    {/* Primary action: Load Academic Syllabus */}
-                    <Button 
-                      onClick={() => handleLoadSyllabus(discipline)} 
-                      className="w-full"
-                      size="lg"
-                    >
-                      <Building2 className="mr-2 h-4 w-4" />
-                      {cachedSyllabus ? 'Load Academic Syllabus' : 'Generate Academic Syllabus'}
-                    </Button>
-
-                    {/* AI Augmentation toggle */}
-                    <label 
-                      className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <Checkbox 
-                        checked={includeAIAugmentation}
-                        onCheckedChange={(checked) => setIncludeAIAugmentation(!!checked)}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="h-4 w-4 text-violet-500" />
-                          <span className="font-medium text-sm">Include AI Augmentation</span>
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Discover industry authorities and additional sources
-                        </p>
-                      </div>
-                    </label>
-
-                    {/* Secondary actions */}
-                    <div className="flex gap-2">
-                      {cachedSyllabus && (
-                        <Button 
-                          onClick={() => handleGenerateFresh(discipline)} 
-                          variant="outline" 
-                          size="sm"
-                          className="flex-1"
-                        >
-                          <BookOpen className="mr-2 h-3 w-3" />
-                          Generate Fresh
-                        </Button>
-                      )}
-                      <Button 
-                        onClick={() => onBrowseInContext(discipline)} 
-                        variant="ghost" 
-                        size="sm"
-                        className={cachedSyllabus ? 'flex-1' : 'w-full'}
-                      >
-                        Browse in Context
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+        {/* AI Search Fallback - Always shown as an option when we have results */}
+        {hasAnyMatches && (
+          <div className="mt-8 p-4 border border-dashed rounded-lg bg-muted/30">
+            <div className="flex items-start gap-3">
+              <Sparkles className="h-5 w-5 text-violet-500 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-medium text-sm">Looking for something else?</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {hasOnlyFuzzyMatches 
+                    ? `We couldn't find an exact match for "${query}". You can search the web with AI to discover more sources.`
+                    : `Generate a custom curriculum for "${query}" using AI-powered web search.`
+                  }
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleAISearch}
+                className="shrink-0"
+              >
+                <Sparkles className="mr-2 h-3 w-3" />
+                Search with AI
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

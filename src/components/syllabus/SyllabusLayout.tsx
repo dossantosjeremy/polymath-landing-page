@@ -5,6 +5,7 @@ import { SyllabusTab } from "./SyllabusTab";
 import { SourcesTab } from "./SourcesTab";
 import { SyllabusProvider, SyllabusData, DiscoveredSource, MissionControlPersistedState } from "./SyllabusContext";
 import { LearningPathConstraints, PruningStats } from "@/components/SmartLearningPathSettings";
+import { BackgroundLoadingBanner } from "@/components/BackgroundLoadingBanner";
 
 interface SyllabusLayoutProps {
   // Data
@@ -84,12 +85,25 @@ export function SyllabusLayout(props: SyllabusLayoutProps) {
   const {
     activeTab = "content",
     onTabChange,
+    backgroundLoadingState,
     ...contextValue
   } = props;
 
+  // Include backgroundLoadingState in context value
+  const fullContextValue = { ...contextValue, backgroundLoadingState };
+
   return (
-    <SyllabusProvider value={contextValue}>
+    <SyllabusProvider value={fullContextValue}>
       <SyllabusLayoutInner activeTab={activeTab} onTabChange={onTabChange} />
+      
+      {/* Background Loading Banner */}
+      <BackgroundLoadingBanner
+        isLoading={backgroundLoadingState.isLoading}
+        progress={backgroundLoadingState.progress}
+        total={backgroundLoadingState.total}
+        currentStep={backgroundLoadingState.currentStep}
+        failedCount={backgroundLoadingState.failedCount}
+      />
     </SyllabusProvider>
   );
 }

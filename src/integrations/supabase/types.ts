@@ -484,7 +484,22 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      search_disciplines_fuzzy: {
+        Args: { search_term: string; similarity_threshold?: number }
+        Returns: {
+          id: string
+          l1: string
+          l2: string
+          l3: string
+          l4: string
+          l5: string
+          l6: string
+          match_type: string
+          similarity_score: number
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never

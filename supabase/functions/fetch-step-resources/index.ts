@@ -96,55 +96,61 @@ async function searchAtomicLearningUnits(stepTitle: string, discipline: string, 
     ? `\nDO NOT return these URLs: ${blacklist.join(', ')}`
     : '';
 
-  // STRICT ATOMIC CONSTRAINT PROMPT
-  const prompt = `SEARCH for INDIVIDUAL LESSONS, VIDEOS, or MODULES (NOT full courses) about: "${cleanedTitle}" in ${discipline}
+  // IMPROVED PROMPT: More courses, provider diversity, keyword expansion
+  const prompt = `SEARCH for INDIVIDUAL LESSONS, VIDEOS, or MODULES about: "${cleanedTitle}" in ${discipline}
 
-CRITICAL CONSTRAINT:
-- Select ONLY atomic learning units that directly match this SPECIFIC topic
-- DO NOT include full courses as primary resources
-- Each resource must be a SINGLE lesson, video, or reading (under 30 minutes)
+CRITICAL REQUIREMENTS:
+- Find 6-8 resources from DIFFERENT providers (max 2 per provider)
+- Include BOTH atomic lessons AND relevant course landing pages
+- Prioritize FREE resources first
 
-SEARCH THESE PLATFORMS (in order of priority):
-1. Khan Academy (FREE): khanacademy.org/.../v/...
-2. MIT OpenCourseWare (FREE): ocw.mit.edu/courses/.../video/...
-3. Coursera lectures: coursera.org/learn/COURSE/lecture/...
-4. edX modules: edx.org/course/.../video/...
-5. LinkedIn Learning: linkedin.com/learning/.../lesson/...
-6. Skillshare classes: skillshare.com/classes/.../lessons/...
-7. Udemy lessons: udemy.com/course/.../learn/lecture/...
-8. FutureLearn: futurelearn.com/courses/.../steps/...
-9. Brilliant: brilliant.org/courses/.../...
-10. MasterClass: masterclass.com/classes/...
+SEARCH THESE PLATFORMS (MUST include resources from at least 4 different providers):
+1. Khan Academy (FREE - PRIORITY): khanacademy.org
+2. MIT OpenCourseWare (FREE - PRIORITY): ocw.mit.edu
+3. Coursera: coursera.org
+4. edX: edx.org
+5. Udemy: udemy.com
+6. LinkedIn Learning: linkedin.com/learning
+7. FutureLearn: futurelearn.com
+8. Skillshare: skillshare.com
+9. OpenLearn (FREE): open.edu/openlearn
+10. Class Central: classcentral.com
 
-PRIORITIZE FREE resources (Khan Academy, MIT OCW) when available.
+KEYWORD EXPANSION - Also search these variations:
+- "${cleanedTitle}"
+- "${cleanedTitle.replace(/studies$/i, 'study')}"
+- "${cleanedTitle.replace(/study$/i, 'studies')}"
+- "${discipline} ${cleanedTitle}"
 
-For EACH resource, you MUST find:
-- The SPECIFIC lesson/video URL (not the course landing page)
-- The parent course name (for attribution)
-- The estimated duration (prefer under 20 minutes)
+For EACH resource, provide:
+- The URL (specific lesson OR course page)
+- The parent course name if applicable
+- The estimated duration
+- Whether it's free or paid
 
-HARD LIMITS:
-- Max 4 resources TOTAL
-- Max 1 resource per provider
-- Prefer content under 20 minutes
+DIVERSITY REQUIREMENTS:
+- Return 6-8 resources MINIMUM
+- Maximum 2 resources per provider
+- At least 2 FREE resources
+- Mix of academic and practical sources
 
-If a URL points to a full course landing page (not a specific lesson), mark is_atomic: false.
 ${blacklistClause}
 
 Return ONLY a JSON array (no markdown, no explanation):
 [
   {
     "type": "video",
-    "title": "Specific lesson title",
-    "url": "direct lesson URL",
+    "title": "Specific lesson or course title",
+    "url": "lesson or course URL",
     "provider": "Coursera",
     "course_title": "Parent Course Name",
     "course_url": "course landing page URL",
     "authority_level": "academic",
     "duration": "12 mins",
     "instructor": "Instructor Name",
-    "description": "What this specific lesson covers",
-    "is_atomic": true
+    "description": "What this covers",
+    "is_atomic": true,
+    "is_free": false
   }
 ]`;
 
@@ -279,25 +285,42 @@ Return ONLY a JSON array (no markdown, no explanation):
       };
     });
 
-    // FALLBACK STRATEGY: If no atomic content found, return empty and let YouTube/articles handle it
-    const atomicOnly = enhancedLessons.filter(l => l.is_atomic);
-    if (atomicOnly.length === 0) {
-      console.log('⚠️ No atomic MOOC content found, falling back to videos/articles');
-      // Still return non-atomic with warning, but limited
-      return enhancedLessons
-        .filter(l => l.url && !blacklist.includes(l.url))
-        .slice(0, 2);
-    }
+    // IMPROVED: Return more courses with provider diversity enforcement
+    const validLessons = enhancedLessons.filter(l => l.url && !blacklist.includes(l.url));
+    
+    // Enforce provider diversity: max 2 per provider
+    const providerCounts: Record<string, number> = {};
+    const diverseLessons = validLessons.filter(lesson => {
+      const provider = lesson.provider || 'Unknown';
+      const count = providerCounts[provider] || 0;
+      if (count >= 2) return false;
+      providerCounts[provider] = count + 1;
+      return true;
+    });
+    
+    // Sort: atomic first, then free, then by authority
+    const sorted = diverseLessons.sort((a, b) => {
+      // Atomic content first
+      if (a.is_atomic && !b.is_atomic) return -1;
+      if (!a.is_atomic && b.is_atomic) return 1;
+      // Free resources first
+      const aFree = (a as any).is_free || a.provider?.includes('Khan') || a.provider?.includes('MIT');
+      const bFree = (b as any).is_free || b.provider?.includes('Khan') || b.provider?.includes('MIT');
+      if (aFree && !bFree) return -1;
+      if (!aFree && bFree) return 1;
+      // Academic authority first
+      if (a.authority_level === 'academic' && b.authority_level !== 'academic') return -1;
+      if (a.authority_level !== 'academic' && b.authority_level === 'academic') return 1;
+      return 0;
+    });
 
-    console.log(`✓ Found ${atomicOnly.length} atomic learning units`);
+    console.log(`✓ Found ${sorted.length} learning units from ${Object.keys(providerCounts).length} providers`);
 
-    // Return only atomic content, max 2
-    return atomicOnly
-      .filter(l => l.url && !blacklist.includes(l.url))
-      .slice(0, 2);
+    // Return up to 8 courses (increased from 2)
+    return sorted.slice(0, 8);
       
   } catch (error) {
-    console.error('Atomic MOOC search error:', error);
+    console.error('MOOC search error:', error);
     return [];
   }
 }
