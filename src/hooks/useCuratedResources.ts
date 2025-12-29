@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ResourceOrigin } from '@/components/TrustBadge';
 
+// Epistemic classification for rule-based core selection
+export interface EpistemicRole {
+  isFoundational: boolean;
+  isCanonical: boolean;
+  isDistinctApproach: boolean;
+  isPrerequisite: boolean;
+  criteriaCount: number;
+}
+
 export interface CuratedResource {
   url: string;
   title: string;
@@ -24,10 +33,34 @@ export interface CuratedResource {
   consumptionTime: string;
   coveragePercent?: number;
   verified?: boolean;
+  verificationStatus?: 'verified' | 'unverified' | 'failed';
+  epistemicRole?: EpistemicRole;
+  whySecondary?: string;
+}
+
+// Excluded resource tracking for transparency
+export interface ExcludedResource {
+  resource: CuratedResource;
+  reason: 'duplicate' | 'unverified' | 'low_relevance' | 'over_limit' | 'similar_to_core';
+  originalScore: number;
+}
+
+// Availability report for transparency
+export interface AvailabilityReport {
+  videosFound: number;
+  videosShownAsCore: number;
+  readingsFound: number;
+  readingsShownAsCore: number;
+  wasLimitedByAvailability: boolean;
+  message?: string;
 }
 
 export interface CuratedStepResources {
-  // Core resources (exactly 1 each, or null)
+  // Multiple core resources (new)
+  coreVideos: CuratedResource[];
+  coreReadings: CuratedResource[];
+  
+  // Legacy single-core for backward compatibility
   coreVideo: CuratedResource | null;
   coreReading: CuratedResource | null;
   
@@ -48,6 +81,10 @@ export interface CuratedStepResources {
     question: string;
     supplementalResourceId?: string;
   };
+  
+  // Transparency: what was excluded and why
+  excludedCore: ExcludedResource[];
+  availabilityReport: AvailabilityReport;
   
   // Legacy compatibility - for components that still use old format
   videos: CuratedResource[];
@@ -172,11 +209,14 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
   // Debug logging
   console.log('📥 Raw data received from backend:', {
     hasVideoField: !!data.videos,
+    hasCoreVideos: !!data.coreVideos,
+    coreVideosCount: data.coreVideos?.length || 0,
+    coreReadingsCount: data.coreReadings?.length || 0,
     hasAlternatives: !!data.alternatives,
     alternativesCount: data.alternatives?.length || 0,
     hasMoocsField: !!data.moocs,
     moocsCount: data.moocs?.length || 0,
-    moocsSample: data.moocs?.slice(0, 2).map((m: any) => ({ title: m.title, source: m.source }))
+    hasAvailabilityReport: !!data.availabilityReport
   });
 
   // Extract MOOCs from alternatives
@@ -186,9 +226,47 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
 
   console.log('📚 Extracted MOOCs:', moocs.length, moocs.map((m: any) => m.title));
 
-  // If already in curated format, return as-is
-  if (data.coreVideo !== undefined || data.learningObjective) {
+  // Default availability report
+  const defaultAvailabilityReport: AvailabilityReport = {
+    videosFound: 0,
+    videosShownAsCore: 0,
+    readingsFound: 0,
+    readingsShownAsCore: 0,
+    wasLimitedByAvailability: false
+  };
+
+  // If already in new multi-core format, return as-is with defaults filled
+  if (data.coreVideos !== undefined || data.coreReadings !== undefined) {
     return {
+      coreVideos: data.coreVideos || [],
+      coreReadings: data.coreReadings || [],
+      coreVideo: data.coreVideo || data.coreVideos?.[0] || null,
+      coreReading: data.coreReading || data.coreReadings?.[0] || null,
+      learningObjective: data.learningObjective || 'Complete this learning step to master the core concepts.',
+      totalCoreTime: data.totalCoreTime || calculateTotalTime([...(data.coreVideos || []), ...(data.coreReadings || [])]),
+      totalExpandedTime: data.totalExpandedTime || calculateTotalTime([...(data.deepDive || []), ...(data.expansionPack || [])]),
+      deepDive: data.deepDive || [],
+      expansionPack: data.expansionPack || [],
+      moocs: moocs,
+      knowledgeCheck: data.knowledgeCheck,
+      excludedCore: data.excludedCore || [],
+      availabilityReport: data.availabilityReport || defaultAvailabilityReport,
+      // Legacy compatibility
+      videos: data.videos || [],
+      readings: data.readings || [],
+      books: data.books || [],
+      alternatives: nonMoocAlternatives
+    };
+  }
+
+  // Handle legacy single-core format (coreVideo/coreReading)
+  if (data.coreVideo !== undefined || data.learningObjective) {
+    const coreVideos = data.coreVideo ? [data.coreVideo] : [];
+    const coreReadings = data.coreReading ? [data.coreReading] : [];
+    
+    return {
+      coreVideos,
+      coreReadings,
       coreVideo: data.coreVideo || null,
       coreReading: data.coreReading || null,
       learningObjective: data.learningObjective || 'Complete this learning step to master the core concepts.',
@@ -198,6 +276,14 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
       expansionPack: data.expansionPack || [],
       moocs: moocs,
       knowledgeCheck: data.knowledgeCheck,
+      excludedCore: [],
+      availabilityReport: {
+        videosFound: (data.videos?.length || 0) + coreVideos.length,
+        videosShownAsCore: coreVideos.length,
+        readingsFound: (data.readings?.length || 0) + coreReadings.length,
+        readingsShownAsCore: coreReadings.length,
+        wasLimitedByAvailability: false
+      },
       // Legacy compatibility
       videos: data.videos || [],
       readings: data.readings || [],
@@ -206,7 +292,7 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
     };
   }
 
-  // Transform legacy format
+  // Transform truly legacy format (no curated structure at all)
   const videos = data.videos || [];
   const readings = data.readings || [];
   const books = data.books || [];
@@ -215,6 +301,8 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
   // Select core resources (highest quality/first verified)
   const coreVideo = selectCoreResource(videos, 'video');
   const coreReading = selectCoreResource(readings, 'reading');
+  const coreVideos = coreVideo ? [transformResource(coreVideo, 'video')] : [];
+  const coreReadings = coreReading ? [transformResource(coreReading, 'reading')] : [];
 
   // Remaining resources go to expansion
   const remainingVideos = videos.filter((v: any) => v !== coreVideo);
@@ -234,15 +322,17 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
     ...alternatives.filter((a: any) => a.type !== 'mooc').map((a: any) => transformResource(a, a.type || 'article'))
   ];
 
-  // Extract MOOCs from alternatives (use different variable name to avoid redeclaration)
+  // Extract MOOCs from alternatives
   const legacyMoocs = alternatives.filter((a: any) => a.type === 'mooc');
   const legacyNonMoocAlternatives = alternatives.filter((a: any) => a.type !== 'mooc');
 
   return {
-    coreVideo: coreVideo ? transformResource(coreVideo, 'video') : null,
-    coreReading: coreReading ? transformResource(coreReading, 'reading') : null,
+    coreVideos,
+    coreReadings,
+    coreVideo: coreVideos[0] || null,
+    coreReading: coreReadings[0] || null,
     learningObjective: 'By completing this step, you will understand the core concepts and be able to apply them.',
-    totalCoreTime: calculateTotalTime([coreVideo, coreReading].filter(Boolean)),
+    totalCoreTime: calculateTotalTime([...coreVideos, ...coreReadings]),
     totalExpandedTime: calculateTotalTime([...deepDive, ...expansionPack]),
     deepDive,
     expansionPack,
@@ -250,6 +340,14 @@ function transformToCuratedFormat(data: any): CuratedStepResources {
     knowledgeCheck: {
       question: 'Can you explain the main concepts covered in this step?',
       supplementalResourceId: deepDive.length > 0 ? '0' : undefined
+    },
+    excludedCore: [],
+    availabilityReport: {
+      videosFound: videos.length,
+      videosShownAsCore: coreVideos.length,
+      readingsFound: readings.length,
+      readingsShownAsCore: coreReadings.length,
+      wasLimitedByAvailability: videos.length === 0 || readings.length === 0
     },
     // Legacy compatibility
     videos,
@@ -291,7 +389,9 @@ function transformResource(resource: any, type: string): CuratedResource {
     rationale: resource.rationale || resource.whyThisVideo || resource.why || resource.focusHighlight || 'Selected for relevance',
     consumptionTime: resource.consumptionTime || resource.duration || '10 mins',
     coveragePercent: resource.coveragePercent,
-    verified: resource.verified
+    verified: resource.verified,
+    epistemicRole: resource.epistemicRole,
+    whySecondary: resource.whySecondary
   };
 }
 
