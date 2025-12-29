@@ -332,6 +332,15 @@ interface ScoreBreakdown {
   total: number;
 }
 
+// Epistemic classification for rule-based (not score-based) core selection
+interface EpistemicRole {
+  isFoundational: boolean;      // Introduces key terminology/framework
+  isCanonical: boolean;         // Frequently cited, standard reference
+  isDistinctApproach: boolean;  // Unique interpretive lens
+  isPrerequisite: boolean;      // Required for downstream concepts
+  criteriaCount: number;        // How many criteria satisfied (≥2 = essential)
+}
+
 interface CuratedResource {
   url: string;
   title: string;
@@ -349,14 +358,38 @@ interface CuratedResource {
   consumptionTime: string;
   coveragePercent?: number;
   verified?: boolean;
+  verificationStatus?: 'verified' | 'unverified' | 'failed';
   whyThisVideo?: string;
   focusHighlight?: string;
   keyMoments?: { time: string; label: string }[];
   archivedUrl?: string;
   courseName?: string; // Parent course name for MOOC video lessons
+  epistemicRole?: EpistemicRole;
+  whySecondary?: string; // Explanation if not in core
+}
+
+// Excluded resource tracking for transparency
+interface ExcludedResource {
+  resource: CuratedResource;
+  reason: 'duplicate' | 'unverified' | 'low_relevance' | 'over_limit' | 'similar_to_core';
+  originalScore: number;
+}
+
+// Availability report for transparency
+interface AvailabilityReport {
+  videosFound: number;
+  videosShownAsCore: number;
+  readingsFound: number;
+  readingsShownAsCore: number;
+  wasLimitedByAvailability: boolean;
+  message?: string;
 }
 
 interface CuratedStepResources {
+  // Core resources (multiple, not just 1 each)
+  coreVideos: CuratedResource[];
+  coreReadings: CuratedResource[];
+  // Legacy single-core for backward compatibility
   coreVideo: CuratedResource | null;
   coreReading: CuratedResource | null;
   learningObjective: string;
@@ -369,6 +402,9 @@ interface CuratedStepResources {
     question: string;
     supplementalResourceId?: string;
   };
+  // Transparency: what was excluded and why
+  excludedCore: ExcludedResource[];
+  availabilityReport: AvailabilityReport;
   // Legacy compatibility
   videos: any[];
   readings: any[];
@@ -594,6 +630,9 @@ function transformToCuratedResource(
     else consumptionTime = '10 mins';
   }
 
+  // Classify epistemic role (rule-based, not score-based)
+  const epistemicRole = classifyEpistemicRole(resource, type, syllabusContent);
+
   return {
     url: resource.url || '',
     title: resource.title || '',
@@ -611,15 +650,59 @@ function transformToCuratedResource(
     consumptionTime,
     coveragePercent: score.total >= 70 ? 90 : score.total >= 50 ? 80 : 70,
     verified: resource.verified,
+    verificationStatus: resource.verified === false ? 'failed' : (resource.verified === true ? 'verified' : 'unverified'),
     whyThisVideo: resource.whyThisVideo,
     focusHighlight: resource.focusHighlight,
     keyMoments: resource.keyMoments,
-    archivedUrl: resource.archivedUrl
+    archivedUrl: resource.archivedUrl,
+    epistemicRole
   };
 }
 
-// Curate resources into MED format
-// usedVideoUrls: array of video URLs already used in other steps (to avoid duplicates)
+// Classify epistemic role for rule-based selection (NOT score-based)
+function classifyEpistemicRole(resource: any, type: string, syllabusContent: string): EpistemicRole {
+  const title = (resource.title || '').toLowerCase();
+  const author = (resource.author || '').toLowerCase();
+  const url = (resource.url || '').toLowerCase();
+  const syllabusLower = (syllabusContent || '').toLowerCase();
+  
+  // Foundational: introduces key terminology/framework
+  const foundationalKeywords = ['introduction', 'fundamentals', 'basics', 'overview', 'principles', 
+    'getting started', 'what is', 'beginner', '101', 'foundation', 'essential', 'core concepts'];
+  const isFoundational = foundationalKeywords.some(kw => title.includes(kw));
+  
+  // Canonical: frequently cited, standard reference (appears in syllabus or from authority)
+  const isCanonical = (
+    (syllabusContent && (syllabusLower.includes(title.substring(0, 20)) || syllabusLower.includes(author))) ||
+    url.includes('stanford.edu') || url.includes('mit.edu') || url.includes('harvard.edu') ||
+    url.includes('wikipedia.org') || url.includes('plato.stanford.edu')
+  );
+  
+  // Distinct approach: unique interpretive lens (different author/source)
+  const distinctKeywords = ['perspective', 'approach', 'alternative', 'critical', 'analysis', 
+    'deep dive', 'advanced', 'case study', 'practical', 'applied'];
+  const isDistinctApproach = distinctKeywords.some(kw => title.includes(kw));
+  
+  // Prerequisite: required for downstream concepts
+  const prerequisiteKeywords = ['prerequisite', 'before you', 'must know', 'required', 'foundation for'];
+  const isPrerequisite = prerequisiteKeywords.some(kw => title.includes(kw));
+  
+  const criteriaCount = [isFoundational, isCanonical, isDistinctApproach, isPrerequisite].filter(Boolean).length;
+  
+  return {
+    isFoundational,
+    isCanonical,
+    isDistinctApproach,
+    isPrerequisite,
+    criteriaCount
+  };
+}
+
+// Curate resources into MED format with MULTIPLE core resources (rule-based, not score-based)
+// Key changes: 
+// 1. Select 2-3 core videos and 2-3 core readings based on epistemic criteria
+// 2. Include unverified resources with warning instead of silently dropping
+// 3. Track excluded resources with reasons for transparency
 function curateResources(
   resources: StepResources, 
   stepTitle: string, 
@@ -627,16 +710,16 @@ function curateResources(
   syllabusContent: string,
   usedVideoUrls: string[] = []
 ): CuratedStepResources {
-  // Transform and score all resources
-  const scoredVideos = (resources.videos || [])
-    .filter(v => v.url && v.verified !== false)
-    .map(v => transformToCuratedResource(v, 'video', syllabusContent))
-    .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
-
-  const scoredReadings = (resources.readings || [])
-    .filter(r => r.url && r.verified !== false)
-    .map(r => transformToCuratedResource(r, 'reading', syllabusContent))
-    .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+  const excludedCore: ExcludedResource[] = [];
+  
+  // Transform ALL resources (don't filter out unverified - just mark them)
+  const allVideos = (resources.videos || [])
+    .filter(v => v.url)
+    .map(v => transformToCuratedResource(v, 'video', syllabusContent));
+  
+  const allReadings = (resources.readings || [])
+    .filter(r => r.url)
+    .map(r => transformToCuratedResource(r, 'reading', syllabusContent));
 
   const scoredBooks = (resources.books || [])
     .filter(b => b.url)
@@ -644,31 +727,128 @@ function curateResources(
     .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
 
   const scoredAlternatives = (resources.alternatives || [])
-    .filter(a => a.url && a.verified !== false)
+    .filter(a => a.url)
     .map(a => transformToCuratedResource(a, a.type || 'article', syllabusContent))
     .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
 
-  // Select core video: skip videos already used in other steps
-  let coreVideo: CuratedResource | null = null;
-  for (const video of scoredVideos) {
-    if (!usedVideoUrls.includes(video.url)) {
-      coreVideo = video;
-      break;
+  // RULE-BASED CORE SELECTION: Select resources satisfying ≥2 epistemic criteria
+  // Then fall back to score-based ranking for remainder
+  
+  // Separate essential (≥2 criteria) from non-essential
+  const essentialVideos = allVideos.filter(v => (v.epistemicRole?.criteriaCount || 0) >= 2);
+  const nonEssentialVideos = allVideos.filter(v => (v.epistemicRole?.criteriaCount || 0) < 2);
+  
+  const essentialReadings = allReadings.filter(r => (r.epistemicRole?.criteriaCount || 0) >= 2);
+  const nonEssentialReadings = allReadings.filter(r => (r.epistemicRole?.criteriaCount || 0) < 2);
+  
+  // Sort each group by score (for ordering, not visibility gating)
+  essentialVideos.sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+  nonEssentialVideos.sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+  essentialReadings.sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+  nonEssentialReadings.sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
+  
+  // SELECT CORE VIDEOS: Up to 3, prioritize essential, skip already-used
+  const coreVideos: CuratedResource[] = [];
+  const seenVideoUrls = new Set<string>();
+  
+  // First, add essential videos (not in usedVideoUrls)
+  for (const video of essentialVideos) {
+    if (coreVideos.length >= 3) break;
+    if (usedVideoUrls.includes(video.url)) {
+      excludedCore.push({ resource: video, reason: 'duplicate', originalScore: video.scoreBreakdown.total });
+      continue;
+    }
+    if (seenVideoUrls.has(video.url)) continue;
+    seenVideoUrls.add(video.url);
+    video.priority = 'mandatory';
+    coreVideos.push(video);
+  }
+  
+  // Then fill with non-essential by score (to reach minimum 2-3)
+  for (const video of nonEssentialVideos) {
+    if (coreVideos.length >= 3) break;
+    if (usedVideoUrls.includes(video.url)) {
+      if (coreVideos.length < 2) { // Only track exclusion if we need more
+        excludedCore.push({ resource: video, reason: 'duplicate', originalScore: video.scoreBreakdown.total });
+      }
+      continue;
+    }
+    if (seenVideoUrls.has(video.url)) continue;
+    seenVideoUrls.add(video.url);
+    video.priority = 'mandatory';
+    video.whySecondary = undefined; // It's core, not secondary
+    coreVideos.push(video);
+  }
+  
+  // Fallback: if still < 1, allow reuse of a used video
+  if (coreVideos.length === 0 && allVideos.length > 0) {
+    console.log(`⚠️ All videos already used, reusing best video for "${stepTitle}"`);
+    const bestVideo = [...essentialVideos, ...nonEssentialVideos][0];
+    if (bestVideo) {
+      bestVideo.priority = 'mandatory';
+      coreVideos.push(bestVideo);
+      seenVideoUrls.add(bestVideo.url);
     }
   }
-  // Fallback: if all videos are used, still pick the best one
-  if (!coreVideo && scoredVideos.length > 0) {
-    console.log(`⚠️ All videos already used, reusing best video for "${stepTitle}"`);
-    coreVideo = scoredVideos[0];
+  
+  // SELECT CORE READINGS: Up to 3, prioritize essential
+  const coreReadings: CuratedResource[] = [];
+  const seenReadingUrls = new Set<string>();
+  
+  // First, add essential readings
+  for (const reading of essentialReadings) {
+    if (coreReadings.length >= 3) break;
+    if (seenReadingUrls.has(reading.url)) continue;
+    seenReadingUrls.add(reading.url);
+    reading.priority = 'mandatory';
+    coreReadings.push(reading);
   }
   
-  // COMPULSORY: Always select a core reading if any readings exist
-  const coreReading = scoredReadings[0] || null;
-
-  // Deep dive: next 2-3 best resources (excluding core video and reading)
-  const remainingVideos = scoredVideos.filter(v => v !== coreVideo);
-  const remainingReadings = scoredReadings.filter(r => r !== coreReading);
+  // Then fill with non-essential by score
+  for (const reading of nonEssentialReadings) {
+    if (coreReadings.length >= 3) break;
+    if (seenReadingUrls.has(reading.url)) continue;
+    seenReadingUrls.add(reading.url);
+    reading.priority = 'mandatory';
+    reading.whySecondary = undefined;
+    coreReadings.push(reading);
+  }
   
+  // MINIMUM COVERAGE ENFORCEMENT: At least 1 video AND 1 reading when available
+  const hasVideo = coreVideos.length > 0;
+  const hasReading = coreReadings.length > 0;
+  let availabilityMessage: string | undefined;
+  
+  if (!hasVideo && allVideos.length === 0 && hasReading) {
+    availabilityMessage = 'No videos found for this topic. Check "All Resources" for alternatives.';
+  } else if (!hasReading && allReadings.length === 0 && hasVideo) {
+    availabilityMessage = 'No readings found for this topic. Check "All Resources" for alternatives.';
+  } else if (!hasVideo && !hasReading) {
+    availabilityMessage = 'Limited authoritative material found for this concept.';
+  }
+  
+  // REMAINING RESOURCES: Annotate why they're not core
+  const remainingVideos = allVideos.filter(v => !seenVideoUrls.has(v.url));
+  remainingVideos.forEach(v => {
+    if ((v.epistemicRole?.criteriaCount || 0) < 2) {
+      v.whySecondary = 'Does not meet foundational or canonical criteria';
+    } else if (coreVideos.length >= 3) {
+      v.whySecondary = 'Similar coverage to core videos above';
+      excludedCore.push({ resource: v, reason: 'over_limit', originalScore: v.scoreBreakdown.total });
+    }
+  });
+  
+  const remainingReadings = allReadings.filter(r => !seenReadingUrls.has(r.url));
+  remainingReadings.forEach(r => {
+    if ((r.epistemicRole?.criteriaCount || 0) < 2) {
+      r.whySecondary = 'Does not meet foundational or canonical criteria';
+    } else if (coreReadings.length >= 3) {
+      r.whySecondary = 'Similar coverage to core readings above';
+      excludedCore.push({ resource: r, reason: 'over_limit', originalScore: r.scoreBreakdown.total });
+    }
+  });
+  
+  // Deep dive: best remaining resources
   const deepDive: CuratedResource[] = [
     ...remainingVideos.slice(0, 2),
     ...remainingReadings.slice(0, 3)
@@ -684,19 +864,33 @@ function curateResources(
     ...scoredBooks,
     ...nonMoocAlternatives
   ];
+  
+  // Build availability report
+  const availabilityReport: AvailabilityReport = {
+    videosFound: allVideos.length,
+    videosShownAsCore: coreVideos.length,
+    readingsFound: allReadings.length,
+    readingsShownAsCore: coreReadings.length,
+    wasLimitedByAvailability: (!hasVideo && allVideos.length === 0) || (!hasReading && allReadings.length === 0),
+    message: availabilityMessage
+  };
 
-  // Mark core resources
-  if (coreVideo) coreVideo.priority = 'mandatory';
-  if (coreReading) coreReading.priority = 'mandatory';
+  // Legacy single-core for backward compatibility (first of each)
+  const legacyCoreVideo = coreVideos[0] || null;
+  const legacyCoreReading = coreReadings[0] || null;
 
   return {
-    coreVideo,
-    coreReading,
+    coreVideos,
+    coreReadings,
+    coreVideo: legacyCoreVideo,
+    coreReading: legacyCoreReading,
     learningObjective: generateLearningObjective(stepTitle, discipline),
-    totalCoreTime: calculateTotalTime([coreVideo, coreReading].filter(Boolean)),
+    totalCoreTime: calculateTotalTime([...coreVideos, ...coreReadings]),
     totalExpandedTime: calculateTotalTime([...deepDive, ...expansionPack]),
     deepDive,
     expansionPack,
+    excludedCore,
+    availabilityReport,
     moocs: moocs.map(m => {
       // Get original resource to preserve atomic fields
       const original = (resources.alternatives || []).find((a: any) => a.url === m.url) as any || {};

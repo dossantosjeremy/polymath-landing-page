@@ -340,7 +340,7 @@ export const CuratedLearningPlayer = ({
     return null;
   }
 
-  const hasCore = localResources.coreVideo || localResources.coreReading;
+  const hasCore = (localResources.coreVideos?.length || 0) > 0 || (localResources.coreReadings?.length || 0) > 0 || localResources.coreVideo || localResources.coreReading;
   const hasExpansion = localResources.deepDive.length > 0 || localResources.expansionPack.length > 0;
   const moocCount = localResources.moocs?.length || 0;
 
@@ -383,11 +383,14 @@ export const CuratedLearningPlayer = ({
           {hasCore && (
             <CriticalPath
               learningObjective={localResources.learningObjective}
+              coreVideos={localResources.coreVideos}
+              coreReadings={localResources.coreReadings}
               coreVideo={localResources.coreVideo}
               coreReading={localResources.coreReading}
               totalCoreTime={localResources.totalCoreTime}
               discipline={discipline}
               stepTitle={stepTitle}
+              availabilityReport={localResources.availabilityReport}
             />
           )}
 
