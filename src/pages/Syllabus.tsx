@@ -119,19 +119,9 @@ const SyllabusContent = () => {
       .filter((t: any): t is string => typeof t === "string" && t.trim().length > 0);
   }, []);
 
-  // AUTO-LOAD RESOURCES whenever syllabus data is available (cached, saved, or freshly generated)
-  useEffect(() => {
-    if (!syllabusData || loading) return;
-
-    const titles = extractStepTitles((syllabusData as any).modules || []);
-    if (titles.length === 0) return;
-
-    const key = `${syllabusData.timestamp}|${titles.length}`;
-    if (lastAutoLoadedKeyRef.current === key) return;
-
-    lastAutoLoadedKeyRef.current = key;
-    startBackgroundLoading(titles);
-  }, [syllabusData, loading, extractStepTitles, startBackgroundLoading]);
+  // Background resource loading should ONLY start after the user confirms their curriculum.
+  // (Triggered via SyllabusMissionControl -> onPathConfirmed)
+  // We intentionally do NOT auto-load resources just because a syllabus is displayed.
 
   // Detect if loaded syllabus already has AI content
   useEffect(() => {
@@ -435,15 +425,8 @@ const SyllabusContent = () => {
         setPruningStats(data.pruningStats);
       }
       
-      // AUTO-LOAD RESOURCES: Start background loading for all steps immediately
-      const allStepTitles = extractStepTitles((updatedData.modules || []) as any);
-      
-      if (allStepTitles.length > 0) {
-        const key = `${updatedData.timestamp}|${allStepTitles.length}`;
-        lastAutoLoadedKeyRef.current = key;
-        console.log(`🚀 Auto-loading resources for ${allStepTitles.length} steps...`);
-        startBackgroundLoading(allStepTitles);
-      }
+      // NOTE: Do not auto-load step resources here.
+      // Background loading is started only after the user confirms the curriculum in Mission Control.
       if (savedId && isRegenerating && constraintsOverride) {
         try {
           await supabase
