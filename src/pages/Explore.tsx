@@ -52,7 +52,7 @@ const Explore = () => {
     }
   }, [searchParams]);
 
-  // 3-step cascade search: exact -> fuzzy -> AI fallback
+  // Automated 3-step cascade: DB fuzzy → AI catalog → auto ad-hoc redirect
   const performSearch = async (query: string) => {
     if (!query.trim()) return;
 
@@ -60,42 +60,61 @@ const Explore = () => {
     setHasSearched(false);
     try {
       const searchTerm = query.toLowerCase().trim();
+      // Use lower threshold for short queries (morphological variants like bible→biblical)
+      const threshold = searchTerm.length <= 6 ? 0.2 : 0.25;
       
-      // Try the fuzzy search function first (includes both exact and fuzzy matches)
+      // Step 1: Try DB fuzzy search (includes exact, prefix, and fuzzy matches)
       const { data: fuzzyData, error: fuzzyError } = await supabase
         .rpc('search_disciplines_fuzzy', { 
           search_term: searchTerm,
-          similarity_threshold: 0.3 
+          similarity_threshold: threshold 
         });
 
       if (!fuzzyError && fuzzyData && fuzzyData.length > 0) {
-        // Mark results with their match type for UI differentiation
         const resultsWithType = fuzzyData.map((d: any) => ({
           ...d,
           match_type: d.match_type as 'exact' | 'fuzzy' | 'prefix',
           similarity_score: d.similarity_score
         }));
-        
         setSearchResults(resultsWithType);
-        console.log(`Fuzzy search found ${resultsWithType.length} results (${resultsWithType.filter((r: Discipline) => r.match_type === 'exact').length} exact, ${resultsWithType.filter((r: Discipline) => r.match_type !== 'exact').length} similar)`);
-      } else {
-        // Fall back to original ILIKE search if RPC fails
-        console.log('Fuzzy search failed or returned no results, falling back to ILIKE');
-        const { data, error } = await supabase
-          .from("disciplines")
-          .select("*")
-          .or(`l1.ilike.%${searchTerm}%,l2.ilike.%${searchTerm}%,l3.ilike.%${searchTerm}%,l4.ilike.%${searchTerm}%,l5.ilike.%${searchTerm}%,l6.ilike.%${searchTerm}%`)
-          .limit(50);
+        console.log(`DB search found ${resultsWithType.length} results`);
+        setSearching(false);
+        setHasSearched(true);
+        return;
+      }
 
-        if (error) {
-          console.error("Search error:", error);
-          setSearchResults([]);
+      // Step 2: DB found nothing → automatically try AI catalog matching
+      console.log('DB search found nothing, trying AI catalog match...');
+      try {
+        const { data: aiData, error: aiError } = await supabase.functions.invoke('ai-match-discipline', {
+          body: { query: searchTerm, limit: 10 }
+        });
+
+        if (!aiError && aiData?.matches && aiData.matches.length > 0) {
+          setSearchResults(aiData.matches);
+          console.log(`AI catalog found ${aiData.matches.length} matches`);
+          setSearching(false);
+          setHasSearched(true);
           return;
         }
-
-        // All ILIKE results are "exact" matches
-        setSearchResults((data || []).map(d => ({ ...d, match_type: 'exact' as const, similarity_score: 1.0 })));
+      } catch (aiErr) {
+        console.error('AI catalog match failed:', aiErr);
       }
+
+      // Step 3: AI catalog also found nothing → auto-redirect to ad-hoc generation
+      console.log('No catalog matches found, redirecting to ad-hoc generation...');
+      const params = new URLSearchParams({
+        discipline: query,
+        isAdHoc: 'true',
+        searchTerm: query,
+        depth: globalConstraints.depth,
+        hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
+        skillLevel: globalConstraints.skillLevel
+      });
+      if (globalConstraints.durationWeeks) {
+        params.set('durationWeeks', globalConstraints.durationWeeks.toString());
+      }
+      navigate(`/syllabus?${params.toString()}`);
     } finally {
       setSearching(false);
       setHasSearched(true);

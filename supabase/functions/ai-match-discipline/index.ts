@@ -57,31 +57,45 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Step 1: Fetch candidate disciplines using multiple strategies
+    // Step 1: Use the improved fuzzy search RPC to get candidates
+    // This handles morphological variants like "Bible" → "Biblical Studies"
     const searchTerm = query.toLowerCase().trim();
-    const words = searchTerm.split(/\s+/);
+    const threshold = searchTerm.length <= 6 ? 0.15 : 0.2; // Lower threshold for AI matching
     
-    // Build OR conditions for each word
-    const wordConditions = words.map(word => 
-      `l1.ilike.%${word}%,l2.ilike.%${word}%,l3.ilike.%${word}%,l4.ilike.%${word}%,l5.ilike.%${word}%,l6.ilike.%${word}%`
-    ).join(',');
+    // First try the fuzzy search function for better candidate gathering
+    const { data: fuzzyCandidates, error: fuzzyError } = await supabase
+      .rpc('search_disciplines_fuzzy', { 
+        search_term: searchTerm,
+        similarity_threshold: threshold 
+      });
 
-    // Get candidates via ILIKE on individual words
-    const { data: candidates, error: candidateError } = await supabase
-      .from('disciplines')
-      .select('*')
-      .or(wordConditions)
-      .limit(100);
+    let allCandidates: Discipline[] = [];
+    
+    if (!fuzzyError && fuzzyCandidates && fuzzyCandidates.length > 0) {
+      console.log(`Fuzzy search found ${fuzzyCandidates.length} candidates for AI matching`);
+      allCandidates = fuzzyCandidates;
+    } else {
+      // Fallback to ILIKE if fuzzy search fails
+      console.log('Fuzzy search failed, falling back to ILIKE for candidates');
+      const words = searchTerm.split(/\s+/);
+      const wordConditions = words.map(word => 
+        `l1.ilike.%${word}%,l2.ilike.%${word}%,l3.ilike.%${word}%,l4.ilike.%${word}%,l5.ilike.%${word}%,l6.ilike.%${word}%`
+      ).join(',');
 
-    if (candidateError) {
-      console.error('Error fetching candidates:', candidateError);
+      const { data: candidates, error: candidateError } = await supabase
+        .from('disciplines')
+        .select('*')
+        .or(wordConditions)
+        .limit(100);
+
+      if (candidateError) {
+        console.error('Error fetching candidates:', candidateError);
+      }
+      allCandidates = candidates || [];
     }
-
-    // Also get some random disciplines for context if we don't have enough
-    let allCandidates = candidates || [];
     
+    // Add some top-level disciplines for context if we don't have enough
     if (allCandidates.length < 20) {
-      // Add some top-level disciplines for context
       const { data: topLevel } = await supabase
         .from('disciplines')
         .select('*')
