@@ -17,7 +17,7 @@ interface Discipline {
   l4: string | null;
   l5: string | null;
   l6: string | null;
-  match_type?: 'exact' | 'fuzzy';
+  match_type?: 'exact' | 'fuzzy' | 'prefix';
   similarity_score?: number;
 }
 
