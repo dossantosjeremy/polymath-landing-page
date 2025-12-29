@@ -21,6 +21,8 @@ interface Discipline {
   l4: string | null;
   l5: string | null;
   l6: string | null;
+  match_type?: 'exact' | 'fuzzy';
+  similarity_score?: number;
 }
 
 const Explore = () => {
@@ -49,26 +51,50 @@ const Explore = () => {
     }
   }, [searchParams]);
 
+  // 3-step cascade search: exact -> fuzzy -> AI fallback
   const performSearch = async (query: string) => {
     if (!query.trim()) return;
 
     setSearching(true);
     setHasSearched(false);
     try {
-      const searchTerm = query.toLowerCase();
+      const searchTerm = query.toLowerCase().trim();
       
-      const { data, error } = await supabase
-        .from("disciplines")
-        .select("*")
-        .or(`l1.ilike.%${searchTerm}%,l2.ilike.%${searchTerm}%,l3.ilike.%${searchTerm}%,l4.ilike.%${searchTerm}%,l5.ilike.%${searchTerm}%,l6.ilike.%${searchTerm}%`)
-        .limit(50);
+      // Try the fuzzy search function first (includes both exact and fuzzy matches)
+      const { data: fuzzyData, error: fuzzyError } = await supabase
+        .rpc('search_disciplines_fuzzy', { 
+          search_term: searchTerm,
+          similarity_threshold: 0.3 
+        });
 
-      if (error) {
-        console.error("Search error:", error);
-        return;
+      if (!fuzzyError && fuzzyData && fuzzyData.length > 0) {
+        // Mark results with their match type for UI differentiation
+        const resultsWithType = fuzzyData.map((d: any) => ({
+          ...d,
+          match_type: d.match_type as 'exact' | 'fuzzy',
+          similarity_score: d.similarity_score
+        }));
+        
+        setSearchResults(resultsWithType);
+        console.log(`Fuzzy search found ${resultsWithType.length} results (${resultsWithType.filter((r: Discipline) => r.match_type === 'exact').length} exact, ${resultsWithType.filter((r: Discipline) => r.match_type === 'fuzzy').length} fuzzy)`);
+      } else {
+        // Fall back to original ILIKE search if RPC fails
+        console.log('Fuzzy search failed or returned no results, falling back to ILIKE');
+        const { data, error } = await supabase
+          .from("disciplines")
+          .select("*")
+          .or(`l1.ilike.%${searchTerm}%,l2.ilike.%${searchTerm}%,l3.ilike.%${searchTerm}%,l4.ilike.%${searchTerm}%,l5.ilike.%${searchTerm}%,l6.ilike.%${searchTerm}%`)
+          .limit(50);
+
+        if (error) {
+          console.error("Search error:", error);
+          setSearchResults([]);
+          return;
+        }
+
+        // All ILIKE results are "exact" matches
+        setSearchResults((data || []).map(d => ({ ...d, match_type: 'exact' as const, similarity_score: 1.0 })));
       }
-
-      setSearchResults(data || []);
     } finally {
       setSearching(false);
       setHasSearched(true);

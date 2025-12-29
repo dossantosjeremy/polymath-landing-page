@@ -65,29 +65,52 @@ export const CuratedLearningPlayer = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const { toast } = useToast();
 
-  // Check cache on mount and when stepTitle changes
+  // Check cache on mount and when stepTitle changes - RESPECT BACKGROUND LOADER CACHE
   useEffect(() => {
     const cached = getResource(stepTitle);
     if (cached) {
+      console.log(`[CuratedLearningPlayer] Found cached resources for "${stepTitle}"`);
       setLocalResources(cached);
       setHasLoaded(true);
     } else {
-      setLocalResources(null);
-      setHasLoaded(false);
+      // Only reset if we're changing steps, not on initial mount
+      if (localResources && localResources !== cached) {
+        setLocalResources(null);
+        setHasLoaded(false);
+      }
     }
   }, [stepTitle, getResource]);
 
-  // Auto-load resources when step changes (with 500ms debounce)
+  // Re-check cache periodically while waiting (background loader may populate it)
   useEffect(() => {
-    if (!autoLoad || hasLoaded || localResources || isCapstone) return;
+    if (hasLoaded || localResources || isCapstone) return;
     
-    const timeoutId = setTimeout(() => {
-      setHasLoaded(true);
-      fetchResources(stepTitle, discipline, syllabusUrls, rawSourcesContent, userTimeBudget, false);
+    // Check cache every 500ms while waiting for background loader
+    const intervalId = setInterval(() => {
+      const cached = getResource(stepTitle);
+      if (cached) {
+        console.log(`[CuratedLearningPlayer] Background loader populated cache for "${stepTitle}"`);
+        setLocalResources(cached);
+        setHasLoaded(true);
+        clearInterval(intervalId);
+      }
     }, 500);
     
-    return () => clearTimeout(timeoutId);
-  }, [stepTitle, autoLoad, hasLoaded, localResources, isCapstone, discipline, syllabusUrls, rawSourcesContent, userTimeBudget, fetchResources]);
+    // Stop checking after 10 seconds and fall back to direct fetch
+    const timeoutId = setTimeout(() => {
+      clearInterval(intervalId);
+      if (!hasLoaded && !localResources && autoLoad) {
+        console.log(`[CuratedLearningPlayer] Cache timeout, fetching directly for "${stepTitle}"`);
+        setHasLoaded(true);
+        fetchResources(stepTitle, discipline, syllabusUrls, rawSourcesContent, userTimeBudget, false);
+      }
+    }, 10000);
+    
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, [stepTitle, autoLoad, hasLoaded, localResources, isCapstone, discipline, syllabusUrls, rawSourcesContent, userTimeBudget, fetchResources, getResource]);
 
   // Sync fetched resources to cache and local state
   useEffect(() => {
