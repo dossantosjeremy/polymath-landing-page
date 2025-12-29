@@ -62,39 +62,48 @@ const Explore = () => {
       const searchTerm = query.toLowerCase().trim();
       // Use lower threshold for short queries (morphological variants like bible→biblical)
       const threshold = searchTerm.length <= 6 ? 0.2 : 0.25;
-      
+
       // Step 1: Try DB fuzzy search (includes exact, prefix, and fuzzy matches)
-      const { data: fuzzyData, error: fuzzyError } = await supabase
-        .rpc('search_disciplines_fuzzy', { 
-          search_term: searchTerm,
-          similarity_threshold: threshold 
-        });
+      const { data: fuzzyData, error: fuzzyError } = await supabase.rpc('search_disciplines_fuzzy', {
+        search_term: searchTerm,
+        similarity_threshold: threshold,
+      });
 
       if (!fuzzyError && fuzzyData && fuzzyData.length > 0) {
         const resultsWithType = fuzzyData.map((d: any) => ({
           ...d,
           match_type: d.match_type as 'exact' | 'fuzzy' | 'prefix',
-          similarity_score: d.similarity_score
+          similarity_score: d.similarity_score,
         }));
         setSearchResults(resultsWithType);
-        console.log(`DB search found ${resultsWithType.length} results`);
-        setSearching(false);
-        setHasSearched(true);
         return;
       }
 
+      // If the RPC errored, do NOT jump to ad-hoc; fall back to a basic DB search.
+      if (fuzzyError) {
+        console.warn('DB fuzzy search errored; falling back to basic DB search:', fuzzyError);
+        const { data, error } = await supabase
+          .from('disciplines')
+          .select('*')
+          .or(
+            `l1.ilike.%${searchTerm}%,l2.ilike.%${searchTerm}%,l3.ilike.%${searchTerm}%,l4.ilike.%${searchTerm}%,l5.ilike.%${searchTerm}%,l6.ilike.%${searchTerm}%`
+          )
+          .limit(50);
+
+        if (!error && data && data.length > 0) {
+          setSearchResults(data.map(d => ({ ...d, match_type: 'exact' as const, similarity_score: 1.0 })));
+          return;
+        }
+      }
+
       // Step 2: DB found nothing → automatically try AI catalog matching
-      console.log('DB search found nothing, trying AI catalog match...');
       try {
         const { data: aiData, error: aiError } = await supabase.functions.invoke('ai-match-discipline', {
-          body: { query: searchTerm, limit: 10 }
+          body: { query: searchTerm, limit: 10 },
         });
 
         if (!aiError && aiData?.matches && aiData.matches.length > 0) {
           setSearchResults(aiData.matches);
-          console.log(`AI catalog found ${aiData.matches.length} matches`);
-          setSearching(false);
-          setHasSearched(true);
           return;
         }
       } catch (aiErr) {
@@ -102,14 +111,13 @@ const Explore = () => {
       }
 
       // Step 3: AI catalog also found nothing → auto-redirect to ad-hoc generation
-      console.log('No catalog matches found, redirecting to ad-hoc generation...');
       const params = new URLSearchParams({
         discipline: query,
         isAdHoc: 'true',
         searchTerm: query,
         depth: globalConstraints.depth,
         hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
-        skillLevel: globalConstraints.skillLevel
+        skillLevel: globalConstraints.skillLevel,
       });
       if (globalConstraints.durationWeeks) {
         params.set('durationWeeks', globalConstraints.durationWeeks.toString());
