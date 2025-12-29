@@ -203,43 +203,16 @@ export const SearchResults = ({
     );
   }
 
-  // Show "No results" panel with AI options instead of auto-navigating
-  if (results.length === 0 && aiResults.length === 0 && !aiMatching) {
+  // No results - but this state should be rare since Explore auto-redirects to ad-hoc
+  // This is only shown if there's an error or race condition
+  if (results.length === 0 && aiResults.length === 0 && !aiMatching && hasSearched) {
     return (
       <div className="py-12">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-serif font-bold mb-2">No catalog matches</h2>
+          <h2 className="text-2xl font-serif font-bold mb-2">Searching...</h2>
           <p className="text-muted-foreground">
-            We couldn't find "{query}" in our discipline catalog.
+            Looking for matches for "{query}"...
           </p>
-        </div>
-        
-        <div className="max-w-md mx-auto space-y-4">
-          {/* AI Catalog Match */}
-          <Button 
-            onClick={handleAICatalogMatch}
-            variant="outline"
-            className="w-full justify-start h-auto py-4"
-            disabled={aiMatching}
-          >
-            <Bot className="mr-3 h-5 w-5 text-primary" />
-            <div className="text-left">
-              <div className="font-medium">Match with AI (catalog)</div>
-              <div className="text-xs text-muted-foreground">Use AI to find related disciplines in our database</div>
-            </div>
-          </Button>
-
-          {/* Web AI Search */}
-          <Button 
-            onClick={handleAISearch}
-            className="w-full justify-start h-auto py-4"
-          >
-            <Sparkles className="mr-3 h-5 w-5" />
-            <div className="text-left">
-              <div className="font-medium">Generate with AI (web)</div>
-              <div className="text-xs text-muted-foreground/80">Create a custom curriculum from web sources</div>
-            </div>
-          </Button>
         </div>
       </div>
     );
