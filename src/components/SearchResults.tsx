@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { ChevronRight, ChevronDown, BookOpen, Sparkles, Building2, Search, Zap } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, ChevronDown, BookOpen, Sparkles, Building2, Search, Zap, Bot, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
 import { ProvenanceBadge } from "@/components/ProvenanceBadge";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Discipline {
   id: string;
@@ -17,8 +19,9 @@ interface Discipline {
   l4: string | null;
   l5: string | null;
   l6: string | null;
-  match_type?: 'exact' | 'fuzzy' | 'prefix';
+  match_type?: 'exact' | 'fuzzy' | 'prefix' | 'ai';
   similarity_score?: number;
+  rationale?: string;
 }
 
 interface SearchResultsProps {
@@ -41,9 +44,14 @@ export const SearchResults = ({
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [includeAIAugmentation, setIncludeAIAugmentation] = useState(false);
+  const [aiMatching, setAiMatching] = useState(false);
+  const [aiResults, setAiResults] = useState<Discipline[]>([]);
+
+  // Combine original results with AI results
+  const allResults = [...results, ...aiResults];
 
   // Check cache for expanded discipline
-  const expandedDiscipline = results.find(r => r.id === expandedId);
+  const expandedDiscipline = allResults.find(r => r.id === expandedId);
   const expandedDisciplineName = expandedDiscipline ? getLastLevel(expandedDiscipline) : '';
   const {
     cachedSyllabus,
@@ -51,12 +59,13 @@ export const SearchResults = ({
     sourceCount
   } = useCommuniySyllabus(expandedDisciplineName);
 
-  // Separate exact, prefix (word-start), and fuzzy matches
-  const exactMatches = results.filter(r => r.match_type === 'exact' || !r.match_type);
-  const prefixMatches = results.filter(r => r.match_type === 'prefix');
-  const fuzzyMatches = results.filter(r => r.match_type === 'fuzzy');
-  const similarMatches = [...prefixMatches, ...fuzzyMatches]; // Combine prefix and fuzzy as "similar"
-  const hasAnyMatches = results.length > 0;
+  // Separate exact, prefix (word-start), fuzzy, and AI matches
+  const exactMatches = allResults.filter(r => r.match_type === 'exact' || !r.match_type);
+  const prefixMatches = allResults.filter(r => r.match_type === 'prefix');
+  const fuzzyMatches = allResults.filter(r => r.match_type === 'fuzzy');
+  const aiMatchResults = allResults.filter(r => r.match_type === 'ai');
+  const similarMatches = [...prefixMatches, ...fuzzyMatches, ...aiMatchResults];
+  const hasAnyMatches = allResults.length > 0;
   const hasOnlyFuzzyMatches = exactMatches.length === 0 && similarMatches.length > 0;
 
   const getDisciplinePath = (discipline: Discipline): string[] => {
@@ -150,23 +159,41 @@ export const SearchResults = ({
     navigate(`/syllabus?${params.toString()}`);
   };
 
-  // Only auto-navigate for ad-hoc when NO matches (exact or fuzzy) exist
-  useEffect(() => {
-    if (hasSearched && !searching && results.length === 0 && query.trim()) {
-      const params = new URLSearchParams({
-        discipline: query,
-        isAdHoc: 'true',
-        searchTerm: query,
-        depth: globalConstraints.depth,
-        hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
-        skillLevel: globalConstraints.skillLevel
+  // AI catalog matching function
+  const handleAICatalogMatch = async () => {
+    setAiMatching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('ai-match-discipline', {
+        body: { query, limit: 10 }
       });
-      if (globalConstraints.goalDate) {
-        params.set('goalDate', globalConstraints.goalDate.toISOString());
+
+      if (error) {
+        console.error('AI matching error:', error);
+        toast.error('AI matching unavailable');
+        return;
       }
-      navigate(`/syllabus?${params.toString()}`);
+
+      if (data?.matches && data.matches.length > 0) {
+        // Filter out any that are already in results
+        const existingIds = new Set(results.map(r => r.id));
+        const newMatches = data.matches.filter((m: Discipline) => !existingIds.has(m.id));
+        setAiResults(newMatches);
+        
+        if (newMatches.length > 0) {
+          toast.success(`Found ${newMatches.length} AI-matched discipline${newMatches.length > 1 ? 's' : ''}`);
+        } else {
+          toast.info('No additional matches found');
+        }
+      } else {
+        toast.info('No matching disciplines found in catalog');
+      }
+    } catch (err) {
+      console.error('AI matching failed:', err);
+      toast.error('Failed to match with AI');
+    } finally {
+      setAiMatching(false);
     }
-  }, [hasSearched, searching, results.length, query, globalConstraints, navigate]);
+  };
 
   if (searching) {
     return (
@@ -176,12 +203,54 @@ export const SearchResults = ({
     );
   }
 
-  // Return null while auto-navigating for ad-hoc topics (no matches at all)
-  if (results.length === 0) {
+  // Show "No results" panel with AI options instead of auto-navigating
+  if (results.length === 0 && aiResults.length === 0 && !aiMatching) {
+    return (
+      <div className="py-12">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-serif font-bold mb-2">No catalog matches</h2>
+          <p className="text-muted-foreground">
+            We couldn't find "{query}" in our discipline catalog.
+          </p>
+        </div>
+        
+        <div className="max-w-md mx-auto space-y-4">
+          {/* AI Catalog Match */}
+          <Button 
+            onClick={handleAICatalogMatch}
+            variant="outline"
+            className="w-full justify-start h-auto py-4"
+            disabled={aiMatching}
+          >
+            <Bot className="mr-3 h-5 w-5 text-primary" />
+            <div className="text-left">
+              <div className="font-medium">Match with AI (catalog)</div>
+              <div className="text-xs text-muted-foreground">Use AI to find related disciplines in our database</div>
+            </div>
+          </Button>
+
+          {/* Web AI Search */}
+          <Button 
+            onClick={handleAISearch}
+            className="w-full justify-start h-auto py-4"
+          >
+            <Sparkles className="mr-3 h-5 w-5" />
+            <div className="text-left">
+              <div className="font-medium">Generate with AI (web)</div>
+              <div className="text-xs text-muted-foreground/80">Create a custom curriculum from web sources</div>
+            </div>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading while AI matching
+  if (aiMatching) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <span className="ml-3 text-muted-foreground">Generating syllabus for "{query}"...</span>
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <span className="ml-3 text-muted-foreground">AI is searching the catalog for "{query}"...</span>
       </div>
     );
   }
@@ -306,14 +375,14 @@ export const SearchResults = ({
         Search Results
       </h2>
       <p className="text-muted-foreground mb-6">
-        Found {results.length} result{results.length !== 1 ? "s" : ""} for "{query}"
+        Found {allResults.length} result{allResults.length !== 1 ? "s" : ""} for "{query}"
       </p>
 
       <div className="space-y-6">
         {/* Exact Matches Section */}
         {exactMatches.length > 0 && (
           <div className="space-y-4">
-            {fuzzyMatches.length > 0 && (
+            {similarMatches.length > 0 && (
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Search className="h-4 w-4" />
                 <span>Exact Matches</span>
@@ -326,16 +395,30 @@ export const SearchResults = ({
           </div>
         )}
 
-        {/* Fuzzy/Similar Matches Section */}
-        {fuzzyMatches.length > 0 && (
+        {/* Similar Matches Section (prefix + fuzzy) */}
+        {(prefixMatches.length > 0 || fuzzyMatches.length > 0) && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <Zap className="h-4 w-4" />
               <span>{hasOnlyFuzzyMatches ? 'Closest matches in our catalog' : 'Similar matches'}</span>
-              <Badge variant="outline" className="ml-1">{fuzzyMatches.length}</Badge>
+              <Badge variant="outline" className="ml-1">{prefixMatches.length + fuzzyMatches.length}</Badge>
             </div>
             <div className="grid gap-4">
-              {fuzzyMatches.map(discipline => renderDisciplineCard(discipline, true))}
+              {[...prefixMatches, ...fuzzyMatches].map(discipline => renderDisciplineCard(discipline, true))}
+            </div>
+          </div>
+        )}
+
+        {/* AI-Matched Section */}
+        {aiMatchResults.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Bot className="h-4 w-4" />
+              <span>AI-Matched from Catalog</span>
+              <Badge variant="default" className="ml-1">{aiMatchResults.length}</Badge>
+            </div>
+            <div className="grid gap-4">
+              {aiMatchResults.map(discipline => renderDisciplineCard(discipline, true))}
             </div>
           </div>
         )}
@@ -349,20 +432,36 @@ export const SearchResults = ({
                 <p className="font-medium text-sm">Looking for something else?</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {hasOnlyFuzzyMatches 
-                    ? `We couldn't find an exact match for "${query}". You can search the web with AI to discover more sources.`
+                    ? `We couldn't find an exact match for "${query}". Try AI matching or generate from web.`
                     : `Generate a custom curriculum for "${query}" using AI-powered web search.`
                   }
                 </p>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={handleAISearch}
-                className="shrink-0"
-              >
-                <Sparkles className="mr-2 h-3 w-3" />
-                Search with AI
-              </Button>
+              <div className="flex gap-2 shrink-0">
+                {aiResults.length === 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={handleAICatalogMatch}
+                    disabled={aiMatching}
+                  >
+                    {aiMatching ? (
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Bot className="mr-2 h-3 w-3" />
+                    )}
+                    Match Catalog
+                  </Button>
+                )}
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleAISearch}
+                >
+                  <Sparkles className="mr-2 h-3 w-3" />
+                  Search Web
+                </Button>
+              </div>
             </div>
           </div>
         )}
