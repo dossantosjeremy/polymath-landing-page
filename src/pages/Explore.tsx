@@ -21,8 +21,9 @@ interface Discipline {
   l4: string | null;
   l5: string | null;
   l6: string | null;
-  match_type?: 'exact' | 'fuzzy';
+  match_type?: 'exact' | 'fuzzy' | 'prefix' | 'ai';
   similarity_score?: number;
+  rationale?: string;
 }
 
 const Explore = () => {
@@ -71,12 +72,12 @@ const Explore = () => {
         // Mark results with their match type for UI differentiation
         const resultsWithType = fuzzyData.map((d: any) => ({
           ...d,
-          match_type: d.match_type as 'exact' | 'fuzzy',
+          match_type: d.match_type as 'exact' | 'fuzzy' | 'prefix',
           similarity_score: d.similarity_score
         }));
         
         setSearchResults(resultsWithType);
-        console.log(`Fuzzy search found ${resultsWithType.length} results (${resultsWithType.filter((r: Discipline) => r.match_type === 'exact').length} exact, ${resultsWithType.filter((r: Discipline) => r.match_type === 'fuzzy').length} fuzzy)`);
+        console.log(`Fuzzy search found ${resultsWithType.length} results (${resultsWithType.filter((r: Discipline) => r.match_type === 'exact').length} exact, ${resultsWithType.filter((r: Discipline) => r.match_type !== 'exact').length} similar)`);
       } else {
         // Fall back to original ILIKE search if RPC fails
         console.log('Fuzzy search failed or returned no results, falling back to ILIKE');

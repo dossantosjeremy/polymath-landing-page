@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.generate-discipline-image]
 verify_jwt = false
+
+[functions.ai-match-discipline]
+verify_jwt = false
