@@ -51,11 +51,13 @@ export const SearchResults = ({
     sourceCount
   } = useCommuniySyllabus(expandedDisciplineName);
 
-  // Separate exact and fuzzy matches
+  // Separate exact, prefix (word-start), and fuzzy matches
   const exactMatches = results.filter(r => r.match_type === 'exact' || !r.match_type);
+  const prefixMatches = results.filter(r => r.match_type === 'prefix');
   const fuzzyMatches = results.filter(r => r.match_type === 'fuzzy');
+  const similarMatches = [...prefixMatches, ...fuzzyMatches]; // Combine prefix and fuzzy as "similar"
   const hasAnyMatches = results.length > 0;
-  const hasOnlyFuzzyMatches = exactMatches.length === 0 && fuzzyMatches.length > 0;
+  const hasOnlyFuzzyMatches = exactMatches.length === 0 && similarMatches.length > 0;
 
   const getDisciplinePath = (discipline: Discipline): string[] => {
     const path = [discipline.l1];
