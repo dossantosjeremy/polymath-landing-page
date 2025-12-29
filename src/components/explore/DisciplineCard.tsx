@@ -1,8 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-import { getGradientFromName, getCuratedImageUrl } from "./imageUtils";
-import { useDisciplineImage } from "@/hooks/useDisciplineImage";
-import { Loader2 } from "lucide-react";
+import { getGradientFromName } from "./imageUtils";
 
 interface DisciplineCardProps {
   name: string;
@@ -17,22 +15,11 @@ interface DisciplineCardProps {
 export const DisciplineCard = ({
   name,
   description,
-  context,
   isSelected = false,
   onClick,
   size = 'large',
   childCount
 }: DisciplineCardProps) => {
-  // Check for curated image first
-  const curatedUrl = getCuratedImageUrl(name);
-  
-  // Use the hook for AI-generated images
-  const { imageUrl, isLoading, isGenerating } = useDisciplineImage({
-    disciplineName: name,
-    context,
-    curated: curatedUrl
-  });
-
   const sizeClasses = {
     large: 'h-48 w-72',
     medium: 'h-40 w-64',
@@ -49,34 +36,11 @@ export const DisciplineCard = ({
         isSelected && "ring-2 ring-primary scale-[1.02] shadow-xl"
       )}
     >
-      {/* Loading skeleton */}
-      {isLoading && (
-        <div className="absolute inset-0 animate-pulse bg-muted flex items-center justify-center">
-          {isGenerating && (
-            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-6 w-6 animate-spin" />
-              <span className="text-xs">Generating...</span>
-            </div>
-          )}
-        </div>
-      )}
-      
-      {/* Image or Gradient fallback */}
-      {imageUrl ? (
-        <img 
-          src={imageUrl} 
-          alt={name}
-          className={cn(
-            "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
-            isLoading && "opacity-0"
-          )}
-        />
-      ) : !isLoading && (
-        <div 
-          className="absolute inset-0"
-          style={{ background: getGradientFromName(name) }}
-        />
-      )}
+      {/* Gradient background */}
+      <div 
+        className="absolute inset-0"
+        style={{ background: getGradientFromName(name) }}
+      />
       
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
       <div className="absolute bottom-0 left-0 right-0 p-4">
