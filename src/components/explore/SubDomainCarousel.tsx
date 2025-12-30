@@ -9,6 +9,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDisciplineTable } from "@/hooks/useDisciplineTable";
 
 interface SubDomain {
   value: string;
@@ -22,19 +23,20 @@ interface SubDomainCarouselProps {
 }
 
 export const SubDomainCarousel = ({ domain, selectedSubDomain, onSelect }: SubDomainCarouselProps) => {
+  const { tableName } = useDisciplineTable();
   const [subDomains, setSubDomains] = useState<SubDomain[]>([]);
   const [loading, setLoading] = useState(true);
   const [childCounts, setChildCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadSubDomains();
-  }, [domain]);
+  }, [domain, tableName]);
 
   const loadSubDomains = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("disciplines")
+        .from(tableName)
         .select("l2, l3")
         .eq("l1", domain)
         .not("l2", "is", null);

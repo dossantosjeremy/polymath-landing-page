@@ -5,12 +5,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+type DisciplineTable = 'disciplines' | 'disciplines_es' | 'disciplines_fr';
+
+const getTableName = (locale: string): DisciplineTable => {
+  switch (locale) {
+    case 'es': return 'disciplines_es';
+    case 'fr': return 'disciplines_fr';
+    default: return 'disciplines';
+  }
+};
+
+const getCsvPath = (locale: string): string => {
+  switch (locale) {
+    case 'es': return '../_shared/academic_disciplines_es.csv';
+    case 'fr': return '../_shared/academic_disciplines_fr.csv';
+    default: return '../_shared/academic_disciplines.csv';
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Parse locale from request body if provided
+    let locale = 'en';
+    try {
+      const body = await req.json();
+      if (body.locale) {
+        locale = body.locale;
+      }
+    } catch {
+      // No body or invalid JSON - use default locale
+    }
+
+    const tableName = getTableName(locale);
+    const csvRelativePath = getCsvPath(locale);
+
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -21,11 +53,28 @@ Deno.serve(async (req) => {
       }
     );
 
-    console.log('Starting discipline import...');
+    console.log(`Starting discipline import for locale: ${locale}, table: ${tableName}`);
 
     // Read the CSV file
-    const csvPath = new URL('../_shared/academic_disciplines.csv', import.meta.url).pathname;
-    const csvText = await Deno.readTextFile(csvPath);
+    const csvPath = new URL(csvRelativePath, import.meta.url).pathname;
+    
+    let csvText: string;
+    try {
+      csvText = await Deno.readTextFile(csvPath);
+    } catch (e) {
+      console.error(`CSV file not found: ${csvPath}`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `CSV file for locale '${locale}' not found. Please create ${csvRelativePath} first.`
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404 
+        }
+      );
+    }
+
     const lines = csvText.split('\n').slice(1); // Skip header
 
     console.log(`Found ${lines.length} lines to process`);
@@ -59,16 +108,17 @@ Deno.serve(async (req) => {
 
     // Check if disciplines already exist
     const { count: existingCount } = await supabaseClient
-      .from('disciplines')
+      .from(tableName)
       .select('*', { count: 'exact', head: true });
 
     if (existingCount && existingCount > 0) {
-      console.log(`Database already contains ${existingCount} disciplines`);
+      console.log(`Database already contains ${existingCount} disciplines for ${locale}`);
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: `Database already populated with ${existingCount} disciplines`,
-          count: existingCount 
+          message: `Database already populated with ${existingCount} disciplines for locale '${locale}'`,
+          count: existingCount,
+          locale
         }),
         { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -85,7 +135,7 @@ Deno.serve(async (req) => {
       const batch = disciplines.slice(i, i + batchSize);
       
       const { error } = await supabaseClient
-        .from('disciplines')
+        .from(tableName)
         .insert(batch);
 
       if (error) {
@@ -97,13 +147,14 @@ Deno.serve(async (req) => {
       console.log(`Inserted batch: ${insertedCount}/${disciplines.length}`);
     }
 
-    console.log(`Successfully imported ${insertedCount} disciplines`);
+    console.log(`Successfully imported ${insertedCount} disciplines for locale ${locale}`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Successfully imported disciplines',
-        count: insertedCount 
+        message: `Successfully imported disciplines for locale '${locale}'`,
+        count: insertedCount,
+        locale
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

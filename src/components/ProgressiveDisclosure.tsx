@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "./ui/button";
 import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
+import { useDisciplineTable } from "@/hooks/useDisciplineTable";
 
 const getDomainIcon = (domain: string) => {
   const iconMap: Record<string, any> = {
@@ -31,6 +32,7 @@ interface ProgressiveDisclosureProps {
 
 export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: ProgressiveDisclosureProps) => {
   const navigate = useNavigate();
+  const { tableName } = useDisciplineTable();
   const [levels, setLevels] = useState<DisciplineLevel[][]>([]);
   const [selectedPath, setSelectedPath] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +47,7 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
 
   useEffect(() => {
     loadLevel1();
-  }, []);
+  }, [tableName]);
 
   useEffect(() => {
     const pathKey = initialPath?.join('/') || null;
@@ -98,7 +100,7 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("disciplines")
+        .from(tableName)
         .select("l1")
         .not("l1", "is", null);
 
@@ -138,7 +140,7 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
       
       // Build query based on selected path
       let query = supabase
-        .from("disciplines")
+        .from(tableName)
         .select(levelKey)
         .not(levelKey, "is", null)
         .eq("l1", newPath[0]);
@@ -206,7 +208,7 @@ export const ProgressiveDisclosure = ({ initialPath, globalConstraints }: Progre
       const levelKey = `l${i + 2}` as 'l2' | 'l3' | 'l4' | 'l5' | 'l6';
       
       let query = supabase
-        .from("disciplines")
+        .from(tableName)
         .select(levelKey)
         .not(levelKey, "is", null)
         .eq("l1", path[0]);

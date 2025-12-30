@@ -29,13 +29,27 @@ interface MatchResult {
   rationale: string;
 }
 
+type DisciplineTable = 'disciplines' | 'disciplines_es' | 'disciplines_fr';
+type FuzzySearchFn = 'search_disciplines_fuzzy' | 'search_disciplines_es_fuzzy' | 'search_disciplines_fr_fuzzy';
+
+const getTableConfig = (locale: string): { tableName: DisciplineTable; fuzzySearchFn: FuzzySearchFn } => {
+  switch (locale) {
+    case 'es':
+      return { tableName: 'disciplines_es', fuzzySearchFn: 'search_disciplines_es_fuzzy' };
+    case 'fr':
+      return { tableName: 'disciplines_fr', fuzzySearchFn: 'search_disciplines_fr_fuzzy' };
+    default:
+      return { tableName: 'disciplines', fuzzySearchFn: 'search_disciplines_fuzzy' };
+  }
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { query, limit = 10 } = await req.json();
+    const { query, limit = 10, locale = 'en' } = await req.json();
     
     if (!query || typeof query !== 'string') {
       return new Response(
@@ -56,6 +70,9 @@ Deno.serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const { tableName, fuzzySearchFn } = getTableConfig(locale);
+
+    console.log(`AI matching with locale: ${locale}, table: ${tableName}`);
 
     // Step 1: Use the improved fuzzy search RPC to get candidates
     // This handles morphological variants like "Bible" → "Biblical Studies"
@@ -64,7 +81,7 @@ Deno.serve(async (req) => {
     
     // First try the fuzzy search function for better candidate gathering
     const { data: fuzzyCandidates, error: fuzzyError } = await supabase
-      .rpc('search_disciplines_fuzzy', { 
+      .rpc(fuzzySearchFn, { 
         search_term: searchTerm,
         similarity_threshold: threshold 
       });
@@ -83,7 +100,7 @@ Deno.serve(async (req) => {
       ).join(',');
 
       const { data: candidates, error: candidateError } = await supabase
-        .from('disciplines')
+        .from(tableName)
         .select('*')
         .or(wordConditions)
         .limit(100);
@@ -97,7 +114,7 @@ Deno.serve(async (req) => {
     // Add some top-level disciplines for context if we don't have enough
     if (allCandidates.length < 20) {
       const { data: topLevel } = await supabase
-        .from('disciplines')
+        .from(tableName)
         .select('*')
         .is('l3', null)
         .limit(50);
