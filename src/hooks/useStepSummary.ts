@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useStepSummary = () => {
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { i18n } = useTranslation();
 
   const generateSummary = async (
     stepTitle: string,
@@ -28,6 +30,7 @@ export const useStepSummary = () => {
           resources,
           referenceLength,
           forceRefresh,
+          locale: i18n.language,
         }
       });
 

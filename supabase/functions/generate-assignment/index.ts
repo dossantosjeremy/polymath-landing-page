@@ -12,9 +12,17 @@ serve(async (req) => {
   }
 
   try {
-    const { stepTitle, discipline, sourceUrls = [], forceRefresh = false } = await req.json();
+    const { stepTitle, discipline, sourceUrls = [], forceRefresh = false, locale = 'en' } = await req.json();
 
-    console.log('Generating assignment for:', { stepTitle, discipline, sourceCount: sourceUrls.length });
+    console.log('Generating assignment for:', { stepTitle, discipline, sourceCount: sourceUrls.length, locale });
+
+    // Language configuration
+    const languageNames: Record<string, string> = {
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French'
+    };
+    const targetLanguage = languageNames[locale] || 'English';
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -27,10 +35,11 @@ serve(async (req) => {
         .select('*')
         .eq('step_title', stepTitle)
         .eq('discipline', discipline)
+        .eq('locale', locale)
         .maybeSingle();
 
       if (cached) {
-        console.log('[Cache Hit] Returning cached assignment');
+        console.log('[Cache Hit] Returning cached assignment for locale:', locale);
         return new Response(JSON.stringify({ success: true, data: cached }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -76,7 +85,7 @@ serve(async (req) => {
       throw new Error('Failed to generate assignment from all tiers');
     }
 
-    // Cache the result
+    // Cache the result with locale
     const { data: savedAssignment, error: saveError } = await supabase
       .from('capstone_assignments')
       .upsert({
@@ -93,6 +102,7 @@ serve(async (req) => {
         role: assignment.role,
         audience: assignment.audience,
         resource_attachments: assignment.resourceAttachments || [],
+        locale: locale,
       })
       .select()
       .single();
