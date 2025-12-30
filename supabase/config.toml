@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.ai-match-discipline]
 verify_jwt = false
+
+[functions.translate-disciplines]
+verify_jwt = false

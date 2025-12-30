@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Check, Globe } from "lucide-react";
+import { Upload, Check, Globe, Languages, Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -30,6 +30,7 @@ const localeConfig: Record<LocaleKey, { label: string; tableName: string }> = {
 const Admin = () => {
   const { t } = useTranslation();
   const [importing, setImporting] = useState(false);
+  const [translating, setTranslating] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [disciplineCounts, setDisciplineCounts] = useState<Record<LocaleKey, number | null>>({
     en: null,
@@ -243,6 +244,95 @@ const Admin = () => {
     }
   };
 
+  const handleAutoTranslate = async () => {
+    if (selectedLocale === 'en') {
+      toast({
+        variant: "destructive",
+        title: "Cannot translate English",
+        description: "English is the source language. Select Spanish or French to auto-translate."
+      });
+      return;
+    }
+
+    const currentCount = disciplineCounts[selectedLocale];
+    if (currentCount && currentCount > 0) {
+      if (!confirm(`${localeConfig[selectedLocale].label} already has ${currentCount} disciplines. Clear and re-translate?`)) {
+        return;
+      }
+      await handleClearTable(true);
+    }
+
+    const englishCount = disciplineCounts['en'];
+    if (!englishCount || englishCount === 0) {
+      toast({
+        variant: "destructive",
+        title: "No English disciplines",
+        description: "Please import English disciplines first before translating."
+      });
+      return;
+    }
+
+    setTranslating(true);
+    setProgress({ current: 0, total: englishCount });
+
+    try {
+      let offset = 0;
+      let hasMore = true;
+      const batchSize = 50;
+
+      while (hasMore) {
+        const { data, error } = await supabase.functions.invoke('translate-disciplines', {
+          body: { locale: selectedLocale, batchSize, offset }
+        });
+
+        if (error) throw error;
+        
+        if (data.alreadyPopulated) {
+          toast({
+            title: "Already Translated",
+            description: data.message
+          });
+          break;
+        }
+
+        if (data.error) throw new Error(data.error);
+
+        setProgress({ current: data.progress, total: data.total });
+        hasMore = data.hasMore;
+        offset = data.nextOffset || 0;
+
+        if (data.completed) {
+          toast({
+            title: "Translation Complete!",
+            description: `Successfully translated ${data.totalTranslated} disciplines to ${localeConfig[selectedLocale].label}.`
+          });
+          break;
+        }
+      }
+
+      // Reload counts and disciplines
+      await loadCount(selectedLocale);
+      await loadDisciplines(selectedLocale);
+
+      if (hasMore === false) {
+        toast({
+          title: "Translation Complete!",
+          description: `Successfully translated all disciplines to ${localeConfig[selectedLocale].label}.`
+        });
+      }
+
+    } catch (error) {
+      console.error('Translation error:', error);
+      toast({
+        variant: "destructive",
+        title: "Translation Failed",
+        description: error instanceof Error ? error.message : "An error occurred during translation."
+      });
+    } finally {
+      setTranslating(false);
+    }
+  };
+
   const currentCount = disciplineCounts[selectedLocale];
   const currentDisciplines = disciplines[selectedLocale];
 
@@ -292,10 +382,10 @@ const Admin = () => {
               </div>
             </div>
 
-            {importing && progress.total > 0 && (
+            {(importing || translating) && progress.total > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span>Importing disciplines...</span>
+                  <span>{translating ? 'Translating disciplines...' : 'Importing disciplines...'}</span>
                   <span>{progress.current} / {progress.total}</span>
                 </div>
                 <div className="w-full bg-secondary rounded-full h-2">
@@ -310,14 +400,14 @@ const Admin = () => {
             <div className="flex gap-3">
               <label htmlFor="csv-upload" className="flex-1">
                 <Button
-                  disabled={importing}
+                  disabled={importing || translating}
                   className="w-full gap-2"
                   asChild
                 >
                   <span>
                     {importing ? (
                       <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                         Importing...
                       </>
                     ) : (
@@ -334,14 +424,35 @@ const Admin = () => {
                   accept=".csv"
                   onChange={handleFileUpload}
                   className="hidden"
-                  disabled={importing}
+                  disabled={importing || translating}
                 />
               </label>
+
+              {selectedLocale !== 'en' && (
+                <Button
+                  variant="secondary"
+                  onClick={handleAutoTranslate}
+                  disabled={importing || translating || !disciplineCounts['en']}
+                  className="gap-2"
+                >
+                  {translating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Translating...
+                    </>
+                  ) : (
+                    <>
+                      <Languages className="h-4 w-4" />
+                      Auto-Translate
+                    </>
+                  )}
+                </Button>
+              )}
 
               <Button
                 variant="destructive"
                 onClick={() => handleClearTable(false)}
-                disabled={importing || currentCount === 0}
+                disabled={importing || translating || currentCount === 0}
               >
                 Clear Table
               </Button>
@@ -359,7 +470,7 @@ const Admin = () => {
                 <li>Empty cells will be stored as NULL</li>
                 <li>CSV encoding should be UTF-8</li>
                 <li>Expected ~1,727 disciplines from full dataset</li>
-                <li><strong>For translations:</strong> Create separate CSV files for each language</li>
+                <li><strong>Auto-Translate:</strong> Automatically translate English disciplines using AI</li>
               </ul>
             </div>
           </CardContent>
@@ -407,7 +518,7 @@ const Admin = () => {
               </div>
             ) : (
               <p className="text-center text-muted-foreground py-8">
-                No {localeConfig[selectedLocale].label} disciplines imported yet. Upload a CSV file to get started.
+                No {localeConfig[selectedLocale].label} disciplines imported yet. Upload a CSV file or use Auto-Translate.
               </p>
             )}
           </CardContent>
