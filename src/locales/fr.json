@@ -25,7 +25,8 @@
     "stillWorking": "Toujours en cours...",
     "all": "Tout",
     "none": "Aucun",
-    "percentMatch": "{{percent}}% correspondance"
+    "percentMatch": "{{percent}}% correspondance",
+    "loadMore": "Charger {{count}} de plus"
   },
   "nav": {
     "appName": "Project Hermes",

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronRight, ChevronDown, BookOpen, Sparkles, Building2, Search, Zap, Bot, Loader2 } from "lucide-react";
+import { ChevronRight, ChevronDown, BookOpen, Sparkles, Building2, Search, Zap, Bot, Loader2, ChevronDownIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,9 @@ interface SearchResultsProps {
   globalConstraints: PreGenerationConstraints;
 }
 
+const INITIAL_RESULTS = 3;
+const LOAD_MORE_COUNT = 10;
+
 export const SearchResults = ({
   results,
   query,
@@ -48,6 +51,7 @@ export const SearchResults = ({
   const [includeAIAugmentation, setIncludeAIAugmentation] = useState(false);
   const [aiMatching, setAiMatching] = useState(false);
   const [aiResults, setAiResults] = useState<Discipline[]>([]);
+  const [visibleCount, setVisibleCount] = useState(INITIAL_RESULTS);
 
   // Combine original results with AI results
   const allResults = [...results, ...aiResults];
@@ -192,6 +196,10 @@ export const SearchResults = ({
     }
   };
 
+  const handleLoadMore = () => {
+    setVisibleCount(prev => prev + LOAD_MORE_COUNT);
+  };
+
   if (searching) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -332,6 +340,18 @@ export const SearchResults = ({
     );
   };
 
+  // Flatten all results in display order for pagination
+  const orderedResults: { discipline: Discipline; showFuzzyBadge: boolean }[] = [
+    ...exactMatches.map(d => ({ discipline: d, showFuzzyBadge: false })),
+    ...prefixMatches.map(d => ({ discipline: d, showFuzzyBadge: true })),
+    ...fuzzyMatches.map(d => ({ discipline: d, showFuzzyBadge: true })),
+    ...aiMatchResults.map(d => ({ discipline: d, showFuzzyBadge: true })),
+  ];
+
+  const visibleResults = orderedResults.slice(0, visibleCount);
+  const hasMore = visibleCount < orderedResults.length;
+  const remainingCount = orderedResults.length - visibleCount;
+
   return (
     <div>
       <h2 className="text-2xl font-serif font-bold mb-2">
@@ -342,49 +362,9 @@ export const SearchResults = ({
       </p>
 
       <div className="space-y-6">
-        {exactMatches.length > 0 && (
-          <div className="space-y-4">
-            {similarMatches.length > 0 && (
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <Search className="h-4 w-4" />
-                <span>{t('explore.exactMatches')}</span>
-                <Badge variant="secondary" className="ml-1">{exactMatches.length}</Badge>
-              </div>
-            )}
-            <div className="grid gap-4">
-              {exactMatches.map(discipline => renderDisciplineCard(discipline, false))}
-            </div>
-          </div>
-        )}
-
-        {(prefixMatches.length > 0 || fuzzyMatches.length > 0) && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <Zap className="h-4 w-4" />
-              <span>{hasOnlyFuzzyMatches ? t('explore.closestMatches') : t('explore.similarMatches')}</span>
-              <Badge variant="outline" className="ml-1">{prefixMatches.length + fuzzyMatches.length}</Badge>
-            </div>
-            <div className="grid gap-4">
-              {[...prefixMatches, ...fuzzyMatches].map(discipline => renderDisciplineCard(discipline, true))}
-            </div>
-          </div>
-        )}
-
-        {aiMatchResults.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-primary">
-              <Bot className="h-4 w-4" />
-              <span>{t('explore.aiMatched')}</span>
-              <Badge variant="default" className="ml-1">{aiMatchResults.length}</Badge>
-            </div>
-            <div className="grid gap-4">
-              {aiMatchResults.map(discipline => renderDisciplineCard(discipline, true))}
-            </div>
-          </div>
-        )}
-
+        {/* Looking for something else - moved to top */}
         {hasAnyMatches && (
-          <div className="mt-8 p-4 border border-dashed rounded-lg bg-muted/30">
+          <div className="p-4 border border-dashed rounded-lg bg-muted/30">
             <div className="flex items-start gap-3">
               <Sparkles className="h-5 w-5 text-violet-500 mt-0.5" />
               <div className="flex-1">
@@ -422,6 +402,27 @@ export const SearchResults = ({
                 </Button>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Paginated results */}
+        <div className="grid gap-4">
+          {visibleResults.map(({ discipline, showFuzzyBadge }) => 
+            renderDisciplineCard(discipline, showFuzzyBadge)
+          )}
+        </div>
+
+        {/* Load more button */}
+        {hasMore && (
+          <div className="flex justify-center">
+            <Button 
+              variant="outline" 
+              onClick={handleLoadMore}
+              className="gap-2"
+            >
+              <ChevronDownIcon className="h-4 w-4" />
+              {t('common.loadMore', { count: Math.min(LOAD_MORE_COUNT, remainingCount) })}
+            </Button>
           </div>
         )}
       </div>
