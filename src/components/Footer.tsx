@@ -1,6 +1,15 @@
+import { useTranslation } from "react-i18next";
+
 export const Footer = () => {
-  const links = ["About Us", "Contact", "Terms of Service", "Privacy Policy"];
-  
+  const { t } = useTranslation();
+
+  const links = [
+    { key: "aboutUs", label: t('footer.aboutUs') },
+    { key: "contact", label: t('footer.contact') },
+    { key: "terms", label: t('footer.terms') },
+    { key: "privacy", label: t('footer.privacy') },
+  ];
+
   return (
     <footer className="border-t border-border mt-20">
       <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
@@ -13,17 +22,17 @@ export const Footer = () => {
         <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
           {links.map((link) => (
             <a
-              key={link}
+              key={link.key}
               href="#"
               className="hover:text-foreground transition-colors"
             >
-              {link}
+              {link.label}
             </a>
           ))}
         </div>
         
         <p className="text-center text-sm text-muted-foreground">
-          Cultivating polymaths since 2024
+          {t('footer.tagline')}
         </p>
       </div>
     </footer>

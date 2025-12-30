@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,7 @@ const AUTHORITATIVE_SOURCES: AuthoritativeSource[] = [
 
 const Profile = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user, loading } = useAuth();
   const { toast } = useToast();
   
@@ -120,14 +122,14 @@ const Profile = () => {
 
     if (error) {
       toast({
-        title: "Error",
-        description: "Failed to save profile settings",
+        title: t('common.error'),
+        description: t('errors.generic'),
         variant: "destructive",
       });
     } else {
       toast({
-        title: "Success",
-        description: "Profile settings saved",
+        title: t('toasts.profileUpdated'),
+        description: t('toasts.profileUpdatedDesc'),
       });
     }
     setSaving(false);
@@ -148,8 +150,8 @@ const Profile = () => {
   const addCustomSource = () => {
     if (!newSourceName.trim() || !newSourceUrl.trim()) {
       toast({
-        title: "Error",
-        description: "Please provide both name and URL",
+        title: t('common.error'),
+        description: t('errors.generic'),
         variant: "destructive",
       });
       return;
@@ -186,25 +188,25 @@ const Profile = () => {
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          {t('profile.backToHome')}
         </button>
 
-        <h1 className="text-3xl font-bold mb-8">Profile Settings</h1>
+        <h1 className="text-3xl font-bold mb-8">{t('profile.title')}</h1>
 
         {/* Account Section */}
         <div className="mb-8 p-6 border border-border bg-card">
-          <h2 className="text-xl font-semibold mb-4">Account</h2>
+          <h2 className="text-xl font-semibold mb-4">{t('profile.account')}</h2>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Full Name</label>
+              <label className="block text-sm font-medium mb-2">{t('profile.fullName')}</label>
               <Input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your name"
+                placeholder={t('auth.fullNamePlaceholder')}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Email</label>
+              <label className="block text-sm font-medium mb-2">{t('profile.email')}</label>
               <Input value={user?.email || ""} disabled className="opacity-60" />
             </div>
           </div>
@@ -212,9 +214,9 @@ const Profile = () => {
 
         {/* Authoritative Sources Section */}
         <div className="mb-8 p-6 border border-border bg-card">
-          <h2 className="text-xl font-semibold mb-2">Authoritative Sources</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('profile.authoritativeSources')}</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Select which sources to search when generating syllabi
+            {t('profile.authoritativeSourcesDesc')}
           </p>
 
           <div className="space-y-4">
@@ -248,20 +250,20 @@ const Profile = () => {
 
         {/* Custom Sources Section */}
         <div className="mb-8 p-6 border border-border bg-card">
-          <h2 className="text-xl font-semibold mb-2">Your Custom Sources</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('profile.customSources')}</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Add URLs to additional syllabi repositories
+            {t('profile.customSourcesDesc')}
           </p>
 
           <div className="flex gap-2 mb-4">
             <Input
-              placeholder="Name"
+              placeholder={t('profile.sourceName')}
               value={newSourceName}
               onChange={(e) => setNewSourceName(e.target.value)}
               className="flex-1"
             />
             <Input
-              placeholder="URL"
+              placeholder={t('profile.sourceUrl')}
               value={newSourceUrl}
               onChange={(e) => setNewSourceUrl(e.target.value)}
               className="flex-1"
@@ -293,7 +295,7 @@ const Profile = () => {
         </div>
 
         <Button onClick={handleSave} disabled={saving} className="w-full">
-          {saving ? "Saving..." : "Save Settings"}
+          {saving ? t('common.saving') : t('common.save')}
         </Button>
       </div>
     </div>

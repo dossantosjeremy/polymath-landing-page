@@ -1,27 +1,30 @@
 import { GraduationCap, LogOut, Bookmark, User, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export const Navigation = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const handleSignOut = async () => {
     const { error } = await signOut();
     if (error) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to sign out. Please try again."
+        title: t('common.error'),
+        description: t('errors.signOutFailed')
       });
     } else {
       toast({
-        title: "Signed Out",
-        description: "You've been successfully signed out."
+        title: t('toasts.signedOut'),
+        description: t('toasts.signedOutDesc')
       });
       navigate("/");
     }
@@ -35,10 +38,11 @@ export const Navigation = () => {
           className="flex items-center gap-2 hover:opacity-80 transition-opacity"
         >
           <GraduationCap className="h-6 w-6 text-primary" />
-          <span className="text-xl font-semibold">Project Hermes</span>
+          <span className="text-xl font-semibold">{t('nav.appName')}</span>
         </button>
         
         <div className="flex items-center gap-3">
+          <LanguageSwitcher />
           {user ? (
             <>
               <Button
@@ -47,7 +51,7 @@ export const Navigation = () => {
                 onClick={() => navigate("/saved")}
               >
                 <Bookmark className="h-4 w-4" />
-                <span className="hidden sm:inline">Saved</span>
+                <span className="hidden sm:inline">{t('nav.saved')}</span>
               </Button>
               <Button
                 variant="ghost"
@@ -55,7 +59,7 @@ export const Navigation = () => {
                 onClick={() => navigate("/schedule")}
               >
                 <Calendar className="h-4 w-4" />
-                <span className="hidden sm:inline">Schedule</span>
+                <span className="hidden sm:inline">{t('nav.schedule')}</span>
               </Button>
               <Button
                 variant="ghost"
@@ -63,7 +67,7 @@ export const Navigation = () => {
                 onClick={() => navigate("/profile")}
               >
                 <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Profile</span>
+                <span className="hidden sm:inline">{t('nav.profile')}</span>
               </Button>
               <span className="text-sm text-muted-foreground hidden md:block">
                 {user.email}
@@ -74,7 +78,7 @@ export const Navigation = () => {
                 onClick={handleSignOut}
               >
                 <LogOut className="h-4 w-4" />
-                <span className="hidden sm:inline">Sign Out</span>
+                <span className="hidden sm:inline">{t('nav.signOut')}</span>
               </Button>
             </>
           ) : (
@@ -84,14 +88,14 @@ export const Navigation = () => {
                 className="rounded-full px-6 font-medium"
                 onClick={() => navigate("/auth")}
               >
-                Sign Up
+                {t('nav.signUp')}
               </Button>
               <Button 
                 variant="ghost" 
                 className="rounded-full px-6 font-medium"
                 onClick={() => navigate("/auth")}
               >
-                Log In
+                {t('nav.logIn')}
               </Button>
             </>
           )}

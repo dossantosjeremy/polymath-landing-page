@@ -1,0 +1,159 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "confirm": "Confirm",
+    "view": "View",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "search": "Search",
+    "noResults": "No results found",
+    "retry": "Retry"
+  },
+  "nav": {
+    "appName": "Project Hermes",
+    "saved": "Saved",
+    "schedule": "Schedule",
+    "profile": "Profile",
+    "signOut": "Sign Out",
+    "signUp": "Sign Up",
+    "logIn": "Log In"
+  },
+  "home": {
+    "heroTitle": "What do you want to master today?",
+    "searchPlaceholder": "e.g. Philosophy, Mathematics...",
+    "search": "Search",
+    "browseAll": "Or browse all disciplines"
+  },
+  "auth": {
+    "welcomeBack": "Welcome Back",
+    "joinPolymath": "Join Polymath",
+    "signInSubtitle": "Sign in to continue your learning journey",
+    "signUpSubtitle": "Start mastering new subjects today",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "email": "Email",
+    "emailPlaceholder": "Enter your email",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "signIn": "Sign In",
+    "signingIn": "Signing in...",
+    "createAccount": "Create Account",
+    "creatingAccount": "Creating account...",
+    "noAccount": "Don't have an account?",
+    "signUpLink": "Sign up",
+    "hasAccount": "Already have an account?",
+    "signInLink": "Sign in"
+  },
+  "footer": {
+    "aboutUs": "About Us",
+    "contact": "Contact",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy",
+    "tagline": "Cultivating polymaths since 2024"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "signOutFailed": "Failed to sign out. Please try again.",
+    "loginFailed": "Login Failed",
+    "invalidCredentials": "Invalid email or password. Please try again.",
+    "signupFailed": "Signup Failed",
+    "emailExists": "An account with this email already exists. Please log in instead.",
+    "validationError": "Validation Error"
+  },
+  "toasts": {
+    "signedOut": "Signed Out",
+    "signedOutDesc": "You've been successfully signed out.",
+    "welcomeBack": "Welcome back!",
+    "loggedInDesc": "You've successfully logged in.",
+    "accountCreated": "Account Created!",
+    "accountCreatedDesc": "Welcome to Polymath. Let's start learning!",
+    "profileUpdated": "Profile Updated",
+    "profileUpdatedDesc": "Your profile has been saved.",
+    "deleted": "Deleted",
+    "syllabusDeleted": "Syllabus has been deleted."
+  },
+  "schedule": {
+    "title": "My Learning Schedule",
+    "subtitle": "Plan your learning journey across all saved courses",
+    "noSchedules": "No learning schedules yet.",
+    "createFirst": "Create your first schedule by saving a syllabus and scheduling it."
+  },
+  "saved": {
+    "title": "Saved Syllabi",
+    "subtitle": "Access your archived syllabi and course structures",
+    "noSyllabi": "No Saved Syllabi Yet",
+    "noSyllabiDesc": "Start your learning journey by exploring disciplines and saving syllabi you're interested in.",
+    "exploreDisciplines": "Explore Disciplines",
+    "modules": "modules",
+    "source": "Source",
+    "viewSyllabus": "View Syllabus",
+    "scheduleLearning": "Schedule Learning",
+    "deleteConfirmTitle": "Delete Syllabus",
+    "deleteConfirmDesc": "Are you sure you want to delete this syllabus? This action cannot be undone."
+  },
+  "profile": {
+    "backToHome": "Back to Home",
+    "title": "Profile Settings",
+    "account": "Account",
+    "fullName": "Full Name",
+    "email": "Email",
+    "authoritativeSources": "Authoritative Sources",
+    "authoritativeSourcesDesc": "Select which sources to prioritize when generating syllabi",
+    "tier1": "Tier 1 - Academic",
+    "tier2": "Tier 2 - Professional",
+    "tier3": "Tier 3 - Community",
+    "customSources": "Custom Sources",
+    "customSourcesDesc": "Add your own trusted sources for syllabus generation",
+    "addCustomSource": "Add Custom Source",
+    "sourceName": "Source Name",
+    "sourceUrl": "Source URL"
+  },
+  "notFound": {
+    "title": "404",
+    "message": "Oops! Page not found",
+    "returnHome": "Return to Home"
+  },
+  "explore": {
+    "title": "Explore Disciplines",
+    "searchResults": "Search Results",
+    "noResults": "No disciplines found matching your search.",
+    "tryDifferent": "Try a different search term or browse all disciplines.",
+    "browseAll": "Browse All Disciplines"
+  },
+  "syllabus": {
+    "generating": "Generating syllabus...",
+    "aiDiscovered": "AI Discovered",
+    "save": "Save Syllabus",
+    "saved": "Saved",
+    "schedule": "Schedule",
+    "sources": "Sources",
+    "content": "Content",
+    "overview": "Overview"
+  },
+  "learning": {
+    "coreRequirement": "Core Requirement",
+    "learningObjective": "Learning Objective",
+    "essentialPath": "Essential Path",
+    "capstone": "Capstone",
+    "courses": "Courses",
+    "allResources": "All Resources",
+    "showMap": "Show Map",
+    "hideMap": "Hide Map",
+    "startLearning": "Start Learning",
+    "continueFrom": "Continue from where you left off"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "es": "Español",
+    "fr": "Français"
+  }
+}
