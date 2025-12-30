@@ -24,6 +24,7 @@ export type Database = {
           estimated_time: string | null
           id: string
           instructions: Json
+          locale: string | null
           resource_attachments: Json | null
           role: string | null
           scenario: string
@@ -41,6 +42,7 @@ export type Database = {
           estimated_time?: string | null
           id?: string
           instructions: Json
+          locale?: string | null
           resource_attachments?: Json | null
           role?: string | null
           scenario: string
@@ -58,6 +60,7 @@ export type Database = {
           estimated_time?: string | null
           id?: string
           instructions?: Json
+          locale?: string | null
           resource_attachments?: Json | null
           role?: string | null
           scenario?: string
@@ -77,6 +80,7 @@ export type Database = {
           discipline_path: string | null
           id: string
           is_ad_hoc: boolean | null
+          locale: string | null
           modules: Json
           narrative_flow: string | null
           raw_sources: Json | null
@@ -92,6 +96,7 @@ export type Database = {
           discipline_path?: string | null
           id?: string
           is_ad_hoc?: boolean | null
+          locale?: string | null
           modules: Json
           narrative_flow?: string | null
           raw_sources?: Json | null
@@ -107,6 +112,7 @@ export type Database = {
           discipline_path?: string | null
           id?: string
           is_ad_hoc?: boolean | null
+          locale?: string | null
           modules?: Json
           narrative_flow?: string | null
           raw_sources?: Json | null
@@ -413,6 +419,7 @@ export type Database = {
           discipline: string
           id: string
           length: string | null
+          locale: string | null
           step_title: string
           summary: string
         }
@@ -421,6 +428,7 @@ export type Database = {
           discipline: string
           id?: string
           length?: string | null
+          locale?: string | null
           step_title: string
           summary: string
         }
@@ -429,6 +437,7 @@ export type Database = {
           discipline?: string
           id?: string
           length?: string | null
+          locale?: string | null
           step_title?: string
           summary?: string
         }

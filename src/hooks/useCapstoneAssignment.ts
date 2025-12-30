@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface AssignmentData {
@@ -24,6 +25,7 @@ export function useCapstoneAssignment() {
   const [assignment, setAssignment] = useState<AssignmentData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { i18n } = useTranslation();
 
   const fetchAssignment = async (
     stepTitle: string,
@@ -43,6 +45,7 @@ export function useCapstoneAssignment() {
           discipline,
           sourceUrls,
           forceRefresh,
+          locale: i18n.language,
         },
       });
 

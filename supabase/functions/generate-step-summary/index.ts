@@ -12,13 +12,21 @@ serve(async (req) => {
   }
 
   try {
-    const { stepTitle, discipline, stepDescription, sourceContent, resources, referenceLength = 'standard', forceRefresh } = await req.json();
+    const { stepTitle, discipline, stepDescription, sourceContent, resources, referenceLength = 'standard', forceRefresh, locale = 'en' } = await req.json();
 
-    console.log('Generating step summary for:', { stepTitle, discipline, referenceLength, forceRefresh });
+    console.log('Generating step summary for:', { stepTitle, discipline, referenceLength, forceRefresh, locale });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Language configuration
+    const languageNames: Record<string, string> = {
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French'
+    };
+    const targetLanguage = languageNames[locale] || 'English';
 
     // Check cache first unless forceRefresh is true
     if (!forceRefresh) {
@@ -28,10 +36,11 @@ serve(async (req) => {
         .eq('step_title', stepTitle)
         .eq('discipline', discipline)
         .eq('length', referenceLength)
+        .eq('locale', locale)
         .maybeSingle();
 
       if (cached) {
-        console.log('Returning cached summary');
+        console.log('Returning cached summary for locale:', locale);
         return new Response(JSON.stringify({ summary: cached.summary }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -105,6 +114,8 @@ serve(async (req) => {
     const config = lengthConfig[referenceLength as keyof typeof lengthConfig] || lengthConfig.standard;
 
     const systemPrompt = `You are a subject-matter expert delivering academic lecture notes. Provide scholarly, formal educational content focused exclusively on the actual subject matter—the ideas, theories, arguments, historical context, and key thinkers.
+
+CRITICAL: Generate ALL content in ${targetLanguage}. This includes headings, paragraphs, terminology explanations, and all text.
 
 LEVEL: ${referenceLength.toUpperCase()}
 ${config.instruction}
@@ -216,7 +227,7 @@ Each outline item must be in its own element for proper visual hierarchy. Use <e
 
     console.log('Summary generated, caching...');
 
-    // Cache the summary
+    // Cache the summary with locale
     const { error: upsertError } = await supabase
       .from('step_summaries')
       .upsert({
@@ -224,8 +235,9 @@ Each outline item must be in its own element for proper visual hierarchy. Use <e
         discipline: discipline,
         length: referenceLength,
         summary: summary,
+        locale: locale,
       }, {
-        onConflict: 'step_title,discipline,length',
+        onConflict: 'step_title,discipline,length,locale',
       });
 
     if (upsertError) {
