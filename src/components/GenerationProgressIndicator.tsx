@@ -3,21 +3,22 @@ import { Check, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface GenerationStage {
   id: string;
-  label: string;
-  description: string;
+  labelKey: string;
+  descriptionKey: string;
   estimatedSeconds: number;
 }
 
 const GENERATION_STAGES: GenerationStage[] = [
-  { id: 'analyzing', label: 'Analyzing Topic', description: 'Understanding topic structure and pillars...', estimatedSeconds: 5 },
-  { id: 'discovering', label: 'Discovering Sources', description: 'Finding authoritative syllabi from universities...', estimatedSeconds: 12 },
-  { id: 'fetching', label: 'Fetching Content', description: 'Retrieving full syllabus content from sources...', estimatedSeconds: 18 },
-  { id: 'extracting', label: 'Extracting Modules', description: 'Parsing and extracting course modules...', estimatedSeconds: 12 },
-  { id: 'synthesizing', label: 'Synthesizing Curriculum', description: 'Merging sources into comprehensive curriculum...', estimatedSeconds: 30 },
-  { id: 'caching', label: 'Finalizing', description: 'Caching curriculum for future learners...', estimatedSeconds: 8 },
+  { id: 'analyzing', labelKey: 'generation.analyzingTopic', descriptionKey: 'generation.analyzingDesc', estimatedSeconds: 5 },
+  { id: 'discovering', labelKey: 'generation.discoveringSources', descriptionKey: 'generation.discoveringDesc', estimatedSeconds: 12 },
+  { id: 'fetching', labelKey: 'generation.fetchingContent', descriptionKey: 'generation.fetchingDesc', estimatedSeconds: 18 },
+  { id: 'extracting', labelKey: 'generation.extractingModules', descriptionKey: 'generation.extractingDesc', estimatedSeconds: 12 },
+  { id: 'synthesizing', labelKey: 'generation.synthesizingCurriculum', descriptionKey: 'generation.synthesizingDesc', estimatedSeconds: 30 },
+  { id: 'caching', labelKey: 'generation.finalizing', descriptionKey: 'generation.finalizingDesc', estimatedSeconds: 8 },
 ];
 
 interface GenerationProgressIndicatorProps {
@@ -37,6 +38,7 @@ export function GenerationProgressIndicator({
   isAdHoc, 
   useAIEnhanced 
 }: GenerationProgressIndicatorProps) {
+  const { t } = useTranslation();
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [stageProgress, setStageProgress] = useState(0);
@@ -122,22 +124,22 @@ export function GenerationProgressIndicator({
       <div className="text-center space-y-2 max-w-md">
         <div className="flex items-center justify-center gap-2">
           <span className="text-xs text-muted-foreground">
-            Step {currentStageIndex + 1} of {GENERATION_STAGES.length}
+            {t('common.step')} {currentStageIndex + 1} {t('common.of')} {GENERATION_STAGES.length}
           </span>
         </div>
-        <h3 className="text-xl font-semibold">{currentStage.label}</h3>
-        <p className="text-sm text-muted-foreground">{currentStage.description}</p>
+        <h3 className="text-xl font-semibold">{t(currentStage.labelKey)}</h3>
+        <p className="text-sm text-muted-foreground">{t(currentStage.descriptionKey)}</p>
       </div>
 
       {/* Progress bar */}
       <div className="w-full max-w-md space-y-2">
         <Progress value={overallProgress} className="h-2" />
         <div className="flex justify-between text-xs text-muted-foreground">
-          <span>Elapsed: {formatTime(elapsedTime)}</span>
+          <span>{t('common.elapsed')}: {formatTime(elapsedTime)}</span>
           {isOvertime ? (
-            <span className="animate-pulse">Still working... complex topics take longer</span>
+            <span className="animate-pulse">{t('common.stillWorking')}</span>
           ) : (
-            <span>Est. remaining: ~{formatTime(estimatedRemaining)}</span>
+            <span>{t('common.estRemaining')}: ~{formatTime(estimatedRemaining)}</span>
           )}
         </div>
       </div>
@@ -145,16 +147,16 @@ export function GenerationProgressIndicator({
       {/* Context badges */}
       <div className="flex items-center gap-2 flex-wrap justify-center">
         <Badge variant="secondary">
-          Building: {discipline}
+          {t('generation.building', { discipline })}
         </Badge>
         {isAdHoc && (
           <Badge variant="outline" className="border-[hsl(var(--gold))]/50 text-[hsl(var(--gold))]">
-            ✨ Web Sourced
+            ✨ {t('generation.webSourced')}
           </Badge>
         )}
         {useAIEnhanced && (
           <Badge variant="outline" className="border-primary/50 text-primary">
-            🧠 AI-Enhanced
+            🧠 {t('generation.aiEnhanced')}
           </Badge>
         )}
       </div>

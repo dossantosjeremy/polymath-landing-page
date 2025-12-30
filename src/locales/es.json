@@ -22,7 +22,10 @@
     "hours": "horas",
     "elapsed": "Transcurrido",
     "estRemaining": "Est. restante",
-    "stillWorking": "Aún trabajando..."
+    "stillWorking": "Aún trabajando...",
+    "all": "Todo",
+    "none": "Ninguno",
+    "percentMatch": "{{percent}}% coincidencia"
   },
   "nav": {
     "appName": "Project Hermes",
@@ -208,8 +211,25 @@
     "createSchedule": "Crear Horario",
     "sources": "Fuentes",
     "content": "Contenido",
-    "overview": "Resumen",
+    "overview": "Plan de Estudios",
     "exportMarkdown": "Exportar como Markdown"
+  },
+  "generation": {
+    "analyzingTopic": "Analizando Tema",
+    "analyzingDesc": "Entendiendo la estructura del tema y sus pilares...",
+    "discoveringSources": "Descubriendo Fuentes",
+    "discoveringDesc": "Buscando planes de estudio de universidades...",
+    "fetchingContent": "Obteniendo Contenido",
+    "fetchingDesc": "Recuperando contenido completo del plan de estudios...",
+    "extractingModules": "Extrayendo Módulos",
+    "extractingDesc": "Analizando y extrayendo módulos del curso...",
+    "synthesizingCurriculum": "Sintetizando Currículo",
+    "synthesizingDesc": "Fusionando fuentes en un currículo completo...",
+    "finalizing": "Finalizando",
+    "finalizingDesc": "Guardando el currículo para futuros estudiantes...",
+    "building": "Construyendo: {{discipline}}",
+    "webSourced": "Fuente Web",
+    "aiEnhanced": "Mejorado con IA"
   },
   "learning": {
     "coreRequirement": "Requisito Fundamental",
@@ -246,7 +266,21 @@
     "validatingLinks": "Validando enlaces y calidad...",
     "curatingResults": "Curando Resultados",
     "selectingBest": "Seleccionando los mejores recursos para ti...",
-    "essential": "Esencial"
+    "essential": "Esencial",
+    "curriculumMap": "Mapa Curricular",
+    "customizePath": "Personaliza tu ruta de aprendizaje",
+    "navigateJourney": "Navega tu viaje",
+    "stepsSelectedCount": "{{selected}}/{{total}} pasos seleccionados",
+    "hoursEstimated": "~{{hours}} horas estimadas",
+    "fromPillar": "De: {{pillar}}",
+    "customFocusTooltip": "Añadido por tu área de enfoque personalizada",
+    "confirmStartJourney": "Confirmar e Iniciar Viaje",
+    "buildingPath": "Construyendo Ruta...",
+    "stepsSummary": "{{steps}} pasos • ~{{hours}}h total",
+    "skippedSteps": "Pasos omitidos (clic para añadir):",
+    "hoursAmount": "~{{hours}} horas",
+    "map": "Mapa",
+    "stepOf": "Paso {{current}} de {{total}}"
   },
   "language": {
     "label": "Idioma",

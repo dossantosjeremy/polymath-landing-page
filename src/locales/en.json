@@ -22,7 +22,10 @@
     "hours": "hours",
     "elapsed": "Elapsed",
     "estRemaining": "Est. remaining",
-    "stillWorking": "Still working..."
+    "stillWorking": "Still working...",
+    "all": "All",
+    "none": "None",
+    "percentMatch": "{{percent}}% match"
   },
   "nav": {
     "appName": "Project Hermes",
@@ -208,8 +211,25 @@
     "createSchedule": "Create Schedule",
     "sources": "Sources",
     "content": "Content",
-    "overview": "Overview",
+    "overview": "Syllabus",
     "exportMarkdown": "Export as Markdown"
+  },
+  "generation": {
+    "analyzingTopic": "Analyzing Topic",
+    "analyzingDesc": "Understanding topic structure and pillars...",
+    "discoveringSources": "Discovering Sources",
+    "discoveringDesc": "Finding authoritative syllabi from universities...",
+    "fetchingContent": "Fetching Content",
+    "fetchingDesc": "Retrieving full syllabus content from sources...",
+    "extractingModules": "Extracting Modules",
+    "extractingDesc": "Parsing and extracting course modules...",
+    "synthesizingCurriculum": "Synthesizing Curriculum",
+    "synthesizingDesc": "Merging sources into comprehensive curriculum...",
+    "finalizing": "Finalizing",
+    "finalizingDesc": "Caching curriculum for future learners...",
+    "building": "Building: {{discipline}}",
+    "webSourced": "Web Sourced",
+    "aiEnhanced": "AI-Enhanced"
   },
   "learning": {
     "coreRequirement": "Core Requirement",
@@ -246,7 +266,21 @@
     "validatingLinks": "Validating links and quality...",
     "curatingResults": "Curating Results",
     "selectingBest": "Selecting the best resources for you...",
-    "essential": "Essential"
+    "essential": "Essential",
+    "curriculumMap": "Curriculum Map",
+    "customizePath": "Customize your learning path",
+    "navigateJourney": "Navigate your journey",
+    "stepsSelectedCount": "{{selected}}/{{total}} steps selected",
+    "hoursEstimated": "~{{hours}} hours estimated",
+    "fromPillar": "From: {{pillar}}",
+    "customFocusTooltip": "Added because of your custom focus area",
+    "confirmStartJourney": "Confirm & Start Journey",
+    "buildingPath": "Building Path...",
+    "stepsSummary": "{{steps}} steps • ~{{hours}}h total",
+    "skippedSteps": "Skipped steps (click to add back):",
+    "hoursAmount": "~{{hours}} hours",
+    "map": "Map",
+    "stepOf": "Step {{current}} of {{total}}"
   },
   "language": {
     "label": "Language",
