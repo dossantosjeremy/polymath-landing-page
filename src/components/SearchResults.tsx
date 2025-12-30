@@ -10,6 +10,7 @@ import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
 import { ProvenanceBadge } from "@/components/ProvenanceBadge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 interface Discipline {
   id: string;
@@ -41,6 +42,7 @@ export const SearchResults = ({
   onBrowseInContext,
   globalConstraints
 }: SearchResultsProps) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [includeAIAugmentation, setIncludeAIAugmentation] = useState(false);
@@ -79,12 +81,12 @@ export const SearchResults = ({
   };
 
   const getLevel = (discipline: Discipline): string => {
-    if (discipline.l6) return "Level 6";
-    if (discipline.l5) return "Level 5";
-    if (discipline.l4) return "Level 4";
-    if (discipline.l3) return "Sub-domain";
-    if (discipline.l2) return "Category";
-    return "Domain";
+    if (discipline.l6) return `${t('explore.level')} 6`;
+    if (discipline.l5) return `${t('explore.level')} 5`;
+    if (discipline.l4) return `${t('explore.level')} 4`;
+    if (discipline.l3) return t('explore.subDomain');
+    if (discipline.l2) return t('explore.category');
+    return t('explore.domain');
   };
 
   function getLastLevel(discipline: Discipline): string {
@@ -106,12 +108,10 @@ export const SearchResults = ({
       params.set('goalDate', globalConstraints.goalDate.toISOString());
     }
     
-    // Database-first: If cached, load from cache unless AI augmentation is requested
     if (cachedSyllabus && !includeAIAugmentation) {
       params.set('useCache', 'true');
     }
     
-    // Include AI augmentation if toggle is on
     if (includeAIAugmentation) {
       params.set('useAIEnhanced', 'true');
     }
@@ -135,7 +135,6 @@ export const SearchResults = ({
       params.set('goalDate', globalConstraints.goalDate.toISOString());
     }
     
-    // Include AI augmentation if toggle is on
     if (includeAIAugmentation) {
       params.set('useAIEnhanced', 'true');
     }
@@ -144,7 +143,6 @@ export const SearchResults = ({
   };
 
   const handleAISearch = () => {
-    // Navigate to ad-hoc AI search
     const params = new URLSearchParams({
       discipline: query,
       isAdHoc: 'true',
@@ -169,27 +167,26 @@ export const SearchResults = ({
 
       if (error) {
         console.error('AI matching error:', error);
-        toast.error('AI matching unavailable');
+        toast.error(t('toasts.aiMatchingUnavailable'));
         return;
       }
 
       if (data?.matches && data.matches.length > 0) {
-        // Filter out any that are already in results
         const existingIds = new Set(results.map(r => r.id));
         const newMatches = data.matches.filter((m: Discipline) => !existingIds.has(m.id));
         setAiResults(newMatches);
         
         if (newMatches.length > 0) {
-          toast.success(`Found ${newMatches.length} AI-matched discipline${newMatches.length > 1 ? 's' : ''}`);
+          toast.success(t('toasts.foundMatches', { count: newMatches.length }));
         } else {
-          toast.info('No additional matches found');
+          toast.info(t('toasts.noAdditionalMatches'));
         }
       } else {
-        toast.info('No matching disciplines found in catalog');
+        toast.info(t('toasts.noMatchingDisciplines'));
       }
     } catch (err) {
       console.error('AI matching failed:', err);
-      toast.error('Failed to match with AI');
+      toast.error(t('toasts.failedToMatch'));
     } finally {
       setAiMatching(false);
     }
@@ -203,27 +200,24 @@ export const SearchResults = ({
     );
   }
 
-  // No results - but this state should be rare since Explore auto-redirects to ad-hoc
-  // This is only shown if there's an error or race condition
   if (results.length === 0 && aiResults.length === 0 && !aiMatching && hasSearched) {
     return (
       <div className="py-12">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-serif font-bold mb-2">Searching...</h2>
+          <h2 className="text-2xl font-serif font-bold mb-2">{t('common.searching')}</h2>
           <p className="text-muted-foreground">
-            Looking for matches for "{query}"...
+            {t('explore.resultsFor', { count: 0, query })}
           </p>
         </div>
       </div>
     );
   }
 
-  // Show loading while AI matching
   if (aiMatching) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-3 text-muted-foreground">AI is searching the catalog for "{query}"...</span>
+        <span className="ml-3 text-muted-foreground">{t('common.searching')}</span>
       </div>
     );
   }
@@ -240,7 +234,7 @@ export const SearchResults = ({
         className="hover:shadow-md transition-shadow cursor-pointer group" 
         onClick={() => {
           setExpandedId(isExpanded ? null : discipline.id);
-          setIncludeAIAugmentation(false); // Reset toggle when changing selection
+          setIncludeAIAugmentation(false);
         }}
       >
         <CardContent className="pt-6 rounded-sm">
@@ -252,7 +246,7 @@ export const SearchResults = ({
                 </span>
                 {showFuzzyBadge && similarityPercent && (
                   <Badge variant="outline" className="text-xs">
-                    {similarityPercent}% match
+                    {t('common.percentMatch', { percent: similarityPercent })}
                   </Badge>
                 )}
               </div>
@@ -273,27 +267,24 @@ export const SearchResults = ({
 
           {isExpanded && (
             <div className="flex flex-col gap-4 mt-4" onClick={e => e.stopPropagation()}>
-              {/* Database-first: Show provenance indicator */}
               {cachedSyllabus && (
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                   <ProvenanceBadge source="database" size="sm" />
                   <span className="text-sm text-muted-foreground">
-                    Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                    {t('explore.cached', { date: cacheDate })} • {t('explore.source', { count: sourceCount })}
                   </span>
                 </div>
               )}
 
-              {/* Primary action: Load Academic Syllabus */}
               <Button 
                 onClick={() => handleLoadSyllabus(discipline)} 
                 className="w-full"
                 size="lg"
               >
                 <Building2 className="mr-2 h-4 w-4" />
-                {cachedSyllabus ? 'Load Academic Syllabus' : 'Generate Academic Syllabus'}
+                {cachedSyllabus ? t('explore.loadAcademicSyllabus') : t('explore.generateAcademicSyllabus')}
               </Button>
 
-              {/* AI Augmentation toggle */}
               <label 
                 className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={e => e.stopPropagation()}
@@ -305,15 +296,14 @@ export const SearchResults = ({
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-violet-500" />
-                    <span className="font-medium text-sm">Include AI Augmentation</span>
+                    <span className="font-medium text-sm">{t('explore.includeAIAugmentation')}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Discover industry authorities and additional sources
+                    {t('explore.aiAugmentationDesc')}
                   </p>
                 </div>
               </label>
 
-              {/* Secondary actions */}
               <div className="flex gap-2">
                 {cachedSyllabus && (
                   <Button 
@@ -323,7 +313,7 @@ export const SearchResults = ({
                     className="flex-1"
                   >
                     <BookOpen className="mr-2 h-3 w-3" />
-                    Generate Fresh
+                    {t('explore.generateFresh')}
                   </Button>
                 )}
                 <Button 
@@ -332,7 +322,7 @@ export const SearchResults = ({
                   size="sm"
                   className={cachedSyllabus ? 'flex-1' : 'w-full'}
                 >
-                  Browse in Context
+                  {t('explore.browseInContext')}
                 </Button>
               </div>
             </div>
@@ -345,20 +335,19 @@ export const SearchResults = ({
   return (
     <div>
       <h2 className="text-2xl font-serif font-bold mb-2">
-        Search Results
+        {t('explore.searchResults')}
       </h2>
       <p className="text-muted-foreground mb-6">
-        Found {allResults.length} result{allResults.length !== 1 ? "s" : ""} for "{query}"
+        {t('explore.resultsFor', { count: allResults.length, query })}
       </p>
 
       <div className="space-y-6">
-        {/* Exact Matches Section */}
         {exactMatches.length > 0 && (
           <div className="space-y-4">
             {similarMatches.length > 0 && (
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Search className="h-4 w-4" />
-                <span>Exact Matches</span>
+                <span>{t('explore.exactMatches')}</span>
                 <Badge variant="secondary" className="ml-1">{exactMatches.length}</Badge>
               </div>
             )}
@@ -368,12 +357,11 @@ export const SearchResults = ({
           </div>
         )}
 
-        {/* Similar Matches Section (prefix + fuzzy) */}
         {(prefixMatches.length > 0 || fuzzyMatches.length > 0) && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
               <Zap className="h-4 w-4" />
-              <span>{hasOnlyFuzzyMatches ? 'Closest matches in our catalog' : 'Similar matches'}</span>
+              <span>{hasOnlyFuzzyMatches ? t('explore.closestMatches') : t('explore.similarMatches')}</span>
               <Badge variant="outline" className="ml-1">{prefixMatches.length + fuzzyMatches.length}</Badge>
             </div>
             <div className="grid gap-4">
@@ -382,12 +370,11 @@ export const SearchResults = ({
           </div>
         )}
 
-        {/* AI-Matched Section */}
         {aiMatchResults.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-primary">
               <Bot className="h-4 w-4" />
-              <span>AI-Matched from Catalog</span>
+              <span>{t('explore.aiMatched')}</span>
               <Badge variant="default" className="ml-1">{aiMatchResults.length}</Badge>
             </div>
             <div className="grid gap-4">
@@ -396,17 +383,16 @@ export const SearchResults = ({
           </div>
         )}
 
-        {/* AI Search Fallback - Always shown as an option when we have results */}
         {hasAnyMatches && (
           <div className="mt-8 p-4 border border-dashed rounded-lg bg-muted/30">
             <div className="flex items-start gap-3">
               <Sparkles className="h-5 w-5 text-violet-500 mt-0.5" />
               <div className="flex-1">
-                <p className="font-medium text-sm">Looking for something else?</p>
+                <p className="font-medium text-sm">{t('explore.lookingElse')}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   {hasOnlyFuzzyMatches 
-                    ? `We couldn't find an exact match for "${query}". Try AI matching or generate from web.`
-                    : `Generate a custom curriculum for "${query}" using AI-powered web search.`
+                    ? t('explore.noExactMatch', { query })
+                    : t('explore.generateCustom', { query })
                   }
                 </p>
               </div>
@@ -423,7 +409,7 @@ export const SearchResults = ({
                     ) : (
                       <Bot className="mr-2 h-3 w-3" />
                     )}
-                    Match Catalog
+                    {t('explore.matchCatalog')}
                   </Button>
                 )}
                 <Button 
@@ -432,7 +418,7 @@ export const SearchResults = ({
                   onClick={handleAISearch}
                 >
                   <Sparkles className="mr-2 h-3 w-3" />
-                  Search Web
+                  {t('explore.searchWeb')}
                 </Button>
               </div>
             </div>

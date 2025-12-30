@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Map, PanelLeftClose, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
 interface Module {
   title: string;
@@ -20,7 +21,7 @@ interface Module {
   priority?: 'core' | 'important' | 'nice-to-have';
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
-  isAIDiscovered?: boolean; // True if this module was added via AI enhancement
+  isAIDiscovered?: boolean;
 }
 
 interface DiscoveredSource {
@@ -40,9 +41,8 @@ interface SyllabusMissionControlProps {
   getDomainShortName: (url: string) => string;
   extractCourseCode: (url: string, courseName?: string) => string;
   getSourceColorByUrl: (url: string) => string;
-  regenerationKey?: number; // Forces remount on regeneration
-  aiEnabled?: boolean; // Whether to show AI-discovered modules
-  // NEW: Persistence props
+  regenerationKey?: number;
+  aiEnabled?: boolean;
   initialPersistedState?: MissionControlPersistedState | null;
   onStateChange?: (state: MissionControlPersistedState) => void;
   onPathConfirmed?: (stepTitles: string[]) => void;
@@ -57,17 +57,16 @@ export function SyllabusMissionControl({
   extractCourseCode,
   getSourceColorByUrl,
   regenerationKey = 0,
-  aiEnabled = true, // Default to showing all modules
+  aiEnabled = true,
   initialPersistedState,
   onStateChange,
   onPathConfirmed,
 }: SyllabusMissionControlProps) {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
-  // IMPORTANT: All hooks must be called before any conditional returns (React Rules of Hooks)
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Transform modules to MissionControlStep format - memoize to detect changes
-  // Filter based on visibility flags only (AI filtering is done at parent level)
+  // Transform modules to MissionControlStep format
   const steps: MissionControlStep[] = useMemo(() => {
     return modules
       .filter(m => !m.isHiddenForTime && !m.isHiddenForDepth)
@@ -149,7 +148,7 @@ export function SyllabusMissionControl({
               className="fixed top-20 left-4 shadow-lg z-50"
             >
               <Map className="h-4 w-4 mr-2" />
-              {mode === 'draft' ? 'Map' : `${(activeStepIndex ?? 0) + 1}/${confirmedSteps.length}`}
+              {mode === 'draft' ? t('learning.map') : `${(activeStepIndex ?? 0) + 1}/${confirmedSteps.length}`}
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-[85vw] max-w-[350px] p-0">
@@ -193,18 +192,18 @@ export function SyllabusMissionControl({
             {isCollapsed ? (
               <>
                 <PanelLeft className="h-4 w-4" />
-                <span className="text-xs">Show Map</span>
+                <span className="text-xs">{t('learning.showMap')}</span>
               </>
             ) : (
               <>
                 <PanelLeftClose className="h-4 w-4" />
-                <span className="text-xs">Hide Map</span>
+                <span className="text-xs">{t('learning.hideMap')}</span>
               </>
             )}
           </Button>
           {isCollapsed && mode === 'active' && (
             <span className="text-xs text-muted-foreground">
-              Step {(activeStepIndex ?? 0) + 1} of {confirmedSteps.length}
+              {t('learning.stepOf', { current: (activeStepIndex ?? 0) + 1, total: confirmedSteps.length })}
             </span>
           )}
         </div>

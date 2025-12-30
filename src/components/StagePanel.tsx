@@ -5,7 +5,7 @@ import { StepSummary } from "@/components/StepSummary";
 import { CuratedLearningPlayer } from "@/components/CuratedLearningPlayer";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
 import { cn } from "@/lib/utils";
-// ScrollArea removed - using simple overflow div for mobile compatibility
+import { useTranslation } from "react-i18next";
 
 interface StagePanelProps {
   mode: ViewMode;
@@ -38,6 +38,8 @@ export function StagePanel({
   extractCourseCode,
   getSourceColorByUrl,
 }: StagePanelProps) {
+  const { t } = useTranslation();
+
   // Draft Mode: Show placeholder
   if (mode === 'draft') {
     return (
@@ -47,28 +49,26 @@ export function StagePanel({
             <MapPin className="h-10 w-10 text-primary" />
           </div>
           
-          <h2 className="text-2xl font-bold mb-3">Plan Your Journey</h2>
+          <h2 className="text-2xl font-bold mb-3">{t('learning.planJourney')}</h2>
           
           <p className="text-muted-foreground mb-6">
-            Review your learning path on the left. Toggle off topics you already know 
-            or want to skip. When you're ready, click "Confirm & Start Journey" to 
-            generate your personalized learning materials.
+            {t('learning.planJourneyDesc')}
           </p>
           
           <div className="bg-muted/50 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Currently selected:</span>
-              <span className="font-semibold">{stats.selected}/{stats.total} steps</span>
+              <span className="text-muted-foreground">{t('learning.currentlySelected')}</span>
+              <span className="font-semibold">{t('learning.stepsCount', { selected: stats.selected, total: stats.total })}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Estimated time:</span>
-              <span className="font-semibold">~{stats.estimatedHours} hours</span>
+              <span className="text-muted-foreground">{t('learning.estimatedTime')}</span>
+              <span className="font-semibold">{t('learning.hoursAmount', { hours: stats.estimatedHours })}</span>
             </div>
           </div>
           
           <div className="mt-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
             <Sparkles className="h-4 w-4" />
-            <span>Resources will be generated for selected steps only</span>
+            <span>{t('learning.resourcesGenerated')}</span>
           </div>
         </div>
       </div>
@@ -81,9 +81,9 @@ export function StagePanel({
       <div className="h-full flex items-center justify-center p-8 text-center">
         <div className="max-w-md">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Select a Step</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('learning.selectStep')}</h2>
           <p className="text-muted-foreground">
-            Click on any step in the curriculum map to view its content and learning resources.
+            {t('learning.selectStepDesc')}
           </p>
         </div>
       </div>
@@ -122,7 +122,7 @@ export function StagePanel({
                   className="text-xs mb-2 border-violet-300 text-violet-600 dark:border-violet-400 dark:text-violet-400 gap-1"
                 >
                   <Sparkles className="h-3 w-3" />
-                  AI Discovered
+                  {t('learning.aiDiscovered')}
                 </Badge>
               )}
               <h1 className="text-base sm:text-xl font-bold mb-1 break-words">{currentStep.title}</h1>
@@ -174,7 +174,7 @@ export function StagePanel({
 
         {/* Progress Indicator */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap break-words">
-          <span className="whitespace-nowrap">Step {(activeStepIndex ?? 0) + 1} of {confirmedSteps.length}</span>
+          <span className="whitespace-nowrap">{t('learning.stepOf', { current: (activeStepIndex ?? 0) + 1, total: confirmedSteps.length })}</span>
           <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
             <div 
               className="h-full bg-primary transition-all" 

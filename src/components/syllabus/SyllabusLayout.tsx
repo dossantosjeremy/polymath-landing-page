@@ -6,6 +6,7 @@ import { SourcesTab } from "./SourcesTab";
 import { SyllabusProvider, SyllabusData, DiscoveredSource, MissionControlPersistedState } from "./SyllabusContext";
 import { LearningPathConstraints, PruningStats } from "@/components/SmartLearningPathSettings";
 import { BackgroundLoadingBanner } from "@/components/BackgroundLoadingBanner";
+import { useTranslation } from "react-i18next";
 
 interface SyllabusLayoutProps {
   // Data
@@ -116,22 +117,24 @@ function SyllabusLayoutInner({
   activeTab: string; 
   onTabChange?: (tab: string) => void;
 }) {
+  const { t } = useTranslation();
+
   const tabs: NestedTabItem[] = [
     {
       value: "content",
-      label: "Content",
+      label: t('syllabus.content'),
       icon: <BookOpen className="h-4 w-4" />,
       content: <ContentTab />,
     },
     {
       value: "syllabus",
-      label: "Syllabus",
+      label: t('syllabus.overview'),
       icon: <Settings className="h-4 w-4" />,
       content: <SyllabusTab />,
     },
     {
       value: "sources",
-      label: "Sources",
+      label: t('syllabus.sources'),
       icon: <Library className="h-4 w-4" />,
       content: <SourcesTab />,
     },

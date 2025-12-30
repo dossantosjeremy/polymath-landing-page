@@ -11,6 +11,7 @@ import { useCommuniySyllabus } from "@/hooks/useCommuniySyllabus";
 import { PreGenerationConstraints } from "@/components/PreGenerationSettings";
 import { ProvenanceBadge } from "@/components/ProvenanceBadge";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "react-i18next";
 
 interface ExploreState {
   selectedDomain?: string;
@@ -24,6 +25,7 @@ interface ExploreContainerProps {
 }
 
 export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreContainerProps) => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [state, setState] = useState<ExploreState>({});
   const [hasL3, setHasL3] = useState<boolean | null>(null);
@@ -128,9 +130,9 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
   // Determine if CTA should be enabled
   const canGenerate = () => {
     if (!state.selectedDomain) return false;
-    if (!state.selectedSubDomain) return true; // Can generate at domain level if no subdomain selected
-    if (hasL3 === false) return true; // No L3, can generate at L2
-    if (hasL3 && !state.selectedSpecialization) return false; // Has L3, need to select
+    if (!state.selectedSubDomain) return true;
+    if (hasL3 === false) return true;
+    if (hasL3 && !state.selectedSpecialization) return false;
     return true;
   };
 
@@ -210,13 +212,13 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 p-6 bg-card border rounded-lg space-y-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Selected discipline:</p>
+              <p className="text-sm text-muted-foreground mb-1">{t('explore.selectedDiscipline')}</p>
               <p className="font-semibold text-lg">{getFullPath()}</p>
               {cachedSyllabus && cacheDate && (
                 <div className="flex items-center gap-2 mt-2">
                   <ProvenanceBadge source="database" size="sm" />
                   <span className="text-xs text-muted-foreground">
-                    Cached {cacheDate} • {sourceCount} source{sourceCount !== 1 ? 's' : ''}
+                    {t('explore.cached', { date: cacheDate })} • {t('explore.source', { count: sourceCount })}
                   </span>
                 </div>
               )}
@@ -231,7 +233,7 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
                 disabled={cacheLoading}
               >
                 <Building2 className="h-4 w-4" />
-                {cachedSyllabus ? 'Load Academic Syllabus' : 'Generate Academic Syllabus'}
+                {cachedSyllabus ? t('explore.loadAcademicSyllabus') : t('explore.generateAcademicSyllabus')}
               </Button>
               
               {/* AI Augmentation toggle */}
@@ -243,10 +245,10 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <Sparkles className="h-4 w-4 text-violet-500" />
-                    <span className="font-medium text-sm">Include AI Augmentation</span>
+                    <span className="font-medium text-sm">{t('explore.includeAIAugmentation')}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Discover industry authorities and additional sources
+                    {t('explore.aiAugmentationDesc')}
                   </p>
                 </div>
               </label>
@@ -255,7 +257,6 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
               {cachedSyllabus && (
                 <Button 
                   onClick={() => {
-                    // Force fresh generation by not using cache
                     const discipline = state.selectedSpecialization || state.selectedSubDomain || state.selectedDomain;
                     if (!discipline) return;
                     const params = new URLSearchParams({
@@ -264,7 +265,7 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
                       depth: globalConstraints.depth,
                       hoursPerWeek: globalConstraints.hoursPerWeek.toString(),
                       skillLevel: globalConstraints.skillLevel,
-                      forceRefresh: 'true', // Bypass cache and regenerate
+                      forceRefresh: 'true',
                     });
                     if (globalConstraints.goalDate) {
                       params.set('goalDate', globalConstraints.goalDate.toISOString());
@@ -279,7 +280,7 @@ export const ExploreContainer = ({ initialPath, globalConstraints }: ExploreCont
                   className="gap-2"
                 >
                   <BookOpen className="h-3 w-3" />
-                  Generate Fresh Instead
+                  {t('explore.generateFreshInstead')}
                 </Button>
               )}
             </div>

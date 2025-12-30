@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { ViewMode, MissionControlStep } from "@/hooks/useMissionControl";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTranslation } from "react-i18next";
 
 interface CurriculumMetroMapProps {
   steps: MissionControlStep[];
@@ -42,6 +43,8 @@ export function CurriculumMetroMap({
   onNavigateToStep,
   onReEnableStep,
 }: CurriculumMetroMapProps) {
+  const { t } = useTranslation();
+
   const isCapstoneStep = (step: MissionControlStep) => 
     step.isCapstone || step.tag === 'Capstone Integration';
 
@@ -54,11 +57,11 @@ export function CurriculumMetroMap({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b">
-        <h2 className="font-bold text-lg mb-1">Curriculum Map</h2>
+        <h2 className="font-bold text-lg mb-1">{t('learning.curriculumMap')}</h2>
         <p className="text-sm text-muted-foreground">
           {mode === 'draft' 
-            ? 'Customize your learning path' 
-            : 'Navigate your journey'}
+            ? t('learning.customizePath') 
+            : t('learning.navigateJourney')}
         </p>
       </div>
 
@@ -67,19 +70,19 @@ export function CurriculumMetroMap({
         <div className="p-4 border-b bg-muted/30">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium">
-              {stats.selected}/{stats.total} steps selected
+              {t('learning.stepsSelectedCount', { selected: stats.selected, total: stats.total })}
             </span>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={onSelectAll}>
-                All
+                {t('common.all')}
               </Button>
               <Button variant="ghost" size="sm" onClick={onDeselectAll}>
-                None
+                {t('common.none')}
               </Button>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            ~{stats.estimatedHours} hours estimated
+            {t('learning.hoursEstimated', { hours: stats.estimatedHours })}
           </p>
         </div>
       )}
@@ -149,11 +152,11 @@ export function CurriculumMetroMap({
                                     className="text-xs mb-1.5 border-dashed border-accent text-accent-foreground gap-1 cursor-help"
                                   >
                                     <Plus className="h-3 w-3" />
-                                    From: {step.fromCustomPillar}
+                                    {t('learning.fromPillar', { pillar: step.fromCustomPillar })}
                                   </Badge>
                                 </TooltipTrigger>
                                 <TooltipContent>
-                                  <p>Added because of your custom focus area</p>
+                                  <p>{t('learning.customFocusTooltip')}</p>
                                 </TooltipContent>
                               </Tooltip>
                             )}
@@ -164,7 +167,7 @@ export function CurriculumMetroMap({
                                 className="text-xs mb-1.5 border-violet-300 text-violet-600 dark:border-violet-400 dark:text-violet-400 gap-1"
                               >
                                 <Sparkles className="h-3 w-3" />
-                                AI Discovered
+                                {t('learning.aiDiscovered')}
                               </Badge>
                             )}
                             <h4 className={cn(
@@ -274,7 +277,7 @@ export function CurriculumMetroMap({
           {mode === 'active' && deselectedSteps.length > 0 && (
             <div className="mt-6 pt-4 border-t">
               <p className="text-xs text-muted-foreground mb-3">
-                Skipped steps (click to add back):
+                {t('learning.skippedSteps')}
               </p>
               <div className="space-y-2">
                 {deselectedSteps.map((step) => (
@@ -304,17 +307,17 @@ export function CurriculumMetroMap({
             {isConfirming ? (
               <>
                 <span className="animate-spin mr-2">⏳</span>
-                Building Path...
+                {t('learning.buildingPath')}
               </>
             ) : (
               <>
-                Confirm & Start Journey
+                {t('learning.confirmStartJourney')}
                 <ChevronDown className="ml-2 h-4 w-4" />
               </>
             )}
           </Button>
           <p className="text-xs text-center text-muted-foreground mt-2">
-            {stats.selected} steps • ~{stats.estimatedHours}h total
+            {t('learning.stepsSummary', { steps: stats.selected, hours: stats.estimatedHours })}
           </p>
         </div>
       )}
