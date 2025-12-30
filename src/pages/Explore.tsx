@@ -13,6 +13,7 @@ import { SmartPreGenerationSettings, SmartPreGenerationConstraints, toLegacyCons
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useDisciplineTable } from "@/hooks/useDisciplineTable";
 
 interface Discipline {
   id: string;
@@ -28,7 +29,8 @@ interface Discipline {
 }
 
 const Explore = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { tableName, fuzzySearchFn, locale } = useDisciplineTable();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
@@ -66,7 +68,7 @@ const Explore = () => {
       const threshold = searchTerm.length <= 6 ? 0.2 : 0.25;
 
       // Step 1: Try DB fuzzy search (includes exact, prefix, and fuzzy matches)
-      const { data: fuzzyData, error: fuzzyError } = await supabase.rpc('search_disciplines_fuzzy', {
+      const { data: fuzzyData, error: fuzzyError } = await supabase.rpc(fuzzySearchFn, {
         search_term: searchTerm,
         similarity_threshold: threshold,
       });
@@ -85,7 +87,7 @@ const Explore = () => {
       if (fuzzyError) {
         console.warn('DB fuzzy search errored; falling back to basic DB search:', fuzzyError);
         const { data, error } = await supabase
-          .from('disciplines')
+          .from(tableName)
           .select('*')
           .or(
             `l1.ilike.%${searchTerm}%,l2.ilike.%${searchTerm}%,l3.ilike.%${searchTerm}%,l4.ilike.%${searchTerm}%,l5.ilike.%${searchTerm}%,l6.ilike.%${searchTerm}%`
@@ -101,7 +103,7 @@ const Explore = () => {
       // Step 2: DB found nothing → automatically try AI catalog matching
       try {
         const { data: aiData, error: aiError } = await supabase.functions.invoke('ai-match-discipline', {
-          body: { query: searchTerm, limit: 10 },
+          body: { query: searchTerm, limit: 10, locale },
         });
 
         if (!aiError && aiData?.matches && aiData.matches.length > 0) {

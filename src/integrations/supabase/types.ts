@@ -179,6 +179,78 @@ export type Database = {
         }
         Relationships: []
       }
+      disciplines_es: {
+        Row: {
+          created_at: string | null
+          id: string
+          l1: string
+          l2: string | null
+          l3: string | null
+          l4: string | null
+          l5: string | null
+          l6: string | null
+          search_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          l1: string
+          l2?: string | null
+          l3?: string | null
+          l4?: string | null
+          l5?: string | null
+          l6?: string | null
+          search_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          l1?: string
+          l2?: string | null
+          l3?: string | null
+          l4?: string | null
+          l5?: string | null
+          l6?: string | null
+          search_text?: string | null
+        }
+        Relationships: []
+      }
+      disciplines_fr: {
+        Row: {
+          created_at: string | null
+          id: string
+          l1: string
+          l2: string | null
+          l3: string | null
+          l4: string | null
+          l5: string | null
+          l6: string | null
+          search_text: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          l1: string
+          l2?: string | null
+          l3?: string | null
+          l4?: string | null
+          l5?: string | null
+          l6?: string | null
+          search_text?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          l1?: string
+          l2?: string | null
+          l3?: string | null
+          l4?: string | null
+          l5?: string | null
+          l6?: string | null
+          search_text?: string | null
+        }
+        Relationships: []
+      }
       learning_schedules: {
         Row: {
           availability: Json
@@ -493,6 +565,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      search_disciplines_es_fuzzy: {
+        Args: { search_term: string; similarity_threshold?: number }
+        Returns: {
+          id: string
+          l1: string
+          l2: string
+          l3: string
+          l4: string
+          l5: string
+          l6: string
+          match_type: string
+          similarity_score: number
+        }[]
+      }
+      search_disciplines_fr_fuzzy: {
+        Args: { search_term: string; similarity_threshold?: number }
+        Returns: {
+          id: string
+          l1: string
+          l2: string
+          l3: string
+          l4: string
+          l5: string
+          l6: string
+          match_type: string
+          similarity_score: number
+        }[]
+      }
       search_disciplines_fuzzy: {
         Args: { search_term: string; similarity_threshold?: number }
         Returns: {

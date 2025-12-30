@@ -10,6 +10,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useDisciplineTable } from "@/hooks/useDisciplineTable";
 
 interface Specialization {
   value: string;
@@ -30,18 +31,19 @@ export const SpecializationCarousel = ({
   onSelect 
 }: SpecializationCarouselProps) => {
   const { t } = useTranslation();
+  const { tableName } = useDisciplineTable();
   const [specializations, setSpecializations] = useState<Specialization[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadSpecializations();
-  }, [domain, subDomain]);
+  }, [domain, subDomain, tableName]);
 
   const loadSpecializations = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from("disciplines")
+        .from(tableName)
         .select("l3")
         .eq("l1", domain)
         .eq("l2", subDomain)

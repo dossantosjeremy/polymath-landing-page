@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigation } from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Upload, Check } from "lucide-react";
+import { Upload, Check, Globe } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Discipline {
   id: string;
@@ -17,45 +19,76 @@ interface Discipline {
   l6: string | null;
 }
 
+type LocaleKey = 'en' | 'es' | 'fr';
+
+const localeConfig: Record<LocaleKey, { label: string; tableName: string }> = {
+  en: { label: 'English', tableName: 'disciplines' },
+  es: { label: 'Español', tableName: 'disciplines_es' },
+  fr: { label: 'Français', tableName: 'disciplines_fr' },
+};
+
 const Admin = () => {
+  const { t } = useTranslation();
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
-  const [disciplineCount, setDisciplineCount] = useState<number | null>(null);
-  const [disciplines, setDisciplines] = useState<Discipline[]>([]);
+  const [disciplineCounts, setDisciplineCounts] = useState<Record<LocaleKey, number | null>>({
+    en: null,
+    es: null,
+    fr: null
+  });
+  const [disciplines, setDisciplines] = useState<Record<LocaleKey, Discipline[]>>({
+    en: [],
+    es: [],
+    fr: []
+  });
   const [loadingDisciplines, setLoadingDisciplines] = useState(false);
+  const [selectedLocale, setSelectedLocale] = useState<LocaleKey>('en');
   const { toast } = useToast();
 
   // Load current count and disciplines on mount
   useEffect(() => {
-    loadCount();
-    loadDisciplines();
+    loadAllCounts();
+    loadDisciplines(selectedLocale);
   }, []);
 
-  const loadCount = async () => {
-    try {
-      const { count } = await supabase
-        .from('disciplines')
-        .select('*', { count: 'exact', head: true });
-      
-      setDisciplineCount(count || 0);
-    } catch (error) {
-      console.error('Error loading count:', error);
+  useEffect(() => {
+    loadDisciplines(selectedLocale);
+  }, [selectedLocale]);
+
+  const loadAllCounts = async () => {
+    for (const locale of Object.keys(localeConfig) as LocaleKey[]) {
+      await loadCount(locale);
     }
   };
 
-  const loadDisciplines = async () => {
+  const loadCount = async (locale: LocaleKey) => {
+    try {
+      const tableName = localeConfig[locale].tableName;
+      const { count } = await supabase
+        .from(tableName as any)
+        .select('*', { count: 'exact', head: true });
+      
+      setDisciplineCounts(prev => ({ ...prev, [locale]: count || 0 }));
+    } catch (error) {
+      console.error(`Error loading count for ${locale}:`, error);
+      setDisciplineCounts(prev => ({ ...prev, [locale]: 0 }));
+    }
+  };
+
+  const loadDisciplines = async (locale: LocaleKey) => {
     setLoadingDisciplines(true);
     try {
+      const tableName = localeConfig[locale].tableName;
       const { data, error } = await supabase
-        .from('disciplines')
+        .from(tableName as any)
         .select('*')
         .order('l1', { ascending: true })
         .limit(100);
       
       if (error) throw error;
-      setDisciplines(data || []);
+      setDisciplines(prev => ({ ...prev, [locale]: data || [] }));
     } catch (error) {
-      console.error('Error loading disciplines:', error);
+      console.error(`Error loading disciplines for ${locale}:`, error);
     } finally {
       setLoadingDisciplines(false);
     }
@@ -92,9 +125,12 @@ const Admin = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const currentCount = disciplineCounts[selectedLocale];
+    const tableName = localeConfig[selectedLocale].tableName;
+
     // Ask for confirmation if data exists
-    if (disciplineCount && disciplineCount > 0) {
-      if (!confirm(`Database currently has ${disciplineCount} disciplines. Do you want to clear and re-import?`)) {
+    if (currentCount && currentCount > 0) {
+      if (!confirm(`${localeConfig[selectedLocale].label} database currently has ${currentCount} disciplines. Do you want to clear and re-import?`)) {
         event.target.value = '';
         return;
       }
@@ -108,7 +144,7 @@ const Admin = () => {
     try {
       const text = await file.text();
       const lines = text.split('\n').slice(1); // Skip header
-      const disciplines = [];
+      const disciplinesList = [];
 
       for (const line of lines) {
         if (!line.trim()) continue;
@@ -117,7 +153,7 @@ const Admin = () => {
         const [l1, l2, l3, l4, l5, l6] = fields;
 
         if (l1) {
-          disciplines.push({
+          disciplinesList.push({
             l1,
             l2: l2 || null,
             l3: l3 || null,
@@ -128,17 +164,17 @@ const Admin = () => {
         }
       }
 
-      setProgress({ current: 0, total: disciplines.length });
+      setProgress({ current: 0, total: disciplinesList.length });
 
       // Insert in batches of 100
       const batchSize = 100;
       let inserted = 0;
 
-      for (let i = 0; i < disciplines.length; i += batchSize) {
-        const batch = disciplines.slice(i, i + batchSize);
+      for (let i = 0; i < disciplinesList.length; i += batchSize) {
+        const batch = disciplinesList.slice(i, i + batchSize);
         
         const { error } = await supabase
-          .from('disciplines')
+          .from(tableName as any)
           .insert(batch);
 
         if (error) {
@@ -147,17 +183,17 @@ const Admin = () => {
         }
 
         inserted += batch.length;
-        setProgress({ current: inserted, total: disciplines.length });
+        setProgress({ current: inserted, total: disciplinesList.length });
       }
 
       toast({
         title: "Import Successful!",
-        description: `Successfully imported ${inserted} disciplines.`
+        description: `Successfully imported ${inserted} disciplines to ${localeConfig[selectedLocale].label}.`
       });
 
       // Reload count and disciplines
-      await loadCount();
-      await loadDisciplines();
+      await loadCount(selectedLocale);
+      await loadDisciplines(selectedLocale);
 
     } catch (error) {
       console.error('Import error:', error);
@@ -173,13 +209,15 @@ const Admin = () => {
   };
 
   const handleClearTable = async (skipConfirm = false) => {
-    if (!skipConfirm && !confirm('Are you sure you want to delete all disciplines? This cannot be undone.')) {
+    const tableName = localeConfig[selectedLocale].tableName;
+    
+    if (!skipConfirm && !confirm(`Are you sure you want to delete all ${localeConfig[selectedLocale].label} disciplines? This cannot be undone.`)) {
       return;
     }
 
     try {
       const { error } = await supabase
-        .from('disciplines')
+        .from(tableName as any)
         .delete()
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
 
@@ -188,13 +226,13 @@ const Admin = () => {
       if (!skipConfirm) {
         toast({
           title: "Table Cleared",
-          description: "All disciplines have been deleted."
+          description: `All ${localeConfig[selectedLocale].label} disciplines have been deleted.`
         });
       }
 
       // Reload count and disciplines
-      await loadCount();
-      await loadDisciplines();
+      await loadCount(selectedLocale);
+      await loadDisciplines(selectedLocale);
     } catch (error) {
       console.error('Clear error:', error);
       toast({
@@ -205,6 +243,9 @@ const Admin = () => {
     }
   };
 
+  const currentCount = disciplineCounts[selectedLocale];
+  const currentDisciplines = disciplines[selectedLocale];
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
@@ -214,21 +255,38 @@ const Admin = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Import Academic Disciplines</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Import Academic Disciplines
+            </CardTitle>
             <CardDescription>
               Upload the CSV file containing academic disciplines data. The file should have columns: L1, L2, L3, L4, L5, L6.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Language Tabs */}
+            <Tabs value={selectedLocale} onValueChange={(v) => setSelectedLocale(v as LocaleKey)}>
+              <TabsList className="grid w-full grid-cols-3">
+                {(Object.keys(localeConfig) as LocaleKey[]).map((locale) => (
+                  <TabsTrigger key={locale} value={locale} className="flex items-center gap-2">
+                    {localeConfig[locale].label}
+                    <span className="text-xs text-muted-foreground">
+                      ({disciplineCounts[locale] ?? '...'})
+                    </span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+
             {/* Current Status */}
             <div className="p-4 bg-accent/50 rounded-lg">
               <div className="flex items-center justify-between">
-                <span className="font-semibold">Current Database Status:</span>
+                <span className="font-semibold">{localeConfig[selectedLocale].label} Database Status:</span>
                 <span className="text-2xl font-bold">
-                  {disciplineCount === null ? (
+                  {currentCount === null ? (
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                   ) : (
-                    `${disciplineCount} disciplines`
+                    `${currentCount} disciplines`
                   )}
                 </span>
               </div>
@@ -265,7 +323,7 @@ const Admin = () => {
                     ) : (
                       <>
                         <Upload className="h-4 w-4" />
-                        {disciplineCount && disciplineCount > 0 ? 'Replace Data' : 'Upload CSV'}
+                        {currentCount && currentCount > 0 ? `Replace ${localeConfig[selectedLocale].label} Data` : `Upload ${localeConfig[selectedLocale].label} CSV`}
                       </>
                     )}
                   </span>
@@ -283,7 +341,7 @@ const Admin = () => {
               <Button
                 variant="destructive"
                 onClick={() => handleClearTable(false)}
-                disabled={importing || disciplineCount === 0}
+                disabled={importing || currentCount === 0}
               >
                 Clear Table
               </Button>
@@ -301,6 +359,7 @@ const Admin = () => {
                 <li>Empty cells will be stored as NULL</li>
                 <li>CSV encoding should be UTF-8</li>
                 <li>Expected ~1,727 disciplines from full dataset</li>
+                <li><strong>For translations:</strong> Create separate CSV files for each language</li>
               </ul>
             </div>
           </CardContent>
@@ -309,7 +368,7 @@ const Admin = () => {
         {/* Disciplines Preview Table */}
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle>Imported Disciplines Preview</CardTitle>
+            <CardTitle>{localeConfig[selectedLocale].label} Disciplines Preview</CardTitle>
             <CardDescription>
               Showing first 100 disciplines. Visit the Explore page to browse all.
             </CardDescription>
@@ -319,7 +378,7 @@ const Admin = () => {
               <div className="flex items-center justify-center py-12">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ) : disciplines.length > 0 ? (
+            ) : currentDisciplines.length > 0 ? (
               <div className="border rounded-lg overflow-auto max-h-[600px]">
                 <Table>
                   <TableHeader>
@@ -333,7 +392,7 @@ const Admin = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {disciplines.map((discipline) => (
+                    {currentDisciplines.map((discipline) => (
                       <TableRow key={discipline.id}>
                         <TableCell className="font-medium">{discipline.l1}</TableCell>
                         <TableCell className="text-muted-foreground">{discipline.l2 || "-"}</TableCell>
@@ -348,7 +407,7 @@ const Admin = () => {
               </div>
             ) : (
               <p className="text-center text-muted-foreground py-8">
-                No disciplines imported yet. Upload a CSV file to get started.
+                No {localeConfig[selectedLocale].label} disciplines imported yet. Upload a CSV file to get started.
               </p>
             )}
           </CardContent>
