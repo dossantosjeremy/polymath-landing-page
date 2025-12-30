@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { signIn, signUp } from "@/lib/auth";
 import { z } from "zod";
 
-const authSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  fullName: z.string().min(2, "Name must be at least 2 characters").optional()
-});
-
 const Auth = () => {
+  const { t } = useTranslation();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -26,6 +22,13 @@ const Auth = () => {
   
   // Get return URL from query params (default to home)
   const returnUrl = searchParams.get('returnUrl') || '/';
+
+  // Create schema with translated messages
+  const authSchema = z.object({
+    email: z.string().email(t('errors.validationError')),
+    password: z.string().min(6, t('errors.validationError')),
+    fullName: z.string().min(2, t('errors.validationError')).optional()
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +45,7 @@ const Auth = () => {
       if (!validation.success) {
         toast({
           variant: "destructive",
-          title: "Validation Error",
+          title: t('errors.validationError'),
           description: validation.error.issues[0].message
         });
         setLoading(false);
@@ -56,20 +59,20 @@ const Auth = () => {
           if (error.message.includes("Invalid login credentials")) {
             toast({
               variant: "destructive",
-              title: "Login Failed",
-              description: "Invalid email or password. Please try again."
+              title: t('errors.loginFailed'),
+              description: t('errors.invalidCredentials')
             });
           } else {
             toast({
               variant: "destructive",
-              title: "Login Failed",
+              title: t('errors.loginFailed'),
               description: error.message
             });
           }
         } else {
           toast({
-            title: "Welcome back!",
-            description: "You've successfully logged in."
+            title: t('toasts.welcomeBack'),
+            description: t('toasts.loggedInDesc')
           });
           navigate(returnUrl);
         }
@@ -80,20 +83,20 @@ const Auth = () => {
           if (error.message.includes("already registered")) {
             toast({
               variant: "destructive",
-              title: "Signup Failed",
-              description: "An account with this email already exists. Please log in instead."
+              title: t('errors.signupFailed'),
+              description: t('errors.emailExists')
             });
           } else {
             toast({
               variant: "destructive",
-              title: "Signup Failed",
+              title: t('errors.signupFailed'),
               description: error.message
             });
           }
         } else {
           toast({
-            title: "Account Created!",
-            description: "Welcome to Polymath. Let's start learning!"
+            title: t('toasts.accountCreated'),
+            description: t('toasts.accountCreatedDesc')
           });
           navigate(returnUrl);
         }
@@ -101,8 +104,8 @@ const Auth = () => {
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred. Please try again."
+        title: t('common.error'),
+        description: t('errors.generic')
       });
     } finally {
       setLoading(false);
@@ -115,26 +118,26 @@ const Auth = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <GraduationCap className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-semibold">Project Hermes</span>
+            <span className="text-2xl font-semibold">{t('nav.appName')}</span>
           </div>
           <h1 className="text-3xl font-serif font-bold mb-2">
-            {isLogin ? "Welcome Back" : "Join Polymath"}
+            {isLogin ? t('auth.welcomeBack') : t('auth.joinPolymath')}
           </h1>
           <p className="text-muted-foreground">
             {isLogin
-              ? "Sign in to continue your learning journey"
-              : "Start mastering new subjects today"}
+              ? t('auth.signInSubtitle')
+              : t('auth.signUpSubtitle')}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {!isLogin && (
             <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+              <Label htmlFor="fullName">{t('auth.fullName')}</Label>
               <Input
                 id="fullName"
                 type="text"
-                placeholder="John Doe"
+                placeholder={t('auth.fullNamePlaceholder')}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required={!isLogin}
@@ -144,11 +147,11 @@ const Auth = () => {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t('auth.email')}</Label>
             <Input
               id="email"
               type="email"
-              placeholder="you@example.com"
+              placeholder={t('auth.emailPlaceholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -157,7 +160,7 @@ const Auth = () => {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t('auth.password')}</Label>
             <Input
               id="password"
               type="password"
@@ -174,7 +177,9 @@ const Auth = () => {
             className="w-full rounded-full h-12 font-medium"
             disabled={loading}
           >
-            {loading ? "Please wait..." : isLogin ? "Sign In" : "Sign Up"}
+            {loading
+              ? (isLogin ? t('auth.signingIn') : t('auth.creatingAccount'))
+              : (isLogin ? t('auth.signIn') : t('auth.createAccount'))}
           </Button>
         </form>
 
@@ -185,8 +190,8 @@ const Auth = () => {
             disabled={loading}
           >
             {isLogin
-              ? "Don't have an account? Sign up"
-              : "Already have an account? Sign in"}
+              ? `${t('auth.noAccount')} ${t('auth.signUpLink')}`
+              : `${t('auth.hasAccount')} ${t('auth.signInLink')}`}
           </button>
         </div>
       </div>

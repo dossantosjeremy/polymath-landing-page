@@ -1,0 +1,159 @@
+{
+  "common": {
+    "loading": "Cargando...",
+    "error": "Error",
+    "save": "Guardar",
+    "saving": "Guardando...",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "deleting": "Eliminando...",
+    "confirm": "Confirmar",
+    "view": "Ver",
+    "edit": "Editar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "previous": "Anterior",
+    "search": "Buscar",
+    "noResults": "No se encontraron resultados",
+    "retry": "Reintentar"
+  },
+  "nav": {
+    "appName": "Project Hermes",
+    "saved": "Guardados",
+    "schedule": "Horario",
+    "profile": "Perfil",
+    "signOut": "Cerrar Sesión",
+    "signUp": "Registrarse",
+    "logIn": "Iniciar Sesión"
+  },
+  "home": {
+    "heroTitle": "¿Qué quieres dominar hoy?",
+    "searchPlaceholder": "ej. Filosofía, Matemáticas...",
+    "search": "Buscar",
+    "browseAll": "O explora todas las disciplinas"
+  },
+  "auth": {
+    "welcomeBack": "Bienvenido de Nuevo",
+    "joinPolymath": "Únete a Polymath",
+    "signInSubtitle": "Inicia sesión para continuar tu viaje de aprendizaje",
+    "signUpSubtitle": "Comienza a dominar nuevos temas hoy",
+    "fullName": "Nombre Completo",
+    "fullNamePlaceholder": "Ingresa tu nombre completo",
+    "email": "Correo Electrónico",
+    "emailPlaceholder": "Ingresa tu correo electrónico",
+    "password": "Contraseña",
+    "passwordPlaceholder": "Ingresa tu contraseña",
+    "signIn": "Iniciar Sesión",
+    "signingIn": "Iniciando sesión...",
+    "createAccount": "Crear Cuenta",
+    "creatingAccount": "Creando cuenta...",
+    "noAccount": "¿No tienes una cuenta?",
+    "signUpLink": "Regístrate",
+    "hasAccount": "¿Ya tienes una cuenta?",
+    "signInLink": "Inicia sesión"
+  },
+  "footer": {
+    "aboutUs": "Sobre Nosotros",
+    "contact": "Contacto",
+    "terms": "Términos de Servicio",
+    "privacy": "Política de Privacidad",
+    "tagline": "Cultivando polímatas desde 2024"
+  },
+  "errors": {
+    "generic": "Algo salió mal. Por favor, inténtalo de nuevo.",
+    "signOutFailed": "Error al cerrar sesión. Por favor, inténtalo de nuevo.",
+    "loginFailed": "Error de Inicio de Sesión",
+    "invalidCredentials": "Correo electrónico o contraseña inválidos. Por favor, inténtalo de nuevo.",
+    "signupFailed": "Error de Registro",
+    "emailExists": "Ya existe una cuenta con este correo electrónico. Por favor, inicia sesión.",
+    "validationError": "Error de Validación"
+  },
+  "toasts": {
+    "signedOut": "Sesión Cerrada",
+    "signedOutDesc": "Has cerrado sesión exitosamente.",
+    "welcomeBack": "¡Bienvenido de nuevo!",
+    "loggedInDesc": "Has iniciado sesión exitosamente.",
+    "accountCreated": "¡Cuenta Creada!",
+    "accountCreatedDesc": "Bienvenido a Polymath. ¡Comencemos a aprender!",
+    "profileUpdated": "Perfil Actualizado",
+    "profileUpdatedDesc": "Tu perfil ha sido guardado.",
+    "deleted": "Eliminado",
+    "syllabusDeleted": "El syllabus ha sido eliminado."
+  },
+  "schedule": {
+    "title": "Mi Horario de Aprendizaje",
+    "subtitle": "Planifica tu viaje de aprendizaje en todos los cursos guardados",
+    "noSchedules": "Aún no hay horarios de aprendizaje.",
+    "createFirst": "Crea tu primer horario guardando un syllabus y programándolo."
+  },
+  "saved": {
+    "title": "Syllabus Guardados",
+    "subtitle": "Accede a tus syllabus archivados y estructuras de cursos",
+    "noSyllabi": "Aún No Hay Syllabus Guardados",
+    "noSyllabiDesc": "Comienza tu viaje de aprendizaje explorando disciplinas y guardando syllabus que te interesen.",
+    "exploreDisciplines": "Explorar Disciplinas",
+    "modules": "módulos",
+    "source": "Fuente",
+    "viewSyllabus": "Ver Syllabus",
+    "scheduleLearning": "Programar Aprendizaje",
+    "deleteConfirmTitle": "Eliminar Syllabus",
+    "deleteConfirmDesc": "¿Estás seguro de que quieres eliminar este syllabus? Esta acción no se puede deshacer."
+  },
+  "profile": {
+    "backToHome": "Volver al Inicio",
+    "title": "Configuración del Perfil",
+    "account": "Cuenta",
+    "fullName": "Nombre Completo",
+    "email": "Correo Electrónico",
+    "authoritativeSources": "Fuentes Autorizadas",
+    "authoritativeSourcesDesc": "Selecciona qué fuentes priorizar al generar syllabus",
+    "tier1": "Nivel 1 - Académico",
+    "tier2": "Nivel 2 - Profesional",
+    "tier3": "Nivel 3 - Comunidad",
+    "customSources": "Fuentes Personalizadas",
+    "customSourcesDesc": "Agrega tus propias fuentes de confianza para la generación de syllabus",
+    "addCustomSource": "Agregar Fuente Personalizada",
+    "sourceName": "Nombre de la Fuente",
+    "sourceUrl": "URL de la Fuente"
+  },
+  "notFound": {
+    "title": "404",
+    "message": "¡Ups! Página no encontrada",
+    "returnHome": "Volver al Inicio"
+  },
+  "explore": {
+    "title": "Explorar Disciplinas",
+    "searchResults": "Resultados de Búsqueda",
+    "noResults": "No se encontraron disciplinas que coincidan con tu búsqueda.",
+    "tryDifferent": "Intenta con un término diferente o explora todas las disciplinas.",
+    "browseAll": "Explorar Todas las Disciplinas"
+  },
+  "syllabus": {
+    "generating": "Generando syllabus...",
+    "aiDiscovered": "Descubierto por IA",
+    "save": "Guardar Syllabus",
+    "saved": "Guardado",
+    "schedule": "Programar",
+    "sources": "Fuentes",
+    "content": "Contenido",
+    "overview": "Resumen"
+  },
+  "learning": {
+    "coreRequirement": "Requisito Principal",
+    "learningObjective": "Objetivo de Aprendizaje",
+    "essentialPath": "Camino Esencial",
+    "capstone": "Proyecto Final",
+    "courses": "Cursos",
+    "allResources": "Todos los Recursos",
+    "showMap": "Mostrar Mapa",
+    "hideMap": "Ocultar Mapa",
+    "startLearning": "Comenzar a Aprender",
+    "continueFrom": "Continúa donde lo dejaste"
+  },
+  "language": {
+    "label": "Idioma",
+    "en": "English",
+    "es": "Español",
+    "fr": "Français"
+  }
+}

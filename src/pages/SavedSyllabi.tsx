@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ interface SavedSyllabus {
 const SavedSyllabi = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [syllabi, setSyllabi] = useState<SavedSyllabus[]>([]);
@@ -61,8 +63,8 @@ const SavedSyllabi = () => {
     } catch (error) {
       console.error('Error fetching saved syllabi:', error);
       toast({
-        title: "Error Loading Syllabi",
-        description: "Failed to load your saved syllabi.",
+        title: t('common.error'),
+        description: t('errors.generic'),
         variant: "destructive"
       });
     } finally {
@@ -81,14 +83,14 @@ const SavedSyllabi = () => {
 
       setSyllabi(syllabi.filter(s => s.id !== id));
       toast({
-        title: "Syllabus Deleted",
-        description: "The syllabus has been removed from your saved items.",
+        title: t('toasts.deleted'),
+        description: t('toasts.syllabusDeleted'),
       });
     } catch (error) {
       console.error('Error deleting syllabus:', error);
       toast({
-        title: "Delete Failed",
-        description: "Failed to delete syllabus. Please try again.",
+        title: t('common.error'),
+        description: t('errors.generic'),
         variant: "destructive"
       });
     } finally {
@@ -128,21 +130,21 @@ const SavedSyllabi = () => {
       <main className="flex-1">
         <div className="max-w-5xl mx-auto px-6 py-8">
           <div className="mb-8">
-            <h1 className="text-4xl font-serif font-bold mb-2">Saved Syllabi</h1>
+            <h1 className="text-4xl font-serif font-bold mb-2">{t('saved.title')}</h1>
             <p className="text-lg text-muted-foreground">
-              Access your archived syllabi and course structures
+              {t('saved.subtitle')}
             </p>
           </div>
 
           {syllabi.length === 0 ? (
             <Card className="p-12 text-center">
               <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">No Saved Syllabi Yet</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('saved.noSyllabi')}</h3>
               <p className="text-muted-foreground mb-6">
-                Start exploring disciplines and save syllabi to access them later
+                {t('saved.noSyllabiDesc')}
               </p>
               <Button onClick={() => navigate('/explore')}>
-                Explore Disciplines
+                {t('saved.exploreDisciplines')}
               </Button>
             </Card>
           ) : (
@@ -156,12 +158,12 @@ const SavedSyllabi = () => {
                         {syllabus.source}
                       </p>
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                        <span>{getModulesArray(syllabus.modules).length} modules</span>
+                        <span>{getModulesArray(syllabus.modules).length} {t('saved.modules')}</span>
                         {getRawSourcesArray(syllabus.raw_sources).length > 0 && (
-                          <span>{getRawSourcesArray(syllabus.raw_sources).length} source(s)</span>
+                          <span>{getRawSourcesArray(syllabus.raw_sources).length} {t('saved.source')}(s)</span>
                         )}
                         <span>
-                          Saved {new Date(syllabus.created_at).toLocaleDateString()}
+                          {new Date(syllabus.created_at).toLocaleDateString()}
                         </span>
                       </div>
                       {syllabus.source_url && (
@@ -171,7 +173,7 @@ const SavedSyllabi = () => {
                           rel="noopener noreferrer"
                           className="text-sm text-primary hover:underline inline-flex items-center gap-1 mt-2"
                         >
-                          View Original Source
+                          {t('saved.source')}
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
@@ -181,14 +183,14 @@ const SavedSyllabi = () => {
                         onClick={() => viewSyllabus(syllabus)}
                         variant="outline"
                       >
-                        View
+                        {t('common.view')}
                       </Button>
                       <Button
                         onClick={() => setSchedulingSyllabusId(syllabus.id)}
                         variant="outline"
                       >
                         <Calendar className="h-4 w-4 mr-2" />
-                        Schedule
+                        {t('nav.schedule')}
                       </Button>
                       <Button
                         onClick={() => setDeleteId(syllabus.id)}
@@ -211,18 +213,18 @@ const SavedSyllabi = () => {
       <AlertDialog open={deleteId !== null} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Syllabus?</AlertDialogTitle>
+            <AlertDialogTitle>{t('saved.deleteConfirmTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove this syllabus from your saved items. This action cannot be undone.
+              {t('saved.deleteConfirmDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteId && deleteSyllabus(deleteId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -236,8 +238,8 @@ const SavedSyllabi = () => {
           onComplete={() => {
             setSchedulingSyllabusId(null);
             toast({
-              title: "Schedule Created",
-              description: "Your course has been scheduled. View it in the Schedule page.",
+              title: t('toasts.profileUpdated'),
+              description: t('schedule.title'),
             });
           }}
         />
