@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -25,6 +26,8 @@ export const ExploreBreadcrumb = ({
   onClearSubDomain,
   onClearSpecialization,
 }: ExploreBreadcrumbProps) => {
+  const { t } = useTranslation();
+  
   if (!domain) return null;
 
   return (
@@ -37,7 +40,7 @@ export const ExploreBreadcrumb = ({
               className="cursor-pointer hover:text-foreground flex items-center gap-1"
             >
               <Home className="h-3.5 w-3.5" />
-              <span>All Domains</span>
+              <span>{t('explore.allDomains')}</span>
             </BreadcrumbLink>
           </BreadcrumbItem>
 
