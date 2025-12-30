@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { getGradientFromName } from "./imageUtils";
@@ -20,6 +21,8 @@ export const DisciplineCard = ({
   size = 'large',
   childCount
 }: DisciplineCardProps) => {
+  const { t } = useTranslation();
+  
   const sizeClasses = {
     large: 'h-48 w-72',
     medium: 'h-40 w-64',
@@ -57,7 +60,7 @@ export const DisciplineCard = ({
         )}
         {childCount !== undefined && childCount > 0 && (
           <p className="text-white/60 text-xs mt-1">
-            {childCount} {childCount === 1 ? 'subcategory' : 'subcategories'}
+            {t('explore.subcategory', { count: childCount })}
           </p>
         )}
       </div>

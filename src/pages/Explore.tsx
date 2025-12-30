@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
 import { ExploreContainer } from "@/components/explore";
@@ -27,6 +28,7 @@ interface Discipline {
 }
 
 const Explore = () => {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
@@ -176,7 +178,7 @@ const Explore = () => {
                 <Search className="absolute left-4 h-5 w-5 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search disciplines..."
+                  placeholder={t('explore.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-12 pr-32 h-14 text-base rounded-full border-2"
@@ -186,7 +188,7 @@ const Explore = () => {
                   className="absolute right-1 h-12 px-8 rounded-full font-medium"
                   disabled={searching}
                 >
-                  {searching ? "Searching..." : "Search"}
+                  {searching ? t('common.searching') : t('common.search')}
                 </Button>
               </div>
             </form>
@@ -202,8 +204,8 @@ const Explore = () => {
                 >
                   <div className="flex items-center gap-2">
                     <Settings className="h-4 w-4" />
-                    <span>Default Learning Path Settings</span>
-                    {isCustomSettings && <Badge variant="secondary">Custom</Badge>}
+                    <span>{t('explore.defaultSettings')}</span>
+                    {isCustomSettings && <Badge variant="secondary">{t('common.custom')}</Badge>}
                   </div>
                   <ChevronDown className={cn("h-4 w-4 transition-transform", settingsOpen && "rotate-180")} />
                 </Button>
@@ -212,7 +214,7 @@ const Explore = () => {
               <CollapsibleContent className="mt-4 border rounded-lg p-6 bg-card">
                 <div className="mb-4">
                   <p className="text-sm text-muted-foreground">
-                    These settings will be applied to all syllabus generations. Depth is automatically determined based on your available time.
+                    {t('explore.settingsDesc')}
                   </p>
                 </div>
                 <SmartPreGenerationSettings 
@@ -236,7 +238,7 @@ const Explore = () => {
           ) : (
             <div>
               <h1 className="text-3xl font-serif font-bold mb-8">
-                Browse Disciplines
+                {t('explore.title')}
               </h1>
               <ExploreContainer 
                 initialPath={contextPath} 

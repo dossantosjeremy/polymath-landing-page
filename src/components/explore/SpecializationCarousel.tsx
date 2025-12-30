@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { DisciplineCard } from "./DisciplineCard";
 import {
@@ -28,6 +29,7 @@ export const SpecializationCarousel = ({
   selectedSpecialization, 
   onSelect 
 }: SpecializationCarouselProps) => {
+  const { t } = useTranslation();
   const [specializations, setSpecializations] = useState<Specialization[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -70,7 +72,7 @@ export const SpecializationCarousel = ({
     return (
       <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <h2 className="text-lg font-semibold text-muted-foreground">
-          Select a Specialization in <span className="text-foreground">{subDomain}</span>
+          {t('explore.selectSpecializationIn', { subdomain: subDomain })}
         </h2>
         <div className="flex gap-4 overflow-hidden">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -88,7 +90,7 @@ export const SpecializationCarousel = ({
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <h2 className="text-lg font-semibold text-muted-foreground">
-        Select a Specialization in <span className="text-foreground">{subDomain}</span>
+        {t('explore.selectSpecializationIn', { subdomain: subDomain })}
       </h2>
       <Carousel
         opts={{

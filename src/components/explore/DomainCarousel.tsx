@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { supabase } from "@/integrations/supabase/client";
 import { DisciplineCard } from "./DisciplineCard";
 import {
@@ -20,29 +21,8 @@ interface DomainCarouselProps {
   onSelect: (domain: string) => void;
 }
 
-const domainDescriptions: Record<string, string> = {
-  "Arts and Humanities": "Literature, philosophy, history & creative arts",
-  "Business": "Management, finance, marketing & entrepreneurship",
-  "Computer Science": "Programming, algorithms & software development",
-  "Data Science": "Analytics, machine learning & data visualization",
-  "Education": "Teaching methods, curriculum & learning theory",
-  "Engineering": "Civil, mechanical, electrical & systems engineering",
-  "Health and Medicine": "Healthcare, biology & medical sciences",
-  "Language": "Linguistics, language learning & communication",
-  "Law": "Legal studies, policy & governance",
-  "Math and Logic": "Mathematics, statistics & logical reasoning",
-  "Personal Development": "Skills, productivity & self-improvement",
-  "Physical Science": "Physics, chemistry & earth sciences",
-  "Social Sciences": "Psychology, sociology & anthropology",
-  "Information Technology": "Networks, security & IT infrastructure",
-  "Life Sciences": "Biology, ecology & life systems",
-  "Medicine and Health Sciences": "Medical research & healthcare sciences",
-  "Natural Sciences": "Physics, chemistry & natural phenomena",
-  "Agricultural Sciences": "Agriculture, farming & food sciences",
-  "Architecture": "Design, buildings & urban planning",
-};
-
 export const DomainCarousel = ({ selectedDomain, onSelect }: DomainCarouselProps) => {
+  const { t } = useTranslation();
   const [domains, setDomains] = useState<Domain[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -79,7 +59,7 @@ export const DomainCarousel = ({ selectedDomain, onSelect }: DomainCarouselProps
   if (loading) {
     return (
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Select a Domain</h2>
+        <h2 className="text-xl font-semibold">{t('explore.selectDomain')}</h2>
         <div className="flex gap-4 overflow-hidden">
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-48 w-72 flex-shrink-0 rounded-lg" />
@@ -91,7 +71,7 @@ export const DomainCarousel = ({ selectedDomain, onSelect }: DomainCarouselProps
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Select a Domain</h2>
+      <h2 className="text-xl font-semibold">{t('explore.selectDomain')}</h2>
       <Carousel
         opts={{
           align: "start",
@@ -104,7 +84,7 @@ export const DomainCarousel = ({ selectedDomain, onSelect }: DomainCarouselProps
             <CarouselItem key={domain.value} className="pl-4 basis-auto">
               <DisciplineCard
                 name={domain.value}
-                description={domainDescriptions[domain.value]}
+                description={t(`domainDescriptions.${domain.value}`, { defaultValue: '' })}
                 isSelected={selectedDomain === domain.value}
                 onClick={() => onSelect(domain.value)}
                 size="large"
