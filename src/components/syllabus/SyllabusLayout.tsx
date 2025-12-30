@@ -84,7 +84,7 @@ interface SyllabusLayoutProps {
 
 export function SyllabusLayout(props: SyllabusLayoutProps) {
   const {
-    activeTab = "content",
+    activeTab = "sources",
     onTabChange,
     backgroundLoadingState,
     ...contextValue
@@ -121,10 +121,10 @@ function SyllabusLayoutInner({
 
   const tabs: NestedTabItem[] = [
     {
-      value: "content",
-      label: t('syllabus.content'),
-      icon: <BookOpen className="h-4 w-4" />,
-      content: <ContentTab />,
+      value: "sources",
+      label: t('syllabus.sources'),
+      icon: <Library className="h-4 w-4" />,
+      content: <SourcesTab />,
     },
     {
       value: "syllabus",
@@ -133,10 +133,10 @@ function SyllabusLayoutInner({
       content: <SyllabusTab />,
     },
     {
-      value: "sources",
-      label: t('syllabus.sources'),
-      icon: <Library className="h-4 w-4" />,
-      content: <SourcesTab />,
+      value: "content",
+      label: t('syllabus.content'),
+      icon: <BookOpen className="h-4 w-4" />,
+      content: <ContentTab />,
     },
   ];
 
