@@ -125,6 +125,10 @@ interface SyllabusContextValue {
   regenerateWithPillars: () => Promise<void>;
   isApplyingPillars: boolean;
   
+  // Pillar Inference (for syllabi missing focus areas)
+  inferPillars: () => Promise<void>;
+  isInferringPillars: boolean;
+  
   // Background Resource Loading
   backgroundLoadingState: {
     isLoading: boolean;

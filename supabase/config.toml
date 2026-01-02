@@ -32,3 +32,12 @@ verify_jwt = false
 
 [functions.translate-disciplines]
 verify_jwt = false
+
+[functions.infer-topic-pillars]
+verify_jwt = false
+
+[functions.generate-schedule]
+verify_jwt = false
+
+[functions.recalibrate-schedule]
+verify_jwt = false
