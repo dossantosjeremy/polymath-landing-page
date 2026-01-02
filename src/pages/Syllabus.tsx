@@ -73,6 +73,7 @@ const SyllabusContent = () => {
   const [selectedPillars, setSelectedPillars] = useState<Set<string>>(new Set());
   const [customPillars, setCustomPillars] = useState<string[]>([]);
   const [isApplyingPillars, setIsApplyingPillars] = useState(false);
+  const [isInferringPillars, setIsInferringPillars] = useState(false);
 
   // URL params
   const discipline = searchParams.get("discipline") || "";
@@ -631,6 +632,53 @@ const SyllabusContent = () => {
     }
   };
 
+  // Infer pillars for syllabi that don't have them
+  const inferPillars = async () => {
+    if (!syllabusData || syllabusData.modules.length === 0) return;
+    
+    setIsInferringPillars(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('infer-topic-pillars', {
+        body: {
+          discipline: syllabusData.discipline,
+          modules: syllabusData.modules
+        }
+      });
+
+      if (error) throw error;
+
+      // Update syllabus data with inferred pillars
+      setSyllabusData(prev => prev ? {
+        ...prev,
+        topicPillars: data.pillars,
+        narrativeFlow: data.narrativeFlow,
+        compositionType: data.compositionType
+      } : null);
+
+      // Initialize selected pillars
+      const defaultSelected = new Set<string>(
+        (data.pillars || [])
+          .filter((p: any) => p.priority === 'core' || p.priority === 'important')
+          .map((p: any) => p.name as string)
+      );
+      setSelectedPillars(defaultSelected);
+
+      toast({
+        title: "Structure Analyzed",
+        description: `Identified ${data.pillars.length} focus areas in this curriculum.`,
+      });
+    } catch (error) {
+      console.error('Error inferring pillars:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not analyze syllabus structure. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsInferringPillars(false);
+    }
+  };
+
   // Save handler
   const saveSyllabus = async () => {
     if (!syllabusData) return;
@@ -847,6 +895,8 @@ const SyllabusContent = () => {
               removeCustomPillar={removeCustomPillar}
               regenerateWithPillars={regenerateWithPillars}
               isApplyingPillars={isApplyingPillars}
+              inferPillars={inferPillars}
+              isInferringPillars={isInferringPillars}
               backgroundLoadingState={{
                 isLoading: backgroundLoader.isLoading,
                 progress: backgroundLoader.progress,

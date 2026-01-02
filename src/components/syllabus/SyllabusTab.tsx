@@ -7,7 +7,7 @@ import { CustomFocusPills } from "@/components/CustomFocusPills";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Sparkles, BookOpen, ShieldCheck, ChevronDown } from "lucide-react";
+import { Sparkles, BookOpen, ShieldCheck, ChevronDown, Loader2, Wand2 } from "lucide-react";
 import { useSyllabusContext } from "./SyllabusContext";
 
 export function SyllabusTab() {
@@ -35,6 +35,8 @@ export function SyllabusTab() {
     removeCustomPillar,
     regenerateWithPillars,
     isApplyingPillars,
+    inferPillars,
+    isInferringPillars,
   } = useSyllabusContext();
 
   if (!syllabusData) return null;
@@ -116,42 +118,74 @@ export function SyllabusTab() {
             </div>
           )}
         </div>
-        
+
         <ProvenanceDisclaimer source={contentSource} className="mt-4" />
       </div>
 
-      {/* Topic Focus Pills - always visible so users can add focus areas at any time */}
-      <CustomFocusPills
-        pillars={syllabusData.topicPillars || []}
-        selectedPillars={selectedPillars}
-        customPillars={customPillars}
-        onTogglePillar={togglePillar}
-        onAddCustomPillar={addCustomPillar}
-        onRemoveCustomPillar={removeCustomPillar}
-        onApplyFocus={regenerateWithPillars}
-        onResetToDefaults={() => {
-          // Reset custom pillars
-          customPillars.forEach(p => removeCustomPillar(p));
-          // Reset to default: select core and important
-          if (syllabusData.topicPillars) {
-            const defaultSelected = new Set(
-              syllabusData.topicPillars
-                .filter(p => p.priority === 'core' || p.priority === 'important')
-                .map(p => p.name)
-            );
-            // Toggle all off then toggle defaults on
-            syllabusData.topicPillars.forEach(p => {
-              if (selectedPillars.has(p.name) && !defaultSelected.has(p.name)) {
-                togglePillar(p.name);
-              } else if (!selectedPillars.has(p.name) && defaultSelected.has(p.name)) {
-                togglePillar(p.name);
-              }
-            });
-          }
-        }}
-        isApplying={isApplyingPillars}
-        alwaysShowAddButton={true}
-      />
+      {/* Topic Focus Pills - with inference button when missing */}
+      {(!syllabusData.topicPillars || syllabusData.topicPillars.length === 0) ? (
+        <div className="p-4 border rounded-lg bg-card space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-violet-500" />
+            <h3 className="font-semibold">Focus Areas</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            This syllabus doesn't have focus areas defined yet. Analyze its structure to identify the key pedagogical themes.
+          </p>
+          <Button
+            onClick={inferPillars}
+            disabled={isInferringPillars}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            {isInferringPillars ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Analyzing structure...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4" />
+                Analyze Structure
+              </>
+            )}
+          </Button>
+        </div>
+      ) : (
+        <CustomFocusPills
+          pillars={syllabusData.topicPillars || []}
+          selectedPillars={selectedPillars}
+          customPillars={customPillars}
+          onTogglePillar={togglePillar}
+          onAddCustomPillar={addCustomPillar}
+          onRemoveCustomPillar={removeCustomPillar}
+          onApplyFocus={regenerateWithPillars}
+          onResetToDefaults={() => {
+            // Reset custom pillars
+            customPillars.forEach(p => removeCustomPillar(p));
+            // Reset to default: select core and important
+            if (syllabusData.topicPillars) {
+              const defaultSelected = new Set(
+                syllabusData.topicPillars
+                  .filter(p => p.priority === 'core' || p.priority === 'important')
+                  .map(p => p.name)
+              );
+              // Toggle all off then toggle defaults on
+              syllabusData.topicPillars.forEach(p => {
+                if (selectedPillars.has(p.name) && !defaultSelected.has(p.name)) {
+                  togglePillar(p.name);
+                } else if (!selectedPillars.has(p.name) && defaultSelected.has(p.name)) {
+                  togglePillar(p.name);
+                }
+              });
+            }
+          }}
+          isApplying={isApplyingPillars}
+          alwaysShowAddButton={true}
+        />
+      )}
+
       {/* Learning Path Settings */}
       <div className="p-4 border rounded-lg bg-card">
         <h3 className="font-semibold mb-4">Learning Path Configuration</h3>

@@ -117,7 +117,8 @@ serve(async (req) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2.86.0');
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Analyze topic composition for ad-hoc requests
+    // Analyze topic composition for ALL syllabus requests (not just ad-hoc)
+    // This ensures Focus Areas are always populated for pedagogical structure
     let compositionType: 'single' | 'composite_program' | 'vocational' = 'single';
     let derivedFrom: string[] = [];
     let topicPillars: Array<{ name: string; searchTerms: string[]; recommendedSources: string[]; priority: 'core' | 'important' | 'nice-to-have' }> = [];
@@ -131,18 +132,17 @@ serve(async (req) => {
     // - For database disciplines when user explicitly chose AI-Enhanced
     const shouldUseAuthorities = isAdHoc || useAIEnhanced;
     
-    // Run topic analysis for ad-hoc OR AI-enhanced searches
-    if (isAdHoc || useAIEnhanced) {
-      console.log('[Topic Analysis] Analyzing topic composition with Curriculum Architect...');
-      const compositionAnalysis = await analyzeTopicComposition(discipline, LOVABLE_API_KEY);
-      compositionType = compositionAnalysis.compositionType;
-      derivedFrom = compositionAnalysis.constituentDisciplines || [];
-      topicPillars = compositionAnalysis.pillars || [];
-      narrativeFlow = compositionAnalysis.narrativeFlow || narrativeFlow;
-      vocationalFirst = compositionAnalysis.vocationalFirst || false;
-      console.log(`[Topic Analysis] Type: ${compositionType}, Pillars: ${topicPillars.map(p => p.name).join(', ')}`);
-      console.log(`[Topic Analysis] Vocational First: ${vocationalFirst}, Narrative: ${narrativeFlow}`);
-    }
+    // ALWAYS run topic analysis to generate Focus Areas (pedagogical pillars)
+    // This is critical for curriculum trust - users need to see structured learning domains
+    console.log('[Topic Analysis] Analyzing topic composition with Curriculum Architect...');
+    const compositionAnalysis = await analyzeTopicComposition(discipline, LOVABLE_API_KEY);
+    compositionType = compositionAnalysis.compositionType;
+    derivedFrom = compositionAnalysis.constituentDisciplines || [];
+    topicPillars = compositionAnalysis.pillars || [];
+    narrativeFlow = compositionAnalysis.narrativeFlow || narrativeFlow;
+    vocationalFirst = compositionAnalysis.vocationalFirst || false;
+    console.log(`[Topic Analysis] Type: ${compositionType}, Pillars: ${topicPillars.map(p => p.name).join(', ')}`);
+    console.log(`[Topic Analysis] Vocational First: ${vocationalFirst}, Narrative: ${narrativeFlow}`);
     
     // THE MAGISTRATE: Identify domain authorities for ad-hoc OR AI-enhanced searches
     if (shouldUseAuthorities) {
@@ -567,9 +567,10 @@ serve(async (req) => {
     };
 
     // Cache the result in community_syllabi (unless regenerating with selected sources)
+    // ALWAYS save topic_pillars and narrative_flow for pedagogical structure
     if (!selectedSourceUrls) {
       try {
-        console.log('[Cache Save] Upserting to community_syllabi...');
+        console.log('[Cache Save] Upserting to community_syllabi with topic pillars...');
         const { error: upsertError } = await supabase
           .from('community_syllabi')
           .upsert({
@@ -581,7 +582,9 @@ serve(async (req) => {
             is_ad_hoc: isAdHoc || false,
             composition_type: compositionType,
             derived_from: derivedFrom,
-            search_term: searchTerm || discipline
+            search_term: searchTerm || discipline,
+            topic_pillars: topicPillars,
+            narrative_flow: narrativeFlow
           }, { 
             onConflict: 'discipline' 
           });
@@ -589,7 +592,7 @@ serve(async (req) => {
         if (upsertError) {
           console.error('[Cache Save] Failed to upsert:', upsertError);
         } else {
-          console.log('[Cache Save] Successfully cached for future users');
+          console.log('[Cache Save] Successfully cached with pillars for future users');
         }
       } catch (cacheError) {
         console.error('[Cache Save] Exception:', cacheError);
