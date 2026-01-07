@@ -1,15 +1,28 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Loader2, BookOpen, Target, Lightbulb, CheckCircle, AlertTriangle, ExternalLink, Play, FileText, Sparkles, RefreshCw } from 'lucide-react';
+import {
+  Loader2,
+  BookOpen,
+  Target,
+  Lightbulb,
+  CheckCircle,
+  AlertTriangle,
+  ExternalLink,
+  Play,
+  FileText,
+  Sparkles,
+  GraduationCap,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useStepSummary } from '@/hooks/useStepSummary';
-import { CuratedResource, CuratedStepResources } from '@/hooks/useCuratedResources';
+import type { CuratedResource, CuratedStepResources } from '@/hooks/useCuratedResources';
 import { useResourceCache } from '@/contexts/ResourceCacheContext';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { classifyGranularity } from '@/types/learningObjects';
 
 interface NarrativeLearningContentProps {
   stepTitle: string;
@@ -27,6 +40,53 @@ interface NarrativeLearningContentProps {
     coreReadings?: CuratedResource[];
   };
   autoLoad?: boolean;
+}
+
+type LessonResource = {
+  url: string;
+  title: string;
+  source?: string;
+  duration?: string;
+  description?: string;
+  author?: string;
+  type?: string;
+  is_atomic?: boolean;
+  granularity?: string;
+  course_title?: string;
+  course_url?: string;
+};
+
+function extractLessonResources(moocs: any[] | undefined): LessonResource[] {
+  if (!Array.isArray(moocs)) return [];
+
+  return moocs
+    .filter((m) => {
+      if (!m?.url || !m?.title) return false;
+      if (m.is_atomic === true) return true;
+      if (m.type === 'lesson') return true;
+
+      const classification = classifyGranularity(m.url, {
+        is_atomic: m.is_atomic,
+        course_title: m.course_title,
+        course_url: m.course_url,
+      });
+
+      return classification.granularity === 'atomic_lesson';
+    })
+    .slice(0, 3)
+    .map((m) => ({
+      url: m.url,
+      title: m.title,
+      source: m.source,
+      duration: m.duration,
+      description: m.description,
+      author: m.author,
+      type: m.type,
+      is_atomic: m.is_atomic,
+      granularity: m.granularity,
+      course_title: m.course_title,
+      course_url: m.course_url,
+    }));
 }
 
 // Loading skeleton that shows content is coming
@@ -95,9 +155,9 @@ function NarrativeLoadingSkeleton({ stage }: { stage: 'resources' | 'notes' }) {
 // Render an embedded video with better styling
 function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
   const videoId = resource.url?.match(/(?:v=|youtu\.be\/|embed\/)([^&?/]+)/)?.[1];
-  
+
   return (
-    <div className="my-10 rounded-xl overflow-hidden border-2 border-primary/20 bg-card shadow-lg">
+    <div className="my-10 rounded-xl overflow-hidden border bg-card">
       {/* Video Player */}
       {videoId ? (
         <div className="aspect-video bg-black">
@@ -110,46 +170,46 @@ function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
           />
         </div>
       ) : (
-        <a 
-          href={resource.url} 
-          target="_blank" 
+        <a
+          href={resource.url}
+          target="_blank"
           rel="noopener noreferrer"
-          className="block aspect-video bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center hover:from-primary/20 transition-colors"
+          className="block aspect-video bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
         >
           <div className="text-center">
             <Play className="h-16 w-16 text-primary mx-auto mb-3" />
-            <span className="text-sm text-muted-foreground">Watch Video (opens in new tab)</span>
+            <span className="text-sm text-muted-foreground">Watch video (opens in new tab)</span>
           </div>
         </a>
       )}
+
       {/* Video Info */}
-      <div className="p-6 bg-gradient-to-b from-muted/50 to-transparent">
+      <div className="p-6">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-3">
-              <Badge className="bg-red-500 text-white text-xs px-2">🎬 Required Video</Badge>
-              {resource.duration && (
-                <Badge variant="outline" className="text-xs">{resource.duration}</Badge>
-              )}
+              <Badge variant="destructive" className="text-xs px-2">
+                Required Video
+              </Badge>
+              {resource.duration && <Badge variant="outline" className="text-xs">{resource.duration}</Badge>}
             </div>
             <h4 className="font-semibold text-lg leading-snug mb-1">{resource.title}</h4>
-            {resource.author && (
-              <p className="text-sm text-muted-foreground">by {resource.author}</p>
-            )}
+            {resource.author && <p className="text-sm text-muted-foreground">by {resource.author}</p>}
           </div>
-          <a 
-            href={resource.url} 
-            target="_blank" 
+          <a
+            href={resource.url}
+            target="_blank"
             rel="noopener noreferrer"
-            className="p-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            className="p-2 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors"
             title="Open in new tab"
           >
             <ExternalLink className="h-4 w-4" />
           </a>
         </div>
+
         {resource.rationale && (
-          <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border/50 italic leading-relaxed">
-            💡 <strong>Why this video:</strong> {resource.rationale}
+          <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border italic leading-relaxed">
+            <strong>Why this video:</strong> {resource.rationale}
           </p>
         )}
       </div>
@@ -161,37 +221,35 @@ function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
 function EmbeddedReading({ resource }: { resource: CuratedResource }) {
   return (
     <div className="my-10">
-      <a 
+      <a
         href={resource.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="block p-6 rounded-xl border-2 border-blue-200 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-card hover:border-blue-400 dark:hover:border-blue-600 transition-all shadow-md hover:shadow-lg group"
+        className="block p-6 rounded-xl border bg-card hover:bg-muted/30 transition-colors"
       >
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-xl bg-blue-500/10 shrink-0 group-hover:bg-blue-500/20 transition-colors">
-            <FileText className="h-7 w-7 text-blue-600 dark:text-blue-400" />
+          <div className="p-3 rounded-xl bg-muted shrink-0">
+            <FileText className="h-7 w-7 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-3">
-              <Badge className="bg-blue-500 text-white text-xs px-2">📄 Required Reading</Badge>
-              {resource.consumptionTime && (
-                <Badge variant="outline" className="text-xs">{resource.consumptionTime}</Badge>
-              )}
+              <Badge variant="secondary" className="text-xs px-2">
+                Required Reading
+              </Badge>
+              {resource.consumptionTime && <Badge variant="outline" className="text-xs">{resource.consumptionTime}</Badge>}
               <Badge variant="outline" className="text-xs text-muted-foreground">
                 <ExternalLink className="h-3 w-3 mr-1" />
                 Opens in new tab
               </Badge>
             </div>
-            <h4 className="font-semibold text-lg leading-snug group-hover:text-primary transition-colors mb-2">{resource.title}</h4>
-            {resource.domain && (
-              <p className="text-sm text-muted-foreground font-medium">{resource.domain}</p>
-            )}
-            {resource.snippet && (
-              <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{resource.snippet}</p>
-            )}
+
+            <h4 className="font-semibold text-lg leading-snug mb-2">{resource.title}</h4>
+            {resource.domain && <p className="text-sm text-muted-foreground font-medium">{resource.domain}</p>}
+            {resource.snippet && <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{resource.snippet}</p>}
+
             {resource.rationale && (
-              <p className="text-sm text-blue-700 dark:text-blue-400 mt-4 pt-4 border-t border-blue-200/50 dark:border-blue-800/30 italic leading-relaxed">
-                📖 <strong>Why this reading:</strong> {resource.rationale}
+              <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border italic leading-relaxed">
+                <strong>Why this reading:</strong> {resource.rationale}
               </p>
             )}
           </div>
@@ -201,76 +259,120 @@ function EmbeddedReading({ resource }: { resource: CuratedResource }) {
   );
 }
 
+function EmbeddedLesson({ resource }: { resource: LessonResource }) {
+  return (
+    <div className="my-10">
+      <a
+        href={resource.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="block p-6 rounded-xl border bg-card hover:bg-muted/30 transition-colors"
+      >
+        <div className="flex items-start gap-4">
+          <div className="p-3 rounded-xl bg-muted shrink-0">
+            <GraduationCap className="h-7 w-7 text-primary" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-3">
+              <Badge variant="default" className="text-xs px-2">
+                Lesson
+              </Badge>
+              {resource.duration && <Badge variant="outline" className="text-xs">{resource.duration}</Badge>}
+              {resource.source && <Badge variant="outline" className="text-xs">{resource.source}</Badge>}
+              <Badge variant="outline" className="text-xs text-muted-foreground">
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Opens in new tab
+              </Badge>
+            </div>
+
+            <h4 className="font-semibold text-lg leading-snug mb-2">{resource.title}</h4>
+            {resource.description && <p className="text-sm text-muted-foreground leading-relaxed">{resource.description}</p>}
+          </div>
+        </div>
+      </a>
+    </div>
+  );
+}
+
 // Hydrate embedded resource placeholders in the summary HTML
 function hydrateEmbeddedResources(
-  html: string, 
-  resources?: { coreVideos?: CuratedResource[]; coreReadings?: CuratedResource[] }
-): { html: string; resourcePlacements: Array<{ type: 'video' | 'reading'; index: number; position: number }> } {
+  html: string,
+  resources?: { coreVideos?: CuratedResource[]; coreReadings?: CuratedResource[]; lessons?: LessonResource[] },
+): {
+  html: string;
+  resourcePlacements: Array<{ type: 'video' | 'reading' | 'lesson'; index: number; position: number }>;
+} {
   if (!resources) return { html, resourcePlacements: [] };
-  
-  const resourcePlacements: Array<{ type: 'video' | 'reading'; index: number; position: number }> = [];
+
+  const resourcePlacements: Array<{ type: 'video' | 'reading' | 'lesson'; index: number; position: number }> = [];
   let position = 0;
-  
+
   // Find all embedded-resource placeholders
-  const placeholderPattern = /<div class="embedded-resource"[^>]*data-type="(\w+)"[^>]*data-index="(\d+)"[^>]*><\/div>/gi;
-  
+  const placeholderPattern =
+    /<div class="embedded-resource"[^>]*data-type="(\w+)"[^>]*data-index="(\d+)"[^>]*><\/div>/gi;
+
   const hydratedHtml = html.replace(placeholderPattern, (match, type, indexStr) => {
     const index = parseInt(indexStr, 10);
     position++;
-    
+
     if (type === 'video' && resources.coreVideos?.[index]) {
       resourcePlacements.push({ type: 'video', index, position });
       return `<div data-resource-type="video" data-resource-index="${index}"></div>`;
     }
-    
+
     if (type === 'reading' && resources.coreReadings?.[index]) {
       resourcePlacements.push({ type: 'reading', index, position });
       return `<div data-resource-type="reading" data-resource-index="${index}"></div>`;
     }
-    
+
+    if (type === 'lesson' && resources.lessons?.[index]) {
+      resourcePlacements.push({ type: 'lesson', index, position });
+      return `<div data-resource-type="lesson" data-resource-index="${index}"></div>`;
+    }
+
     return match; // Keep original if no matching resource
   });
-  
+
   return { html: hydratedHtml, resourcePlacements };
 }
 
 // Split HTML content by resource placeholders and render with actual components
-function NarrativeContent({ 
-  html, 
-  resources 
-}: { 
-  html: string; 
-  resources?: { coreVideos?: CuratedResource[]; coreReadings?: CuratedResource[] };
+function NarrativeContent({
+  html,
+  resources,
+}: {
+  html: string;
+  resources?: { coreVideos?: CuratedResource[]; coreReadings?: CuratedResource[]; lessons?: LessonResource[] };
 }) {
   const parts = useMemo(() => {
-    const result: Array<{ type: 'html' | 'video' | 'reading'; content: string; index?: number }> = [];
-    
+    const result: Array<{ type: 'html' | 'video' | 'reading' | 'lesson'; content: string; index?: number }> = [];
+
     // Split by resource markers
-    const pattern = /<div data-resource-type="(video|reading)" data-resource-index="(\d+)"><\/div>/g;
+    const pattern = /<div data-resource-type="(video|reading|lesson)" data-resource-index="(\d+)"><\/div>/g;
     let lastIndex = 0;
     let match;
-    
+
     while ((match = pattern.exec(html)) !== null) {
       // Add HTML before this resource
       if (match.index > lastIndex) {
         result.push({ type: 'html', content: html.slice(lastIndex, match.index) });
       }
-      
+
       // Add resource placeholder
-      result.push({ 
-        type: match[1] as 'video' | 'reading', 
-        content: '', 
-        index: parseInt(match[2], 10) 
+      result.push({
+        type: match[1] as 'video' | 'reading' | 'lesson',
+        content: '',
+        index: parseInt(match[2], 10),
       });
-      
+
       lastIndex = match.index + match[0].length;
     }
-    
+
     // Add remaining HTML
     if (lastIndex < html.length) {
       result.push({ type: 'html', content: html.slice(lastIndex) });
     }
-    
+
     return result;
   }, [html]);
 
@@ -279,58 +381,52 @@ function NarrativeContent({
       {parts.map((part, i) => {
         if (part.type === 'html') {
           return (
-            <div 
+            <div
               key={i}
               className={cn(
-                "prose prose-lg prose-slate dark:prose-invert max-w-none",
-                // --- HEADERS - Strong visual hierarchy with breathing room ---
-                "prose-headings:font-bold prose-headings:text-foreground prose-headings:scroll-mt-20",
-                "prose-h1:text-2xl prose-h1:mt-12 prose-h1:mb-6 prose-h1:text-primary",
-                "prose-h2:text-xl prose-h2:mt-14 prose-h2:mb-5 prose-h2:pb-4 prose-h2:border-b-2 prose-h2:border-primary/20",
-                "prose-h3:text-lg prose-h3:mt-10 prose-h3:mb-4 prose-h3:text-foreground/90",
-                "prose-h4:text-base prose-h4:font-semibold prose-h4:mt-8 prose-h4:mb-3",
-                // --- PARAGRAPHS - Very generous spacing for easy reading ---
-                "prose-p:text-base prose-p:leading-loose prose-p:mb-6 prose-p:text-foreground/90",
-                // --- LINKS - Clearly clickable citations ---
-                "prose-a:text-primary prose-a:font-medium prose-a:no-underline prose-a:border-b prose-a:border-primary/40 hover:prose-a:border-primary hover:prose-a:text-primary/80",
-                // --- LISTS - Scannable with generous spacing ---
-                "prose-ul:my-6 prose-ul:ml-6 prose-ul:space-y-3",
-                "prose-ol:my-6 prose-ol:ml-6 prose-ol:space-y-3",
-                "prose-li:text-foreground/90 prose-li:leading-relaxed prose-li:pl-2",
-                // --- BLOCKQUOTES - Prominent callouts with more padding ---
-                "prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 prose-blockquote:pl-6 prose-blockquote:pr-5 prose-blockquote:py-5 prose-blockquote:my-8 prose-blockquote:rounded-r-lg",
-                "prose-blockquote:not-italic prose-blockquote:text-foreground",
-                // --- STRONG/EM - Clear visual emphasis ---
-                "prose-strong:font-bold prose-strong:text-foreground",
-                "prose-em:italic prose-em:text-foreground/80",
-                // --- MARK - Highlighted key points ---
-                "[&_mark]:bg-yellow-100 [&_mark]:dark:bg-yellow-900/40 [&_mark]:px-1.5 [&_mark]:py-1 [&_mark]:rounded [&_mark]:font-medium",
-                // --- CITATIONS - Superscript footnotes ---
-                "[&_.citation]:text-primary [&_.citation]:font-semibold [&_.citation]:text-sm",
-                "[&_.footnote]:text-primary [&_.footnote]:text-xs [&_.footnote]:font-bold",
-                // --- CALLOUT BOXES - Styled definition/insight/example boxes with more room ---
-                "[&_.callout-definition]:bg-blue-50 [&_.callout-definition]:dark:bg-blue-950/30 [&_.callout-definition]:border-l-4 [&_.callout-definition]:border-blue-500 [&_.callout-definition]:p-5 [&_.callout-definition]:my-8 [&_.callout-definition]:rounded-r-lg",
-                "[&_.callout-key-insight]:bg-amber-50 [&_.callout-key-insight]:dark:bg-amber-950/30 [&_.callout-key-insight]:border-l-4 [&_.callout-key-insight]:border-amber-500 [&_.callout-key-insight]:p-5 [&_.callout-key-insight]:my-8 [&_.callout-key-insight]:rounded-r-lg",
-                "[&_.callout-example]:bg-green-50 [&_.callout-example]:dark:bg-green-950/30 [&_.callout-example]:border-l-4 [&_.callout-example]:border-green-500 [&_.callout-example]:p-5 [&_.callout-example]:my-8 [&_.callout-example]:rounded-r-lg",
-                "[&_.callout-warning]:bg-red-50 [&_.callout-warning]:dark:bg-red-950/30 [&_.callout-warning]:border-l-4 [&_.callout-warning]:border-red-500 [&_.callout-warning]:p-5 [&_.callout-warning]:my-8 [&_.callout-warning]:rounded-r-lg",
-                // --- CITE in blockquotes ---
-                "[&_cite]:block [&_cite]:text-sm [&_cite]:text-muted-foreground [&_cite]:mt-3 [&_cite]:not-italic",
-                // --- CODE ---
-                "prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono"
+                "narrative-prose max-w-none text-foreground",
+                // Headings
+                "[&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mt-10 [&_h1]:mb-4",
+                "[&_h2]:text-xl [&_h2]:font-bold [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:pb-2 [&_h2]:border-b [&_h2]:border-border",
+                "[&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mt-8 [&_h3]:mb-3",
+                "[&_h4]:text-base [&_h4]:font-semibold [&_h4]:mt-6 [&_h4]:mb-2",
+                // Paragraphs
+                "[&_p]:text-base [&_p]:leading-relaxed [&_p]:mb-4",
+                // Links & citations
+                "[&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4 hover:[&_a]:opacity-90",
+                "[&_.citation]:font-semibold [&_.footnote]:font-semibold",
+                // Lists
+                "[&_ul]:my-4 [&_ul]:ml-6 [&_ul]:list-disc [&_ul>li]:mb-2",
+                "[&_ol]:my-4 [&_ol]:ml-6 [&_ol]:list-decimal [&_ol>li]:mb-2",
+                // Blockquotes
+                "[&_blockquote]:my-6 [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:bg-muted/30 [&_blockquote]:px-5 [&_blockquote]:py-4 [&_blockquote]:rounded-r-lg",
+                "[&_blockquote_p]:mb-2",
+                "[&_blockquote_cite]:block [&_blockquote_cite]:text-sm [&_blockquote_cite]:text-muted-foreground [&_blockquote_cite]:mt-2 [&_blockquote_cite]:not-italic",
+                // Callouts
+                "[&_.callout-definition]:my-6 [&_.callout-definition]:rounded-lg [&_.callout-definition]:border [&_.callout-definition]:border-border [&_.callout-definition]:bg-muted/30 [&_.callout-definition]:p-4",
+                "[&_.callout-key-insight]:my-6 [&_.callout-key-insight]:rounded-lg [&_.callout-key-insight]:border [&_.callout-key-insight]:border-primary/30 [&_.callout-key-insight]:bg-primary/5 [&_.callout-key-insight]:p-4",
+                "[&_.callout-example]:my-6 [&_.callout-example]:rounded-lg [&_.callout-example]:border [&_.callout-example]:border-secondary/40 [&_.callout-example]:bg-secondary/10 [&_.callout-example]:p-4",
+                "[&_.callout-warning]:my-6 [&_.callout-warning]:rounded-lg [&_.callout-warning]:border [&_.callout-warning]:border-destructive/30 [&_.callout-warning]:bg-destructive/5 [&_.callout-warning]:p-4",
+                // Highlights
+                "[&_mark]:rounded [&_mark]:px-1 [&_mark]:py-0.5 [&_mark]:bg-accent/20"
               )}
               dangerouslySetInnerHTML={{ __html: part.content }}
             />
           );
         }
-        
+
         if (part.type === 'video' && resources?.coreVideos?.[part.index!]) {
           return <EmbeddedVideo key={i} resource={resources.coreVideos[part.index!]} />;
         }
-        
+
         if (part.type === 'reading' && resources?.coreReadings?.[part.index!]) {
           return <EmbeddedReading key={i} resource={resources.coreReadings[part.index!]} />;
         }
-        
+
+        if (part.type === 'lesson' && resources?.lessons?.[part.index!]) {
+          return <EmbeddedLesson key={i} resource={resources.lessons[part.index!]} />;
+        }
+
         return null;
       })}
     </div>
@@ -361,10 +457,17 @@ export function NarrativeLearningContent({
 
   // Get resources from cache or props
   const cachedResources = getResource(stepTitle);
-  const resources = propResources || (cachedResources ? {
-    coreVideos: cachedResources.coreVideos,
-    coreReadings: cachedResources.coreReadings,
-  } : undefined);
+  const cachedLessons = cachedResources ? extractLessonResources(cachedResources.moocs) : [];
+
+  const resources = propResources
+    ? { ...propResources, lessons: cachedLessons }
+    : cachedResources
+      ? {
+          coreVideos: cachedResources.coreVideos,
+          coreReadings: cachedResources.coreReadings,
+          lessons: cachedLessons,
+        }
+      : undefined;
 
   // Check if we have a summary for THIS step
   const hasCurrentSummary = summary && currentStepTitle === stepTitle;
@@ -420,14 +523,17 @@ export function NarrativeLearningContent({
             alternatives: data.alternatives || [],
           };
           setResource(stepTitle, curatedResources as CuratedStepResources);
+
+          const lessons = extractLessonResources(curatedResources.moocs);
           currentResources = {
             coreVideos: curatedResources.coreVideos || [],
             coreReadings: curatedResources.coreReadings || [],
+            lessons,
           };
-          
+
           toast({
             title: "Resources loaded",
-            description: `Found ${curatedResources.coreVideos?.length || 0} videos, ${curatedResources.coreReadings?.length || 0} readings`,
+            description: `Found ${(curatedResources.coreVideos?.length || 0)} videos, ${(curatedResources.coreReadings?.length || 0)} readings, ${lessons.length} lessons`,
           });
         }
       } catch (err) {
@@ -443,12 +549,12 @@ export function NarrativeLearningContent({
     setIsLoadingResources(false);
     
     await generateSummary(
-      stepTitle, 
-      discipline, 
-      stepDescription, 
-      sourceContent, 
+      stepTitle,
+      discipline,
+      stepDescription,
+      sourceContent,
       currentResources,
-      'comprehensive',
+      'standard',
       forceRefresh,
       learningObjective,
       pedagogicalFunction,
@@ -530,11 +636,11 @@ export function NarrativeLearningContent({
               )}
               
               {evidenceOfMastery && (
-                <div className="flex items-start gap-2 p-3 bg-green-50/50 dark:bg-green-950/20 rounded-lg border border-green-200/50 dark:border-green-800/30">
-                  <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <div className="flex items-start gap-2 p-3 bg-secondary/10 rounded-lg border border-secondary/30">
+                  <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-xs font-medium text-green-700 dark:text-green-400">Evidence of Mastery</p>
-                    <p className="text-sm text-green-900 dark:text-green-200">{evidenceOfMastery}</p>
+                    <p className="text-xs font-medium text-muted-foreground">Evidence of Mastery</p>
+                    <p className="text-sm text-foreground">{evidenceOfMastery}</p>
                   </div>
                 </div>
               )}
@@ -543,12 +649,12 @@ export function NarrativeLearningContent({
 
           {/* Transition callout */}
           {narrativePosition && (
-            <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-lg p-4 border border-amber-200/50 dark:border-amber-800/30">
+            <div className="bg-accent/10 rounded-lg p-4 border border-accent/30">
               <div className="flex items-start gap-2">
-                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <Lightbulb className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">What's Next</p>
-                  <p className="text-sm text-amber-900 dark:text-amber-200">{narrativePosition}</p>
+                  <p className="text-xs font-medium text-muted-foreground">What’s Next</p>
+                  <p className="text-sm text-foreground">{narrativePosition}</p>
                 </div>
               </div>
             </div>
