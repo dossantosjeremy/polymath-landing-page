@@ -160,104 +160,138 @@ serve(async (req) => {
 
     const fullContext = contextParts.join('\n');
 
-    // Adjust prompts and tokens based on reference length
+    // Adjust prompts and tokens based on reference length - INCREASED for Harvard-style depth
     const lengthConfig = {
       brief: {
-        maxTokens: 3000,
-        instruction: 'Provide a concise explanation of the core ideas, key arguments, and essential concepts only. Focus on clarity and brevity. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
+        maxTokens: 4000,
+        instruction: 'Provide a focused explanation of core concepts with key definitions and examples. While concise, still include substantive academic content. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
       },
       standard: {
-        maxTokens: 6000,
-        instruction: 'Provide a thorough explanation of the subject matter, including key concepts, important thinkers, main arguments, and relevant historical context. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
+        maxTokens: 8000,
+        instruction: 'Provide substantial course notes including conceptual exposition, expert demonstrations, application examples, and transition to next concepts. Aim for 600-900 words of prose. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
       },
       comprehensive: {
-        maxTokens: 12000,
-        instruction: 'Provide an exhaustive exploration of the subject matter, including detailed explanations of concepts, extensive historical and intellectual context, related debates, counterarguments, and concrete examples. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
+        maxTokens: 14000,
+        instruction: 'Provide exhaustive Harvard-style course notes with 800-1200+ words of prose. Include deep conceptual exposition, structured frameworks/models, embedded resource references, application/interpretation layer, and transition forward. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
       }
     };
 
     const config = lengthConfig[referenceLength as keyof typeof lengthConfig] || lengthConfig.standard;
 
-    const systemPrompt = `You are a subject-matter expert delivering academic lecture notes. Provide scholarly, formal educational content focused exclusively on the actual subject matter—the ideas, theories, arguments, historical context, and key thinkers.
+    // HARVARD-STYLE COURSE NOTES SYSTEM PROMPT
+    const systemPrompt = `You are an ACADEMIC COURSE AUTHOR producing authoritative COURSE NOTES comparable to Harvard ManageMentor or MIT OpenCourseWare.
+
+You are NOT generating a syllabus summary or resource list. You are writing the PRIMARY learning material.
 
 CRITICAL: Generate ALL content in ${targetLanguage}. This includes headings, paragraphs, terminology explanations, and all text.
 
 LEVEL: ${referenceLength.toUpperCase()}
 ${config.instruction}
 
-CRITICAL REQUIREMENTS - CONTENT:
-1. Use formal academic tone (NO casual greetings, NO "Alright everyone", NO conversational fillers)
-2. Explain philosophical/scientific/historical IDEAS and ARGUMENTS directly
-3. Identify key thinkers and their specific contributions, theories, or positions
-4. Provide historical and intellectual context that illuminates the ideas
-5. Use concrete examples to illustrate abstract concepts
-6. Include clickable links inline as HTML: <a href="URL">Source Name</a>
-7. Italicize key terms and concepts using <em> tags
+═══════════════════════════════════════════════════════════════
+                     OUTPUT CONTRACT (CRITICAL)
+═══════════════════════════════════════════════════════════════
 
-CRITICAL REQUIREMENTS - EXCLUDE:
-1. NO course logistics (reading assignments, page counts, schedules, participation)
+🚫 ABSOLUTELY FORBIDDEN OUTPUT PATTERNS:
+- Labeling content as "Core material" or "resources"
+- Limiting sections to < 500 words of prose
+- Presenting resources without surrounding explanation
+- Treating videos as replacements for text
+- Outputs resembling playlists, resource lists, or minimal summaries
+
+✅ REQUIRED OUTPUT SHAPE (HARVARD-LIKE):
+
+1. CONCEPTUAL EXPOSITION (PRIMARY - 400-700 words)
+   - Explanatory prose as the BACKBONE
+   - Definitions, distinctions, concrete examples
+   - Explicit causal reasoning
+   - Written as lecture notes, NOT marketing copy
+   - If this section is thin → regenerate
+
+2. STRUCTURED VISUAL/MODEL (SECONDARY)
+   - Framework, process, or conceptual model explained inline
+   - The learner should understand the model from text alone
+   - Use HTML tables or structured lists to visualize relationships
+
+3. APPLICATION / INTERPRETATION LAYER
+   - "How this is used in practice"
+   - Trade-offs, failure modes, misapplications
+   - Often missing in AI outputs → MANDATORY here
+
+4. TRANSITION FORWARD
+   - What this enables next
+   - How it connects to the following section
+
+═══════════════════════════════════════════════════════════════
+
+CRITICAL CONTENT REQUIREMENTS:
+1. Use formal academic tone (NO casual greetings, NO "Alright everyone", NO conversational fillers)
+2. Explain IDEAS and ARGUMENTS directly - not just topics
+3. Identify key thinkers and their specific contributions
+4. Provide historical and intellectual context
+5. Use CONCRETE EXAMPLES to illustrate abstract concepts
+6. Include clickable links inline as HTML: <a href="URL">Source Name</a>
+7. Italicize key terms using <em> tags
+
+ABSOLUTELY EXCLUDE:
+1. NO course logistics (reading assignments, page counts, schedules)
 2. NO grading or assessment criteria
 3. NO study tips or "how to approach" advice
 4. NO references to "this course" or "this class"
-5. NO casual greetings or conversational language ("Alright everyone", "Today we're diving into")
+5. NO casual greetings or conversational language
 
-REQUIRED OUTPUT FORMAT - HTML with Academic Outline Structure:
-Return ONLY valid HTML (no markdown). Each outline level must be a separate element for proper visual hierarchy.
+REQUIRED HTML FORMAT - Academic Outline Structure:
 
-Example structure:
+<h1>Topic Title</h1>
 
-<h1>Main Topic Title</h1>
+<h2>I. Conceptual Exposition</h2>
 
-<h2>I. First Major Section</h2>
+<h3>A. Key Concept or Framework</h3>
+<p class="intro">Contextualizing introduction to the concept.</p>
 
-<h3>A. The Milesian School</h3>
-<p class="intro">Early inquiries into the fundamental nature of reality.</p>
+<p class="point"><strong>1. First Key Idea</strong>: Detailed explanation with examples and reasoning. This is where the substantive content lives. Explain causality, implications, and connections to other ideas.</p>
 
-<p class="point"><strong>1. Thales of Miletus</strong> (c. 624–546 BCE): Often considered the first philosopher, Thales proposed that <em>water</em> was the fundamental substance...</p>
+<p class="detail"><strong>a.</strong> Supporting detail with specific evidence or example...</p>
 
-<p class="detail"><strong>a.</strong> His reasoning stemmed from observations of water's omnipresence in nature...</p>
+<h3>B. Second Major Framework</h3>
+<p class="point"><strong>1. Core Principle</strong>: In-depth explanation...</p>
 
-<p class="sub-detail"><strong>i.</strong> Water exists in multiple states and appears essential for life...</p>
+<h2>II. Application & Interpretation</h2>
 
-<p class="point"><strong>2. Anaximander of Miletus</strong> (c. 610–546 BCE): A student of Thales, Anaximander posited the <em>apeiron</em>...</p>
+<h3>A. Practical Implementation</h3>
+<p>How these concepts manifest in real-world practice...</p>
 
-<h3>B. Other Major Pre-Socratic Thinkers</h3>
-<p class="point"><strong>1. Heraclitus of Ephesus</strong> (c. 535–475 BCE): Known for the doctrine of perpetual change...</p>
+<h3>B. Common Pitfalls and Trade-offs</h3>
+<p class="point"><strong>1. Misapplication Pattern</strong>: What goes wrong when...</p>
 
-<h2>II. Second Major Section</h2>
+<h2>III. Transition Forward</h2>
+<p>This understanding of [topic] prepares you to explore [next concept] by establishing the foundational framework for...</p>
 
 ELEMENT GUIDE:
 - <h1>: Main title only
-- <h2>: Roman numeral sections (I., II., III., IV.) - ONLY if there are 2+ sections at this level
-- <h3>: Letter subsections (A., B., C., D.) - ONLY if there are 2+ subsections at this level
-- <p class="intro">: Optional brief introduction to subsection
-- <p class="point">: Numbered points (1., 2., 3.) - ONLY if there are 2+ points at this level
-- <p class="detail">: Letter details (a., b., c.) - ONLY if there are 2+ details at this level
-- <p class="sub-detail">: Roman numeral sub-details (i., ii., iii.) - ONLY if there are 2+ sub-details at this level
-- Use <strong> to bold outline markers and key names
-- Use <em> for emphasis on key terms, foreign words, technical concepts
+- <h2>: Roman numeral sections (I., II., III.) - ONLY if 2+ sections
+- <h3>: Letter subsections (A., B., C.) - ONLY if 2+ subsections
+- <p class="intro">: Brief introduction to subsection
+- <p class="point">: Numbered points (1., 2., 3.) with substantive content
+- <p class="detail">: Letter details (a., b., c.) with evidence/examples
+- Use <strong> for outline markers and key names
+- Use <em> for emphasis on terms, foreign words, concepts
 - Use <a href="url"> for inline citations
 
-CRITICAL OUTLINE NUMBERING RULE: Only use outline markers (I., A., 1., a., i.) when there are at least 2 items at that level. If there is only one item, present it as regular paragraphs without the outline marker. For example:
-- If you have only one Roman section, don't use "I." - just use <h2> with the title
-- If you have only one numbered point under a subsection, don't use "1." - just use <p> without the marker
-- This applies to ALL outline levels
+COGNITIVE METADATA (include at end if pedagogical context provided):
+<div class="cognitive-metadata">
+  <p><strong>Cognitive Level:</strong> [Analyze/Apply/Create/etc.]</p>
+  <p><strong>Learner can now:</strong> [Specific actionable capability]</p>
+  <p><strong>Common misconception addressed:</strong> [What this prevents]</p>
+</div>`;
 
-Each outline item must be in its own element for proper visual hierarchy. Do NOT combine multiple outline items in one paragraph.`;
-
-    const userPrompt = `Generate formal academic reference notes in HTML format for: ${stepTitle}
+    const userPrompt = `Generate formal academic COURSE NOTES in HTML format for: ${stepTitle}
 
 ${fullContext}
 
-Return ONLY valid HTML. Use the structured outline format with separate elements:
-- <h1> for main title
-- <h2> for Roman sections (I., II.)
-- <h3> for letter subsections (A., B.)
-- <p class="point"> for each numbered point (1., 2., 3.)
-- <p class="detail"> for each letter detail (a., b., c.)
-- <p class="sub-detail"> for each sub-detail (i., ii., iii.)
+Remember: You are the PRIMARY TEXT, not a reference to other materials. Write substantive explanatory prose (400-700+ words minimum) that teaches the concepts directly. Use the structured outline format with separate elements for proper visual hierarchy.
 
-Each outline item must be in its own element for proper visual hierarchy. Use <em> for key terms, <strong> for outline markers and names, and <a> for citations. Focus exclusively on explaining the ideas, theories, key thinkers, their arguments, and historical/intellectual context.`;
+Return ONLY valid HTML. Focus on explaining ideas, theories, key thinkers, their arguments, historical context, practical applications, and transitions to next concepts.`;
 
     console.log('Calling Lovable AI...');
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {

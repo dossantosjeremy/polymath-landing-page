@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { BookOpen, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BookOpen, ChevronDown, ChevronRight, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStepSummary } from '@/hooks/useStepSummary';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface StepSummaryProps {
   stepTitle: string;
@@ -11,6 +12,32 @@ interface StepSummaryProps {
   stepDescription: string;
   sourceContent: string;
   resources?: any;
+  // NEW: Pedagogical metadata for Course Grammar
+  learningObjective?: string;
+  pedagogicalFunction?: string;
+  cognitiveLevel?: string;
+  narrativePosition?: string;
+  evidenceOfMastery?: string;
+  autoLoad?: boolean;
+}
+
+// Loading skeleton for the summary content
+function SummaryLoadingSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-5/6" />
+      </div>
+      <div className="space-y-2">
+        <Skeleton className="h-5 w-1/2" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-4/5" />
+      </div>
+    </div>
+  );
 }
 
 export const StepSummary = ({
@@ -19,10 +46,33 @@ export const StepSummary = ({
   stepDescription,
   sourceContent,
   resources,
+  learningObjective,
+  pedagogicalFunction,
+  cognitiveLevel,
+  narrativePosition,
+  evidenceOfMastery,
+  autoLoad = false,
 }: StepSummaryProps) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [referenceLength, setReferenceLength] = useState<'brief' | 'standard' | 'comprehensive'>('standard');
+  const [isOpen, setIsOpen] = useState(autoLoad);
+  const [referenceLength, setReferenceLength] = useState<'brief' | 'standard' | 'comprehensive'>('comprehensive');
   const { summary, isLoading, error, generateSummary } = useStepSummary();
+  const [hasAutoLoaded, setHasAutoLoaded] = useState(false);
+
+  // Auto-generate on mount if autoLoad is true
+  useEffect(() => {
+    if (autoLoad && !hasAutoLoaded && !summary && !isLoading) {
+      setHasAutoLoaded(true);
+      generateSummary(
+        stepTitle, 
+        discipline, 
+        stepDescription, 
+        sourceContent, 
+        resources, 
+        referenceLength, 
+        false
+      );
+    }
+  }, [autoLoad, hasAutoLoaded, summary, isLoading, stepTitle, discipline, stepDescription, sourceContent, resources, referenceLength, generateSummary]);
 
   const handleGenerate = (forceRefresh: boolean = false) => {
     generateSummary(stepTitle, discipline, stepDescription, sourceContent, resources, referenceLength, forceRefresh);
@@ -37,6 +87,7 @@ export const StepSummary = ({
             {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <BookOpen className="h-4 w-4" />
             <span>AI Notes Summary</span>
+            {isLoading && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
           </CollapsibleTrigger>
           
           <div className="flex items-center gap-2">
@@ -76,17 +127,10 @@ export const StepSummary = ({
         </div>
 
         <CollapsibleContent className="mt-4">
-          {isLoading && (
-            <div className="flex items-center justify-center py-8 text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                <span>Generating comprehensive reference...</span>
-              </div>
-            </div>
-          )}
+          {isLoading && <SummaryLoadingSkeleton />}
 
-          {error && (
-            <div className="p-4 border border-destructive/50 bg-destructive/5 text-sm text-destructive">
+          {error && !isLoading && (
+            <div className="p-4 border border-destructive/50 bg-destructive/5 text-sm text-destructive rounded-lg">
               <p className="font-medium">Error generating reference</p>
               <p className="mt-1">{error}</p>
               <Button
@@ -102,7 +146,7 @@ export const StepSummary = ({
 
           {summary && !isLoading && (
             <div 
-              className="academic-reference-content text-foreground"
+              className="academic-reference-content text-foreground prose prose-sm dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: summary }}
             />
           )}
