@@ -6,6 +6,149 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface Resource {
+  url: string;
+  title: string;
+  author?: string;
+  duration?: string;
+  domain?: string;
+  snippet?: string;
+  type?: string;
+}
+
+// Fetch additional context from Perplexity for rich content
+async function fetchPerplexityContext(
+  topic: string, 
+  discipline: string,
+  learningObjective?: string
+): Promise<{ context: string; citations: string[] }> {
+  const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+  if (!PERPLEXITY_API_KEY) {
+    console.log('[Perplexity] API key not configured, skipping enrichment');
+    return { context: '', citations: [] };
+  }
+
+  try {
+    console.log('[Perplexity] Fetching context for:', topic);
+    
+    const searchPrompt = learningObjective 
+      ? `Provide comprehensive academic information about "${topic}" in the context of ${discipline}. Focus on: ${learningObjective}. Include key concepts, historical context, important thinkers, practical applications, and common misconceptions.`
+      : `Provide comprehensive academic information about "${topic}" in the context of ${discipline}. Include key concepts, historical context, important thinkers, practical applications, and common misconceptions.`;
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are an academic researcher providing comprehensive, well-cited information. Include specific facts, dates, names, and concepts. Be thorough and scholarly.'
+          },
+          { role: 'user', content: searchPrompt }
+        ],
+        search_recency_filter: 'year',
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[Perplexity] API error:', response.status);
+      return { context: '', citations: [] };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const citations = data.citations || [];
+    
+    console.log('[Perplexity] Got context:', content.substring(0, 200) + '...');
+    console.log('[Perplexity] Citations:', citations.length);
+    
+    return { context: content, citations };
+  } catch (error) {
+    console.error('[Perplexity] Error:', error);
+    return { context: '', citations: [] };
+  }
+}
+
+// Fetch additional academic sources for inline citations
+async function fetchAcademicSources(
+  topic: string,
+  discipline: string
+): Promise<{ sources: Array<{ title: string; url: string; snippet: string }> }> {
+  const PERPLEXITY_API_KEY = Deno.env.get('PERPLEXITY_API_KEY');
+  if (!PERPLEXITY_API_KEY) {
+    return { sources: [] };
+  }
+
+  try {
+    console.log('[Perplexity] Fetching academic sources for:', topic);
+    
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'sonar',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'Find authoritative academic sources about the topic. Return a JSON array of sources with title, url, and a brief snippet. Focus on .edu domains, academic journals, and authoritative publications.'
+          },
+          { role: 'user', content: `Find 3-5 authoritative academic sources about "${topic}" in ${discipline}. Return JSON: [{"title": "...", "url": "...", "snippet": "..."}]` }
+        ],
+        search_mode: 'academic',
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'sources',
+            schema: {
+              type: 'object',
+              properties: {
+                sources: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      title: { type: 'string' },
+                      url: { type: 'string' },
+                      snippet: { type: 'string' }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[Perplexity] Academic sources error:', response.status);
+      return { sources: [] };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '{}';
+    
+    try {
+      const parsed = JSON.parse(content);
+      console.log('[Perplexity] Found academic sources:', parsed.sources?.length || 0);
+      return { sources: parsed.sources || [] };
+    } catch {
+      console.log('[Perplexity] Could not parse academic sources');
+      return { sources: [] };
+    }
+  } catch (error) {
+    console.error('[Perplexity] Academic sources error:', error);
+    return { sources: [] };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -21,7 +164,6 @@ serve(async (req) => {
       referenceLength = 'standard', 
       forceRefresh, 
       locale = 'en',
-      // NEW: Pedagogical metadata from Course Grammar
       learningObjective,
       pedagogicalFunction,
       cognitiveLevel,
@@ -35,14 +177,14 @@ serve(async (req) => {
       referenceLength, 
       forceRefresh, 
       locale,
-      hasPedagogicalMeta: !!(learningObjective || pedagogicalFunction)
+      hasPedagogicalMeta: !!(learningObjective || pedagogicalFunction),
+      hasResources: !!(resources?.coreVideos?.length || resources?.coreReadings?.length)
     });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Language configuration
     const languageNames: Record<string, string> = {
       en: 'English',
       es: 'Spanish',
@@ -69,11 +211,13 @@ serve(async (req) => {
       }
     }
 
-    // Generate comprehensive reference using Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY not configured');
-    }
+    // Fetch rich context from Perplexity (multiple calls for depth)
+    console.log('[Summary] Fetching Perplexity enrichment...');
+    
+    const [perplexityContext, academicSources] = await Promise.all([
+      fetchPerplexityContext(stepTitle, discipline, learningObjective),
+      fetchAcademicSources(stepTitle, discipline)
+    ]);
 
     // Build comprehensive context including pedagogical metadata
     let contextParts = [
@@ -81,6 +225,29 @@ serve(async (req) => {
       `Discipline: ${discipline}`,
       `Step Description: ${stepDescription || 'Not provided'}`,
     ];
+
+    // Add Perplexity enrichment
+    if (perplexityContext.context) {
+      contextParts.push('\n--- ENRICHED CONTEXT (from research) ---');
+      contextParts.push(perplexityContext.context);
+      if (perplexityContext.citations.length > 0) {
+        contextParts.push('\nResearch Citations:');
+        perplexityContext.citations.forEach((citation, i) => {
+          contextParts.push(`[${i + 1}] ${citation}`);
+        });
+      }
+      contextParts.push('--- END ENRICHED CONTEXT ---\n');
+    }
+
+    // Add academic sources for inline citations
+    if (academicSources.sources.length > 0) {
+      contextParts.push('\n--- ACADEMIC SOURCES (use for inline citations) ---');
+      academicSources.sources.forEach((source, i) => {
+        contextParts.push(`[Source ${i + 1}] "${source.title}" - ${source.url}`);
+        contextParts.push(`   ${source.snippet}`);
+      });
+      contextParts.push('--- END ACADEMIC SOURCES ---\n');
+    }
 
     // Add Course Grammar pedagogical context if available
     if (learningObjective || pedagogicalFunction || narrativePosition) {
@@ -129,171 +296,159 @@ serve(async (req) => {
       contextParts.push(`\nOriginal Syllabus Content:\n${sourceContent}`);
     }
 
+    // Build embedded resources section for the AI to reference
+    let embeddedResourcesInfo = '';
     if (resources) {
-      if (resources.primaryVideo) {
-        contextParts.push(`\nPrimary Video: "${resources.primaryVideo.title}" by ${resources.primaryVideo.author}`);
-        contextParts.push(`Video URL: ${resources.primaryVideo.url}`);
-        if (resources.primaryVideo.whyThisVideo) {
-          contextParts.push(`Why this video: ${resources.primaryVideo.whyThisVideo}`);
-        }
-      }
-
-      if (resources.deepReading) {
-        contextParts.push(`\nDeep Reading: "${resources.deepReading.title}"`);
-        contextParts.push(`Reading URL: ${resources.deepReading.url}`);
-        contextParts.push(`Focus: ${resources.deepReading.focusHighlight}`);
-        contextParts.push(`Snippet: ${resources.deepReading.snippet}`);
-      }
-
-      if (resources.book) {
-        contextParts.push(`\nRecommended Book: "${resources.book.title}" by ${resources.book.author}`);
-        if (resources.book.chapterRecommendation) {
-          contextParts.push(`Chapter Recommendation: ${resources.book.chapterRecommendation}`);
-        }
-        contextParts.push(`Why this book: ${resources.book.why}`);
-      }
-
-      if (resources.alternatives && resources.alternatives.length > 0) {
-        contextParts.push(`\nAlternative Resources: ${resources.alternatives.length} additional resources available`);
+      const coreVideos = resources.coreVideos || [];
+      const coreReadings = resources.coreReadings || [];
+      
+      if (coreVideos.length > 0 || coreReadings.length > 0) {
+        embeddedResourcesInfo = '\n--- RESOURCES TO EMBED IN NARRATIVE ---\n';
+        embeddedResourcesInfo += 'You MUST embed these resources at pedagogically appropriate moments in your prose.\n';
+        embeddedResourcesInfo += 'Use the exact format shown for each resource type.\n\n';
+        
+        coreVideos.forEach((video: Resource, i: number) => {
+          embeddedResourcesInfo += `VIDEO ${i + 1}: "${video.title}"`;
+          if (video.author) embeddedResourcesInfo += ` by ${video.author}`;
+          if (video.duration) embeddedResourcesInfo += ` (${video.duration})`;
+          embeddedResourcesInfo += `\n  URL: ${video.url}\n`;
+          embeddedResourcesInfo += `  To embed, write: <div class="embedded-resource" data-type="video" data-index="${i}"></div>\n\n`;
+        });
+        
+        coreReadings.forEach((reading: Resource, i: number) => {
+          embeddedResourcesInfo += `READING ${i + 1}: "${reading.title}"`;
+          if (reading.domain) embeddedResourcesInfo += ` (${reading.domain})`;
+          embeddedResourcesInfo += `\n  URL: ${reading.url}\n`;
+          if (reading.snippet) embeddedResourcesInfo += `  Preview: ${reading.snippet}\n`;
+          embeddedResourcesInfo += `  To embed, write: <div class="embedded-resource" data-type="reading" data-index="${i}"></div>\n\n`;
+        });
+        
+        embeddedResourcesInfo += '--- END RESOURCES ---\n';
+        contextParts.push(embeddedResourcesInfo);
       }
     }
 
     const fullContext = contextParts.join('\n');
 
-    // Adjust prompts and tokens based on reference length - INCREASED for Harvard-style depth
+    // Adjust tokens based on reference length
     const lengthConfig = {
       brief: {
-        maxTokens: 4000,
-        instruction: 'Provide a focused explanation of core concepts with key definitions and examples. While concise, still include substantive academic content. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
+        maxTokens: 6000,
+        instruction: 'Provide focused course notes with key concepts. Still embed resources inline. CRITICAL: Always complete your thoughts - never end mid-sentence.'
       },
       standard: {
-        maxTokens: 8000,
-        instruction: 'Provide substantial course notes including conceptual exposition, expert demonstrations, application examples, and transition to next concepts. Aim for 600-900 words of prose. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
+        maxTokens: 10000,
+        instruction: 'Provide substantial course notes (800-1000 words). Embed all provided resources at appropriate pedagogical moments. CRITICAL: Always complete your thoughts - never end mid-sentence.'
       },
       comprehensive: {
-        maxTokens: 14000,
-        instruction: 'Provide exhaustive Harvard-style course notes with 800-1200+ words of prose. Include deep conceptual exposition, structured frameworks/models, embedded resource references, application/interpretation layer, and transition forward. CRITICAL: Always complete your thoughts and sentences - never end mid-sentence.'
+        maxTokens: 16000,
+        instruction: 'Provide exhaustive Harvard-style course notes (1200+ words). Embed all provided resources with full context. Include deep conceptual exposition, frameworks, applications, and transitions. CRITICAL: Always complete your thoughts - never end mid-sentence.'
       }
     };
 
     const config = lengthConfig[referenceLength as keyof typeof lengthConfig] || lengthConfig.standard;
 
-    // HARVARD-STYLE COURSE NOTES SYSTEM PROMPT
+    // NARRATIVE-FIRST COURSE NOTES SYSTEM PROMPT
     const systemPrompt = `You are an ACADEMIC COURSE AUTHOR producing authoritative COURSE NOTES comparable to Harvard ManageMentor or MIT OpenCourseWare.
 
-You are NOT generating a syllabus summary or resource list. You are writing the PRIMARY learning material.
+CRITICAL: You are writing the PRIMARY learning material. This is NOT a resource list.
 
-CRITICAL: Generate ALL content in ${targetLanguage}. This includes headings, paragraphs, terminology explanations, and all text.
+Generate ALL content in ${targetLanguage}.
 
 LEVEL: ${referenceLength.toUpperCase()}
 ${config.instruction}
 
 ═══════════════════════════════════════════════════════════════
-                     OUTPUT CONTRACT (CRITICAL)
+                    NARRATIVE-FIRST DESIGN
 ═══════════════════════════════════════════════════════════════
 
-🚫 ABSOLUTELY FORBIDDEN OUTPUT PATTERNS:
-- Labeling content as "Core material" or "resources"
-- Limiting sections to < 500 words of prose
-- Presenting resources without surrounding explanation
-- Treating videos as replacements for text
-- Outputs resembling playlists, resource lists, or minimal summaries
+Your output must be a TAUGHT LEARNING EXPERIENCE with resources INTERWOVEN into the prose.
 
-✅ REQUIRED OUTPUT SHAPE (HARVARD-LIKE):
+Pattern: TEXT → RESOURCE → TEXT → RESOURCE → TEXT
 
-1. CONCEPTUAL EXPOSITION (PRIMARY - 400-700 words)
-   - Explanatory prose as the BACKBONE
-   - Definitions, distinctions, concrete examples
-   - Explicit causal reasoning
-   - Written as lecture notes, NOT marketing copy
-   - If this section is thin → regenerate
+Resources are NOT listed separately. They appear WITHIN the narrative at the moment they support learning.
 
-2. STRUCTURED VISUAL/MODEL (SECONDARY)
-   - Framework, process, or conceptual model explained inline
-   - The learner should understand the model from text alone
-   - Use HTML tables or structured lists to visualize relationships
-
-3. APPLICATION / INTERPRETATION LAYER
-   - "How this is used in practice"
-   - Trade-offs, failure modes, misapplications
-   - Often missing in AI outputs → MANDATORY here
-
-4. TRANSITION FORWARD
-   - What this enables next
-   - How it connects to the following section
+Example flow:
+1. Introduce concept with explanatory prose
+2. Embed a video: "Watch this demonstration..."
+3. Continue with deeper explanation
+4. Embed a reading: "This article explores..."
+5. Application and synthesis
+6. Transition forward
 
 ═══════════════════════════════════════════════════════════════
-
-CRITICAL CONTENT REQUIREMENTS:
-1. Use formal academic tone (NO casual greetings, NO "Alright everyone", NO conversational fillers)
-2. Explain IDEAS and ARGUMENTS directly - not just topics
-3. Identify key thinkers and their specific contributions
-4. Provide historical and intellectual context
-5. Use CONCRETE EXAMPLES to illustrate abstract concepts
-6. Include clickable links inline as HTML: <a href="URL">Source Name</a>
-7. Italicize key terms using <em> tags
-
-ABSOLUTELY EXCLUDE:
-1. NO course logistics (reading assignments, page counts, schedules)
-2. NO grading or assessment criteria
-3. NO study tips or "how to approach" advice
-4. NO references to "this course" or "this class"
-5. NO casual greetings or conversational language
-
-REQUIRED HTML FORMAT - Academic Outline Structure:
+                     OUTPUT STRUCTURE
+═══════════════════════════════════════════════════════════════
 
 <h1>Topic Title</h1>
 
 <h2>I. Conceptual Exposition</h2>
+<p>Begin with substantive explanatory prose (300-500 words). Define key terms, establish context, explain WHY this matters...</p>
 
-<h3>A. Key Concept or Framework</h3>
-<p class="intro">Contextualizing introduction to the concept.</p>
+<p>After establishing the foundation, introduce the first resource naturally:</p>
 
-<p class="point"><strong>1. First Key Idea</strong>: Detailed explanation with examples and reasoning. This is where the substantive content lives. Explain causality, implications, and connections to other ideas.</p>
+<p class="resource-intro">To see these principles in action, watch this demonstration by [Author]:</p>
+<div class="embedded-resource" data-type="video" data-index="0"></div>
+<p class="resource-follow">As demonstrated in the video, the key insight is...</p>
 
-<p class="detail"><strong>a.</strong> Supporting detail with specific evidence or example...</p>
+<h2>II. Framework & Models</h2>
+<p>Continue with deeper exposition. Use tables or lists to show relationships...</p>
 
-<h3>B. Second Major Framework</h3>
-<p class="point"><strong>1. Core Principle</strong>: In-depth explanation...</p>
+<p class="resource-intro">For a more detailed treatment, this reading from [Source] provides essential context:</p>
+<div class="embedded-resource" data-type="reading" data-index="0"></div>
+<p class="resource-follow">The article highlights that...</p>
 
-<h2>II. Application & Interpretation</h2>
+<h2>III. Application & Interpretation</h2>
+<p>How this is used in practice. Trade-offs, failure modes, real-world examples...</p>
 
-<h3>A. Practical Implementation</h3>
-<p>How these concepts manifest in real-world practice...</p>
+<h2>IV. Transition Forward</h2>
+<p>What this enables next. How it connects to following concepts...</p>
 
-<h3>B. Common Pitfalls and Trade-offs</h3>
-<p class="point"><strong>1. Misapplication Pattern</strong>: What goes wrong when...</p>
-
-<h2>III. Transition Forward</h2>
-<p>This understanding of [topic] prepares you to explore [next concept] by establishing the foundational framework for...</p>
-
-ELEMENT GUIDE:
-- <h1>: Main title only
-- <h2>: Roman numeral sections (I., II., III.) - ONLY if 2+ sections
-- <h3>: Letter subsections (A., B., C.) - ONLY if 2+ subsections
-- <p class="intro">: Brief introduction to subsection
-- <p class="point">: Numbered points (1., 2., 3.) with substantive content
-- <p class="detail">: Letter details (a., b., c.) with evidence/examples
-- Use <strong> for outline markers and key names
-- Use <em> for emphasis on terms, foreign words, concepts
-- Use <a href="url"> for inline citations
-
-COGNITIVE METADATA (include at end if pedagogical context provided):
 <div class="cognitive-metadata">
-  <p><strong>Cognitive Level:</strong> [Analyze/Apply/Create/etc.]</p>
-  <p><strong>Learner can now:</strong> [Specific actionable capability]</p>
-  <p><strong>Common misconception addressed:</strong> [What this prevents]</p>
-</div>`;
+  <p><strong>Cognitive Level:</strong> [Level]</p>
+  <p><strong>Learner can now:</strong> [Specific capability]</p>
+  <p><strong>Misconception addressed:</strong> [What this prevents]</p>
+</div>
 
-    const userPrompt = `Generate formal academic COURSE NOTES in HTML format for: ${stepTitle}
+═══════════════════════════════════════════════════════════════
+                      CRITICAL RULES
+═══════════════════════════════════════════════════════════════
+
+1. EMBED resources using: <div class="embedded-resource" data-type="video|reading" data-index="N"></div>
+2. ALWAYS surround embedded resources with context:
+   - BEFORE: Why to watch/read this, what to focus on
+   - AFTER: Key takeaways, how it connects to the discussion
+3. Include INLINE LINKS to sources: <a href="URL" target="_blank">Source Name</a>
+4. Use <em> for key terms being defined
+5. Minimum 800 words of explanatory PROSE (not counting embedded resources)
+6. Resources appear WITHIN the narrative, never as a separate section
+
+FORBIDDEN:
+- Listing resources at the end
+- "Resources:" or "Materials:" sections
+- Bare links without surrounding explanation
+- Treating videos as replacements for text
+- Outputs under 800 words`;
+
+    const userPrompt = `Generate formal academic COURSE NOTES with INTERWOVEN RESOURCES for: ${stepTitle}
 
 ${fullContext}
 
-Remember: You are the PRIMARY TEXT, not a reference to other materials. Write substantive explanatory prose (400-700+ words minimum) that teaches the concepts directly. Use the structured outline format with separate elements for proper visual hierarchy.
+Remember: 
+1. You are writing the PRIMARY TEXT - substantive explanatory prose
+2. Resources are EMBEDDED at pedagogically appropriate moments
+3. Each resource has intro context before AND follow-up text after
+4. Include inline links to sources throughout
+5. Minimum 800 words of prose
 
-Return ONLY valid HTML. Focus on explaining ideas, theories, key thinkers, their arguments, historical context, practical applications, and transitions to next concepts.`;
+Return ONLY valid HTML.`;
 
-    console.log('Calling Lovable AI...');
+    console.log('Calling Lovable AI with enriched context...');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY not configured');
+    }
+
     const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -324,7 +479,7 @@ Return ONLY valid HTML. Focus on explaining ideas, theories, key thinkers, their
       throw new Error('No summary generated from AI');
     }
 
-    console.log('Summary generated, caching...');
+    console.log('Summary generated, length:', summary.length, 'chars');
 
     // Cache the summary with locale
     const { error: upsertError } = await supabase
@@ -341,7 +496,6 @@ Return ONLY valid HTML. Focus on explaining ideas, theories, key thinkers, their
 
     if (upsertError) {
       console.error('Error caching summary:', upsertError);
-      // Don't fail the request if caching fails
     }
 
     return new Response(JSON.stringify({ summary }), {
