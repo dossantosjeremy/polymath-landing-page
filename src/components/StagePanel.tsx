@@ -142,6 +142,7 @@ function NarrativeContentArea({
         discipline={discipline}
         stepDescription={currentStep.description || ""}
         sourceContent={sourceContent}
+        syllabusUrls={syllabusUrls}
         learningObjective={currentStep.learningObjective}
         pedagogicalFunction={currentStep.pedagogicalFunction}
         cognitiveLevel={currentStep.cognitiveLevel}
