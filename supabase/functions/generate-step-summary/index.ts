@@ -301,12 +301,13 @@ serve(async (req) => {
     if (resources) {
       const coreVideos = resources.coreVideos || [];
       const coreReadings = resources.coreReadings || [];
-      
-      if (coreVideos.length > 0 || coreReadings.length > 0) {
+      const lessons = resources.lessons || [];
+
+      if (coreVideos.length > 0 || coreReadings.length > 0 || lessons.length > 0) {
         embeddedResourcesInfo = '\n--- RESOURCES TO EMBED IN NARRATIVE ---\n';
         embeddedResourcesInfo += 'You MUST embed these resources at pedagogically appropriate moments in your prose.\n';
         embeddedResourcesInfo += 'Use the exact format shown for each resource type.\n\n';
-        
+
         coreVideos.forEach((video: Resource, i: number) => {
           embeddedResourcesInfo += `VIDEO ${i + 1}: "${video.title}"`;
           if (video.author) embeddedResourcesInfo += ` by ${video.author}`;
@@ -314,7 +315,7 @@ serve(async (req) => {
           embeddedResourcesInfo += `\n  URL: ${video.url}\n`;
           embeddedResourcesInfo += `  To embed, write: <div class="embedded-resource" data-type="video" data-index="${i}"></div>\n\n`;
         });
-        
+
         coreReadings.forEach((reading: Resource, i: number) => {
           embeddedResourcesInfo += `READING ${i + 1}: "${reading.title}"`;
           if (reading.domain) embeddedResourcesInfo += ` (${reading.domain})`;
@@ -322,7 +323,16 @@ serve(async (req) => {
           if (reading.snippet) embeddedResourcesInfo += `  Preview: ${reading.snippet}\n`;
           embeddedResourcesInfo += `  To embed, write: <div class="embedded-resource" data-type="reading" data-index="${i}"></div>\n\n`;
         });
-        
+
+        lessons.forEach((lesson: Resource, i: number) => {
+          embeddedResourcesInfo += `LESSON ${i + 1}: "${lesson.title}"`;
+          if (lesson.author) embeddedResourcesInfo += ` by ${lesson.author}`;
+          if (lesson.duration) embeddedResourcesInfo += ` (${lesson.duration})`;
+          embeddedResourcesInfo += `\n  URL: ${lesson.url}\n`;
+          if (lesson.snippet) embeddedResourcesInfo += `  Preview: ${lesson.snippet}\n`;
+          embeddedResourcesInfo += `  To embed, write: <div class="embedded-resource" data-type="lesson" data-index="${i}"></div>\n\n`;
+        });
+
         embeddedResourcesInfo += '--- END RESOURCES ---\n';
         contextParts.push(embeddedResourcesInfo);
       }
@@ -334,16 +344,19 @@ serve(async (req) => {
     const lengthConfig = {
       brief: {
         maxTokens: 6000,
-        instruction: 'Provide focused course notes with key concepts. Still embed resources inline. CRITICAL: Always complete your thoughts - never end mid-sentence.'
+        instruction:
+          'Provide focused course notes (450-650 words). Still embed resources inline. CRITICAL: Always complete your thoughts - never end mid-sentence.',
       },
       standard: {
         maxTokens: 10000,
-        instruction: 'Provide substantial course notes (800-1000 words). Embed all provided resources at appropriate pedagogical moments. CRITICAL: Always complete your thoughts - never end mid-sentence.'
+        instruction:
+          'Provide scannable course notes (600-900 words) with headings, bullets, and callouts. Embed provided resources inline. CRITICAL: Always complete your thoughts - never end mid-sentence.',
       },
       comprehensive: {
         maxTokens: 16000,
-        instruction: 'Provide exhaustive Harvard-style course notes (1200+ words). Embed all provided resources with full context. Include deep conceptual exposition, frameworks, applications, and transitions. CRITICAL: Always complete your thoughts - never end mid-sentence.'
-      }
+        instruction:
+          'Provide comprehensive course notes (900-1200 words) with deeper exposition and applications. Embed provided resources inline. CRITICAL: Always complete your thoughts - never end mid-sentence.',
+      },
     };
 
     const config = lengthConfig[referenceLength as keyof typeof lengthConfig] || lengthConfig.standard;
@@ -411,11 +424,12 @@ Resources MUST be woven naturally into the narrative:
 
 EMBEDDING PATTERN:
 1. Context sentence explaining WHY to engage with this resource
-2. <div class="embedded-resource" data-type="video|reading" data-index="N"></div>
+2. <div class="embedded-resource" data-type="video|reading|lesson" data-index="N"></div>
 3. Follow-up synthesis connecting it to your explanation
 
 VIDEO: data-type="video" data-index="0" (or 1, 2...)
 READING: data-type="reading" data-index="0" (or 1, 2...)
+LESSON: data-type="lesson" data-index="0" (or 1, 2...)
 
 ═══════════════════════════════════════════════════════════════
                      EXAMPLE OUTPUT
@@ -470,7 +484,7 @@ READING: data-type="reading" data-index="0" (or 1, 2...)
 2. CITE EVERYTHING: Use inline citations with links to sources
 3. USE CALLOUTS: Definition, Key Insight, Example boxes for important content
 4. EMBED RESOURCES: With context before AND synthesis after
-5. Minimum 800 words of explanatory PROSE
+5. Prefer clarity over length; if in doubt, shorten and add headings/bullets
 6. EVERY paragraph wrapped in <p> tags, 2-4 sentences max
 
 FORBIDDEN:
