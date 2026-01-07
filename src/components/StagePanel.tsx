@@ -1,12 +1,14 @@
-import { MapPin, Sparkles, BookOpen, Award, ExternalLink, Target, Lightbulb, Eye, Play, PenTool, Compass, ClipboardCheck } from "lucide-react";
+import { MapPin, Sparkles, BookOpen, Award, ExternalLink, Target, Lightbulb, Eye, Play, PenTool, Compass, ClipboardCheck, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MissionControlStep, ViewMode, PedagogicalFunction, CognitiveLevel } from "@/hooks/useMissionControl";
-import { StepSummary } from "@/components/StepSummary";
+import { NarrativeLearningContent } from "@/components/NarrativeLearningContent";
 import { CuratedLearningPlayer } from "@/components/CuratedLearningPlayer";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useCuratedResources } from "@/hooks/useCuratedResources";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-
+import { useState, useEffect } from "react";
 interface StagePanelProps {
   mode: ViewMode;
   currentStep: MissionControlStep | null;
@@ -77,6 +79,104 @@ const COGNITIVE_LABELS: Record<CognitiveLevel, string> = {
   create: 'Create',
 };
 
+// Sub-component for Narrative-First Content Area
+function NarrativeContentArea({
+  isCapstone,
+  currentStep,
+  discipline,
+  syllabusUrls,
+  rawSources,
+  urls,
+}: {
+  isCapstone: boolean;
+  currentStep: MissionControlStep;
+  discipline: string;
+  syllabusUrls: string[];
+  rawSources: Array<{ url: string; courseName?: string; content?: string }>;
+  urls: string[];
+}) {
+  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const { resources, fetchResources, isLoading: resourcesLoading } = useCuratedResources();
+
+  // Fetch resources for embedding in narrative
+  useEffect(() => {
+    if (!isCapstone && currentStep.title) {
+      fetchResources(currentStep.title, discipline, syllabusUrls, '', undefined, false);
+    }
+  }, [currentStep.title, discipline, syllabusUrls, isCapstone, fetchResources]);
+
+  const sourceContent = (() => {
+    const relevantSources = rawSources.filter(s => urls.includes(s.url));
+    return relevantSources
+      .map(s => s.content && s.content !== '[[EXTRACTION_FAILED]]' ? s.content : '')
+      .filter(Boolean)
+      .join('\n\n---\n\n');
+  })();
+
+  if (isCapstone) {
+    return (
+      <div className="w-full min-w-0 overflow-hidden">
+        <CapstoneAssignment
+          stepTitle={currentStep.title}
+          discipline={discipline}
+          syllabusUrls={syllabusUrls}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full min-w-0 overflow-hidden space-y-6">
+      {/* PRIMARY: AI Course Notes with Interwoven Resources */}
+      <NarrativeLearningContent
+        stepTitle={currentStep.title}
+        discipline={discipline}
+        stepDescription={currentStep.description || ""}
+        sourceContent={sourceContent}
+        learningObjective={currentStep.learningObjective}
+        pedagogicalFunction={currentStep.pedagogicalFunction}
+        cognitiveLevel={currentStep.cognitiveLevel}
+        narrativePosition={currentStep.narrativePosition}
+        evidenceOfMastery={currentStep.evidenceOfMastery}
+        resources={resources ? {
+          coreVideos: resources.coreVideos,
+          coreReadings: resources.coreReadings,
+        } : undefined}
+        autoLoad={true}
+      />
+
+      {/* SECONDARY: Collapsible Supporting Resources */}
+      <Collapsible open={resourcesOpen} onOpenChange={setResourcesOpen}>
+        <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-muted/30 hover:bg-muted/50 rounded-lg transition-colors border">
+          <div className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-sm">Supporting Resources & Online Courses</span>
+            {resources && (
+              <Badge variant="secondary" className="text-xs">
+                {(resources.coreVideos?.length || 0) + (resources.coreReadings?.length || 0) + (resources.moocs?.length || 0)} items
+              </Badge>
+            )}
+          </div>
+          <ChevronDown className={cn(
+            "h-4 w-4 text-muted-foreground transition-transform",
+            resourcesOpen && "rotate-180"
+          )} />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-4">
+          <CuratedLearningPlayer 
+            key={currentStep.title}
+            stepTitle={currentStep.title}
+            discipline={discipline}
+            syllabusUrls={syllabusUrls}
+            isCapstone={false}
+            autoLoad={true}
+          />
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
+
 export function StagePanel({
   mode,
   currentStep,
@@ -91,7 +191,6 @@ export function StagePanel({
   getSourceColorByUrl,
 }: StagePanelProps) {
   const { t } = useTranslation();
-
   // Draft Mode: Show placeholder
   if (mode === 'draft') {
     return (
@@ -308,39 +407,15 @@ export function StagePanel({
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="w-full min-w-0 overflow-hidden">
-          {isCapstone ? (
-            <CapstoneAssignment
-              stepTitle={currentStep.title}
-              discipline={discipline}
-              syllabusUrls={syllabusUrls}
-            />
-          ) : (
-            <>
-              <CuratedLearningPlayer 
-                key={currentStep.title}
-                stepTitle={currentStep.title}
-                discipline={discipline}
-                syllabusUrls={syllabusUrls}
-                isCapstone={false}
-                autoLoad={true}
-              />
-              <StepSummary
-                stepTitle={currentStep.title}
-                discipline={discipline}
-                stepDescription={currentStep.description || ""}
-                sourceContent={(() => {
-                  const relevantSources = rawSources.filter(s => urls.includes(s.url));
-                  return relevantSources
-                    .map(s => s.content && s.content !== '[[EXTRACTION_FAILED]]' ? s.content : '')
-                    .filter(Boolean)
-                    .join('\n\n---\n\n');
-                })()}
-              />
-            </>
-          )}
-        </div>
+        {/* Content Area - Narrative First Design */}
+        <NarrativeContentArea
+          isCapstone={isCapstone}
+          currentStep={currentStep}
+          discipline={discipline}
+          syllabusUrls={syllabusUrls}
+          rawSources={rawSources}
+          urls={urls}
+        />
       </div>
     </div>
   );
