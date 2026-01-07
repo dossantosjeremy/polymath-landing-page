@@ -113,7 +113,10 @@ export function SyllabusMissionControl({
   // Handler for generating all notes in a module
   const handleGenerateModuleNotes = useCallback(async (pillar: string, stepTitles: string[]) => {
     setGeneratingModule(pillar);
-    toast.info(`Generating notes for ${stepTitles.length} steps in "${pillar}"...`);
+    const toastId = toast.loading(`Generating notes: 0/${stepTitles.length}...`);
+    
+    let successCount = 0;
+    let failCount = 0;
     
     try {
       // Generate notes sequentially to avoid rate limiting
@@ -122,7 +125,8 @@ export function SyllabusMissionControl({
         const step = confirmedSteps.find(s => s.title === stepTitle);
         if (!step) continue;
 
-        toast.info(`Generating ${i + 1}/${stepTitles.length}: ${stepTitle}`);
+        // Update progress toast (no flicker - just updates existing toast)
+        toast.loading(`Generating notes: ${i + 1}/${stepTitles.length}...`, { id: toastId });
 
         const sourceContent = rawSources
           .filter(s => step.sourceUrls?.includes(s.url) || step.sourceUrl === s.url)
@@ -130,21 +134,27 @@ export function SyllabusMissionControl({
           .filter(Boolean)
           .join('\n\n---\n\n');
 
-        await supabase.functions.invoke('generate-step-summary', {
-          body: {
-            stepTitle,
-            discipline,
-            stepDescription: step.description || '',
-            sourceContent,
-            referenceLength: 'comprehensive',
-            forceRefresh: false,
-            learningObjective: step.learningObjective,
-            pedagogicalFunction: step.pedagogicalFunction,
-            cognitiveLevel: step.cognitiveLevel,
-            narrativePosition: step.narrativePosition,
-            evidenceOfMastery: step.evidenceOfMastery,
-          }
-        });
+        try {
+          await supabase.functions.invoke('generate-step-summary', {
+            body: {
+              stepTitle,
+              discipline,
+              stepDescription: step.description || '',
+              sourceContent,
+              referenceLength: 'comprehensive',
+              forceRefresh: false,
+              learningObjective: step.learningObjective,
+              pedagogicalFunction: step.pedagogicalFunction,
+              cognitiveLevel: step.cognitiveLevel,
+              narrativePosition: step.narrativePosition,
+              evidenceOfMastery: step.evidenceOfMastery,
+            }
+          });
+          successCount++;
+        } catch (stepError) {
+          console.error(`Error generating notes for "${stepTitle}":`, stepError);
+          failCount++;
+        }
 
         // Small delay to avoid rate limiting
         if (i < stepTitles.length - 1) {
@@ -152,10 +162,14 @@ export function SyllabusMissionControl({
         }
       }
 
-      toast.success(`Generated notes for all ${stepTitles.length} steps in "${pillar}"`);
+      if (failCount === 0) {
+        toast.success(`Generated ${successCount} notes for "${pillar}"`, { id: toastId });
+      } else {
+        toast.warning(`Generated ${successCount} notes, ${failCount} failed`, { id: toastId });
+      }
     } catch (error) {
       console.error('Error generating module notes:', error);
-      toast.error('Failed to generate some notes');
+      toast.error('Failed to generate notes', { id: toastId });
     } finally {
       setGeneratingModule(null);
     }
