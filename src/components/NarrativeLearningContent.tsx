@@ -1,18 +1,22 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Loader2, BookOpen, Target, Lightbulb, CheckCircle, AlertTriangle, ExternalLink, Play, FileText, Sparkles } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Loader2, BookOpen, Target, Lightbulb, CheckCircle, AlertTriangle, ExternalLink, Play, FileText, Sparkles, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useStepSummary } from '@/hooks/useStepSummary';
-import { CuratedResource } from '@/hooks/useCuratedResources';
+import { CuratedResource, CuratedStepResources } from '@/hooks/useCuratedResources';
+import { useResourceCache } from '@/contexts/ResourceCacheContext';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 interface NarrativeLearningContentProps {
   stepTitle: string;
   discipline: string;
   stepDescription: string;
   sourceContent: string;
+  syllabusUrls?: string[];
   learningObjective?: string;
   pedagogicalFunction?: string;
   cognitiveLevel?: string;
@@ -26,16 +30,27 @@ interface NarrativeLearningContentProps {
 }
 
 // Loading skeleton that shows content is coming
-function NarrativeLoadingSkeleton() {
+function NarrativeLoadingSkeleton({ stage }: { stage: 'resources' | 'notes' }) {
   return (
-    <div className="space-y-6 animate-pulse">
-      <div className="space-y-3">
+    <div className="space-y-8 animate-pulse">
+      <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-lg border border-primary/20">
+        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+        <div>
+          <p className="font-medium text-sm">
+            {stage === 'resources' ? 'Finding learning resources...' : 'Generating course notes with embedded media...'}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {stage === 'resources' 
+              ? 'Searching for videos, readings, and courses' 
+              : 'Writing explanatory prose with interwoven resources'}
+          </p>
+        </div>
+      </div>
+      
+      <div className="space-y-4">
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-4/5" />
       </div>
       
       {/* Video placeholder */}
@@ -51,11 +66,10 @@ function NarrativeLoadingSkeleton() {
         </CardContent>
       </Card>
       
-      <div className="space-y-3">
+      <div className="space-y-4">
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />
         <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-3/4" />
       </div>
       
       {/* Reading placeholder */}
@@ -69,7 +83,7 @@ function NarrativeLoadingSkeleton() {
         </CardContent>
       </Card>
       
-      <div className="space-y-3">
+      <div className="space-y-4">
         <Skeleton className="h-6 w-1/2" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />
@@ -83,7 +97,7 @@ function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
   const videoId = resource.url?.match(/(?:v=|youtu\.be\/|embed\/)([^&?/]+)/)?.[1];
   
   return (
-    <div className="my-8 rounded-xl overflow-hidden border-2 border-primary/20 bg-card shadow-lg">
+    <div className="my-10 rounded-xl overflow-hidden border-2 border-primary/20 bg-card shadow-lg">
       {/* Video Player */}
       {videoId ? (
         <div className="aspect-video bg-black">
@@ -104,23 +118,23 @@ function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
         >
           <div className="text-center">
             <Play className="h-16 w-16 text-primary mx-auto mb-3" />
-            <span className="text-sm text-muted-foreground">Watch Video</span>
+            <span className="text-sm text-muted-foreground">Watch Video (opens in new tab)</span>
           </div>
         </a>
       )}
       {/* Video Info */}
-      <div className="p-5 bg-gradient-to-b from-muted/50 to-transparent">
+      <div className="p-6 bg-gradient-to-b from-muted/50 to-transparent">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge className="bg-red-500 text-white text-xs px-2">Video</Badge>
+            <div className="flex items-center gap-2 mb-3">
+              <Badge className="bg-red-500 text-white text-xs px-2">🎬 Required Video</Badge>
               {resource.duration && (
                 <Badge variant="outline" className="text-xs">{resource.duration}</Badge>
               )}
             </div>
-            <h4 className="font-semibold text-base leading-snug">{resource.title}</h4>
+            <h4 className="font-semibold text-lg leading-snug mb-1">{resource.title}</h4>
             {resource.author && (
-              <p className="text-sm text-muted-foreground mt-1">by {resource.author}</p>
+              <p className="text-sm text-muted-foreground">by {resource.author}</p>
             )}
           </div>
           <a 
@@ -128,13 +142,14 @@ function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
             target="_blank" 
             rel="noopener noreferrer"
             className="p-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+            title="Open in new tab"
           >
             <ExternalLink className="h-4 w-4" />
           </a>
         </div>
         {resource.rationale && (
-          <p className="text-sm text-muted-foreground mt-3 pt-3 border-t border-border/50 italic">
-            💡 {resource.rationale}
+          <p className="text-sm text-muted-foreground mt-4 pt-4 border-t border-border/50 italic leading-relaxed">
+            💡 <strong>Why this video:</strong> {resource.rationale}
           </p>
         )}
       </div>
@@ -142,40 +157,41 @@ function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
   );
 }
 
-// Render an embedded reading with better styling
+// Render an embedded reading with better styling and external link handling
 function EmbeddedReading({ resource }: { resource: CuratedResource }) {
   return (
-    <div className="my-8">
+    <div className="my-10">
       <a 
         href={resource.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="block p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-card hover:border-blue-400 dark:hover:border-blue-600 transition-all shadow-md hover:shadow-lg group"
+        className="block p-6 rounded-xl border-2 border-blue-200 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-card hover:border-blue-400 dark:hover:border-blue-600 transition-all shadow-md hover:shadow-lg group"
       >
         <div className="flex items-start gap-4">
           <div className="p-3 rounded-xl bg-blue-500/10 shrink-0 group-hover:bg-blue-500/20 transition-colors">
             <FileText className="h-7 w-7 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <Badge className="bg-blue-500 text-white text-xs px-2">Reading</Badge>
+            <div className="flex items-center gap-2 mb-3">
+              <Badge className="bg-blue-500 text-white text-xs px-2">📄 Required Reading</Badge>
               {resource.consumptionTime && (
                 <Badge variant="outline" className="text-xs">{resource.consumptionTime}</Badge>
               )}
+              <Badge variant="outline" className="text-xs text-muted-foreground">
+                <ExternalLink className="h-3 w-3 mr-1" />
+                Opens in new tab
+              </Badge>
             </div>
-            <div className="flex items-start justify-between gap-3">
-              <h4 className="font-semibold text-base leading-snug group-hover:text-primary transition-colors">{resource.title}</h4>
-              <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 group-hover:text-primary transition-colors" />
-            </div>
+            <h4 className="font-semibold text-lg leading-snug group-hover:text-primary transition-colors mb-2">{resource.title}</h4>
             {resource.domain && (
-              <p className="text-xs text-muted-foreground mt-1.5 font-medium">{resource.domain}</p>
+              <p className="text-sm text-muted-foreground font-medium">{resource.domain}</p>
             )}
             {resource.snippet && (
-              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{resource.snippet}</p>
+              <p className="text-sm text-muted-foreground mt-3 leading-relaxed">{resource.snippet}</p>
             )}
             {resource.rationale && (
-              <p className="text-sm text-blue-700 dark:text-blue-400 mt-3 pt-3 border-t border-blue-200/50 dark:border-blue-800/30 italic">
-                📖 {resource.rationale}
+              <p className="text-sm text-blue-700 dark:text-blue-400 mt-4 pt-4 border-t border-blue-200/50 dark:border-blue-800/30 italic leading-relaxed">
+                📖 <strong>Why this reading:</strong> {resource.rationale}
               </p>
             )}
           </div>
@@ -259,44 +275,44 @@ function NarrativeContent({
   }, [html]);
 
   return (
-    <div className="narrative-content space-y-4">
+    <div className="narrative-content space-y-6">
       {parts.map((part, i) => {
         if (part.type === 'html') {
           return (
             <div 
               key={i}
               className={cn(
-                "prose prose-slate dark:prose-invert max-w-none",
-                // --- HEADERS - Strong visual hierarchy ---
+                "prose prose-lg prose-slate dark:prose-invert max-w-none",
+                // --- HEADERS - Strong visual hierarchy with breathing room ---
                 "prose-headings:font-bold prose-headings:text-foreground prose-headings:scroll-mt-20",
-                "prose-h1:text-2xl prose-h1:mt-10 prose-h1:mb-6 prose-h1:text-primary",
-                "prose-h2:text-xl prose-h2:mt-10 prose-h2:mb-4 prose-h2:pb-3 prose-h2:border-b-2 prose-h2:border-primary/20",
-                "prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3 prose-h3:text-foreground/90",
-                "prose-h4:text-base prose-h4:font-semibold prose-h4:mt-6 prose-h4:mb-2",
-                // --- PARAGRAPHS - Readable line height, good spacing ---
-                "prose-p:text-base prose-p:leading-relaxed prose-p:mb-5 prose-p:text-foreground/90",
+                "prose-h1:text-2xl prose-h1:mt-12 prose-h1:mb-6 prose-h1:text-primary",
+                "prose-h2:text-xl prose-h2:mt-14 prose-h2:mb-5 prose-h2:pb-4 prose-h2:border-b-2 prose-h2:border-primary/20",
+                "prose-h3:text-lg prose-h3:mt-10 prose-h3:mb-4 prose-h3:text-foreground/90",
+                "prose-h4:text-base prose-h4:font-semibold prose-h4:mt-8 prose-h4:mb-3",
+                // --- PARAGRAPHS - Very generous spacing for easy reading ---
+                "prose-p:text-base prose-p:leading-loose prose-p:mb-6 prose-p:text-foreground/90",
                 // --- LINKS - Clearly clickable citations ---
                 "prose-a:text-primary prose-a:font-medium prose-a:no-underline prose-a:border-b prose-a:border-primary/40 hover:prose-a:border-primary hover:prose-a:text-primary/80",
-                // --- LISTS - Scannable with proper spacing ---
-                "prose-ul:my-5 prose-ul:ml-5 prose-ul:space-y-2",
-                "prose-ol:my-5 prose-ol:ml-5 prose-ol:space-y-2",
-                "prose-li:text-foreground/90 prose-li:leading-relaxed prose-li:pl-1",
-                // --- BLOCKQUOTES - Prominent callouts ---
-                "prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 prose-blockquote:pl-5 prose-blockquote:pr-4 prose-blockquote:py-4 prose-blockquote:my-6 prose-blockquote:rounded-r-lg",
+                // --- LISTS - Scannable with generous spacing ---
+                "prose-ul:my-6 prose-ul:ml-6 prose-ul:space-y-3",
+                "prose-ol:my-6 prose-ol:ml-6 prose-ol:space-y-3",
+                "prose-li:text-foreground/90 prose-li:leading-relaxed prose-li:pl-2",
+                // --- BLOCKQUOTES - Prominent callouts with more padding ---
+                "prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 prose-blockquote:pl-6 prose-blockquote:pr-5 prose-blockquote:py-5 prose-blockquote:my-8 prose-blockquote:rounded-r-lg",
                 "prose-blockquote:not-italic prose-blockquote:text-foreground",
                 // --- STRONG/EM - Clear visual emphasis ---
                 "prose-strong:font-bold prose-strong:text-foreground",
                 "prose-em:italic prose-em:text-foreground/80",
                 // --- MARK - Highlighted key points ---
-                "[&_mark]:bg-yellow-100 [&_mark]:dark:bg-yellow-900/40 [&_mark]:px-1 [&_mark]:py-0.5 [&_mark]:rounded [&_mark]:font-medium",
+                "[&_mark]:bg-yellow-100 [&_mark]:dark:bg-yellow-900/40 [&_mark]:px-1.5 [&_mark]:py-1 [&_mark]:rounded [&_mark]:font-medium",
                 // --- CITATIONS - Superscript footnotes ---
                 "[&_.citation]:text-primary [&_.citation]:font-semibold [&_.citation]:text-sm",
                 "[&_.footnote]:text-primary [&_.footnote]:text-xs [&_.footnote]:font-bold",
-                // --- CALLOUT BOXES - Styled definition/insight/example boxes ---
-                "[&_.callout-definition]:bg-blue-50 [&_.callout-definition]:dark:bg-blue-950/30 [&_.callout-definition]:border-l-4 [&_.callout-definition]:border-blue-500 [&_.callout-definition]:p-4 [&_.callout-definition]:my-6 [&_.callout-definition]:rounded-r-lg",
-                "[&_.callout-key-insight]:bg-amber-50 [&_.callout-key-insight]:dark:bg-amber-950/30 [&_.callout-key-insight]:border-l-4 [&_.callout-key-insight]:border-amber-500 [&_.callout-key-insight]:p-4 [&_.callout-key-insight]:my-6 [&_.callout-key-insight]:rounded-r-lg",
-                "[&_.callout-example]:bg-green-50 [&_.callout-example]:dark:bg-green-950/30 [&_.callout-example]:border-l-4 [&_.callout-example]:border-green-500 [&_.callout-example]:p-4 [&_.callout-example]:my-6 [&_.callout-example]:rounded-r-lg",
-                "[&_.callout-warning]:bg-red-50 [&_.callout-warning]:dark:bg-red-950/30 [&_.callout-warning]:border-l-4 [&_.callout-warning]:border-red-500 [&_.callout-warning]:p-4 [&_.callout-warning]:my-6 [&_.callout-warning]:rounded-r-lg",
+                // --- CALLOUT BOXES - Styled definition/insight/example boxes with more room ---
+                "[&_.callout-definition]:bg-blue-50 [&_.callout-definition]:dark:bg-blue-950/30 [&_.callout-definition]:border-l-4 [&_.callout-definition]:border-blue-500 [&_.callout-definition]:p-5 [&_.callout-definition]:my-8 [&_.callout-definition]:rounded-r-lg",
+                "[&_.callout-key-insight]:bg-amber-50 [&_.callout-key-insight]:dark:bg-amber-950/30 [&_.callout-key-insight]:border-l-4 [&_.callout-key-insight]:border-amber-500 [&_.callout-key-insight]:p-5 [&_.callout-key-insight]:my-8 [&_.callout-key-insight]:rounded-r-lg",
+                "[&_.callout-example]:bg-green-50 [&_.callout-example]:dark:bg-green-950/30 [&_.callout-example]:border-l-4 [&_.callout-example]:border-green-500 [&_.callout-example]:p-5 [&_.callout-example]:my-8 [&_.callout-example]:rounded-r-lg",
+                "[&_.callout-warning]:bg-red-50 [&_.callout-warning]:dark:bg-red-950/30 [&_.callout-warning]:border-l-4 [&_.callout-warning]:border-red-500 [&_.callout-warning]:p-5 [&_.callout-warning]:my-8 [&_.callout-warning]:rounded-r-lg",
                 // --- CITE in blockquotes ---
                 "[&_cite]:block [&_cite]:text-sm [&_cite]:text-muted-foreground [&_cite]:mt-3 [&_cite]:not-italic",
                 // --- CODE ---
@@ -326,16 +342,30 @@ export function NarrativeLearningContent({
   discipline,
   stepDescription,
   sourceContent,
+  syllabusUrls = [],
   learningObjective,
   pedagogicalFunction,
   cognitiveLevel,
   narrativePosition,
   evidenceOfMastery,
-  resources,
-  autoLoad = false, // Changed to false by default
+  resources: propResources,
+  autoLoad = false,
 }: NarrativeLearningContentProps) {
-  const { summary, isLoading, error, generateSummary, currentStepTitle } = useStepSummary();
+  const { summary, isLoading: isSummaryLoading, error: summaryError, generateSummary, currentStepTitle } = useStepSummary();
+  const { getResource, setResource, hasResource } = useResourceCache();
+  const { toast } = useToast();
   
+  const [isLoadingResources, setIsLoadingResources] = useState(false);
+  const [loadingStage, setLoadingStage] = useState<'resources' | 'notes'>('resources');
+  const [resourceError, setResourceError] = useState<string | null>(null);
+
+  // Get resources from cache or props
+  const cachedResources = getResource(stepTitle);
+  const resources = propResources || (cachedResources ? {
+    coreVideos: cachedResources.coreVideos,
+    coreReadings: cachedResources.coreReadings,
+  } : undefined);
+
   // Check if we have a summary for THIS step
   const hasCurrentSummary = summary && currentStepTitle === stepTitle;
 
@@ -345,39 +375,94 @@ export function NarrativeLearningContent({
     return hydrateEmbeddedResources(summary, resources);
   }, [hasCurrentSummary, summary, resources]);
 
-  const handleGenerate = () => {
-    generateSummary(
+  // Unified loading: fetch resources first, then generate notes with them
+  const handleGenerateWithResources = useCallback(async (forceRefresh = false) => {
+    setResourceError(null);
+    
+    // Step 1: Check if we have cached resources, if not fetch them
+    let currentResources = resources;
+    
+    if (!hasResource(stepTitle) || forceRefresh) {
+      setIsLoadingResources(true);
+      setLoadingStage('resources');
+      
+      try {
+        const { data, error } = await supabase.functions.invoke('fetch-step-resources', {
+          body: { 
+            stepTitle, 
+            discipline, 
+            syllabusUrls,
+            useCuratedFormat: true,
+            forceRefresh
+          }
+        });
+        
+        if (error) throw error;
+        
+        // Cache the resources
+        if (data) {
+          const curatedResources: Partial<CuratedStepResources> = {
+            coreVideos: data.coreVideos || data.core?.videos || [],
+            coreReadings: data.coreReadings || data.core?.readings || [],
+            coreVideo: null,
+            coreReading: null,
+            learningObjective: data.learningObjective || '',
+            totalCoreTime: data.totalCoreTime || '',
+            totalExpandedTime: data.totalExpandedTime || '',
+            deepDive: data.deepDive || [],
+            expansionPack: data.expansionPack || [],
+            moocs: data.moocs || [],
+            excludedCore: data.excludedCore || [],
+            availabilityReport: data.availabilityReport || { videosFound: 0, videosShownAsCore: 0, readingsFound: 0, readingsShownAsCore: 0, wasLimitedByAvailability: false },
+            videos: data.videos || [],
+            readings: data.readings || [],
+            books: data.books || [],
+            alternatives: data.alternatives || [],
+          };
+          setResource(stepTitle, curatedResources as CuratedStepResources);
+          currentResources = {
+            coreVideos: curatedResources.coreVideos || [],
+            coreReadings: curatedResources.coreReadings || [],
+          };
+          
+          toast({
+            title: "Resources loaded",
+            description: `Found ${curatedResources.coreVideos?.length || 0} videos, ${curatedResources.coreReadings?.length || 0} readings`,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching resources:', err);
+        setResourceError(err instanceof Error ? err.message : 'Failed to load resources');
+        setIsLoadingResources(false);
+        return;
+      }
+    }
+    
+    // Step 2: Generate notes with the resources
+    setLoadingStage('notes');
+    setIsLoadingResources(false);
+    
+    await generateSummary(
       stepTitle, 
       discipline, 
       stepDescription, 
       sourceContent, 
-      resources,
+      currentResources,
       'comprehensive',
-      false,
+      forceRefresh,
       learningObjective,
       pedagogicalFunction,
       cognitiveLevel,
       narrativePosition,
       evidenceOfMastery
     );
-  };
+  }, [stepTitle, discipline, syllabusUrls, resources, hasResource, setResource, generateSummary, stepDescription, sourceContent, learningObjective, pedagogicalFunction, cognitiveLevel, narrativePosition, evidenceOfMastery, toast]);
 
-  const handleRegenerate = () => {
-    generateSummary(
-      stepTitle, 
-      discipline, 
-      stepDescription, 
-      sourceContent, 
-      resources,
-      'comprehensive',
-      true, // force refresh
-      learningObjective,
-      pedagogicalFunction,
-      cognitiveLevel,
-      narrativePosition,
-      evidenceOfMastery
-    );
-  };
+  const handleGenerate = () => handleGenerateWithResources(false);
+  const handleRegenerate = () => handleGenerateWithResources(true);
+  
+  const isLoading = isLoadingResources || isSummaryLoading;
+  const error = resourceError || summaryError;
 
   return (
     <div className="narrative-learning-content space-y-6">
@@ -404,13 +489,7 @@ export function NarrativeLearningContent({
 
       {/* Loading State */}
       {isLoading && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Generating course notes with embedded resources...</span>
-          </div>
-          <NarrativeLoadingSkeleton />
-        </div>
+        <NarrativeLoadingSkeleton stage={loadingStage} />
       )}
 
       {/* Error State */}
