@@ -54,6 +54,19 @@ interface StepGroup {
   totalHours: number;
 }
 
+// Extract module number from title like "Module 1 - Step 2: Title"
+function extractModuleFromTitle(title: string): string | null {
+  const match = title.match(/^Module\s*(\d+)/i);
+  return match ? `Module ${match[1]}` : null;
+}
+
+// Get clean step title (without "Module X - Step Y:" prefix)
+function getCleanStepTitle(title: string): string {
+  // Remove "Module X - Step Y:" prefix if present
+  const cleaned = title.replace(/^Module\s*\d+\s*-\s*Step\s*\d+:\s*/i, '').trim();
+  return cleaned || title;
+}
+
 export function CurriculumMetroMap({
   steps,
   mode,
@@ -74,16 +87,19 @@ export function CurriculumMetroMap({
   const { t } = useTranslation();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
-  // Group steps by pillar for hierarchical display
+  // Group steps by module (extracted from title) for hierarchical display
   const groupedSteps = useMemo((): StepGroup[] => {
     const groups = new Map<string, Array<{ step: MissionControlStep; index: number }>>();
     
     steps.forEach((step, index) => {
-      const pillar = step.pillar || step.tag;
-      if (!groups.has(pillar)) {
-        groups.set(pillar, []);
+      // Try to extract module from title first, fallback to pillar/tag
+      const moduleFromTitle = extractModuleFromTitle(step.title);
+      const groupKey = moduleFromTitle || step.pillar || step.tag;
+      
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
       }
-      groups.get(pillar)!.push({ step, index });
+      groups.get(groupKey)!.push({ step, index });
     });
 
     return Array.from(groups.entries()).map(([pillar, stepsInGroup]) => ({
@@ -98,11 +114,14 @@ export function CurriculumMetroMap({
     const groups = new Map<string, Array<{ step: MissionControlStep; index: number }>>();
     
     confirmedSteps.forEach((step, index) => {
-      const pillar = step.pillar || step.tag;
-      if (!groups.has(pillar)) {
-        groups.set(pillar, []);
+      // Try to extract module from title first, fallback to pillar/tag
+      const moduleFromTitle = extractModuleFromTitle(step.title);
+      const groupKey = moduleFromTitle || step.pillar || step.tag;
+      
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
       }
-      groups.get(pillar)!.push({ step, index });
+      groups.get(groupKey)!.push({ step, index });
     });
 
     return Array.from(groups.entries()).map(([pillar, stepsInGroup]) => ({
@@ -134,8 +153,11 @@ export function CurriculumMetroMap({
 
   // Initialize all groups as expanded - use useEffect, not useMemo
   useEffect(() => {
-    const allPillars = new Set(steps.map(s => s.pillar || s.tag));
-    setExpandedGroups(allPillars);
+    const allGroups = new Set(steps.map(s => {
+      const moduleFromTitle = extractModuleFromTitle(s.title);
+      return moduleFromTitle || s.pillar || s.tag;
+    }));
+    setExpandedGroups(allGroups);
   }, [steps]);
 
   const renderDraftStep = (step: MissionControlStep, index: number) => {
@@ -214,7 +236,7 @@ export function CurriculumMetroMap({
                 "font-medium text-xs leading-tight",
                 !isSelected && "text-muted-foreground"
               )}>
-                {step.title}
+                {getCleanStepTitle(step.title)}
               </h4>
               
               {step.learningObjective && isSelected && (
@@ -288,7 +310,7 @@ export function CurriculumMetroMap({
             "font-medium text-xs",
             isPast && "text-muted-foreground"
           )}>
-            {step.title}
+            {getCleanStepTitle(step.title)}
           </h4>
         </button>
       </div>
