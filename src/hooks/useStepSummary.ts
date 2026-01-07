@@ -15,7 +15,13 @@ export const useStepSummary = () => {
     sourceContent: string,
     resources?: any,
     referenceLength: 'brief' | 'standard' | 'comprehensive' = 'standard',
-    forceRefresh: boolean = false
+    forceRefresh: boolean = false,
+    // NEW: Pedagogical metadata from Course Grammar
+    learningObjective?: string,
+    pedagogicalFunction?: string,
+    cognitiveLevel?: string,
+    narrativePosition?: string,
+    evidenceOfMastery?: string
   ) => {
     setIsLoading(true);
     setError(null);
@@ -31,6 +37,12 @@ export const useStepSummary = () => {
           referenceLength,
           forceRefresh,
           locale: i18n.language,
+          // Pass pedagogical metadata
+          learningObjective,
+          pedagogicalFunction,
+          cognitiveLevel,
+          narrativePosition,
+          evidenceOfMastery,
         }
       });
 

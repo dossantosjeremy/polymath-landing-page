@@ -29,6 +29,159 @@ const AUTHORITY_DOMAINS: Record<string, { type: string; reason: string }> = {
   'udemy.com': { type: 'industry_standard', reason: 'Udemy - Professional skills courses' },
 };
 
+// ═══════════════════════════════════════════════════════════════
+// ULTRALEARNING APPROACH: Resource Pedagogical Function Classifier
+// ═══════════════════════════════════════════════════════════════
+
+// Pedagogical function types for resources (from Ultralearning spec)
+type ResourcePedagogicalFunction = 
+  | 'concept_exposition'      // Formally introduces theory
+  | 'expert_demonstration'    // Shows expert doing/analyzing
+  | 'guided_practice'         // Interactive exercises
+  | 'pre_exposure'            // Schema activation
+  | 'retrieval_practice';     // Assessment/quiz
+
+// HARD GATE: Classify pedagogical function - null means DISCARD
+function classifyResourcePedagogicalFunction(
+  resource: any, 
+  type: string,
+  stepPedagogicalFunction?: string
+): ResourcePedagogicalFunction | null {
+  const title = (resource.title || '').toLowerCase();
+  const author = (resource.author || '').toLowerCase();
+  const url = (resource.url || '').toLowerCase();
+  const description = (resource.snippet || resource.description || '').toLowerCase();
+  
+  // CONCEPT EXPOSITION indicators
+  const conceptExpositionKeywords = [
+    'introduction', 'explained', 'what is', 'understanding', 'fundamentals',
+    'basics', 'overview', 'principles', 'concept', 'theory', 'lecture',
+    'course', 'learn', 'guide', 'tutorial', 'education', 'teaching',
+    'academic', 'university', 'professor', 'khan academy', 'crashcourse',
+    'ted-ed', '3blue1brown', 'veritasium', 'mit', 'stanford', 'harvard'
+  ];
+  
+  // EXPERT DEMONSTRATION indicators
+  const expertDemoKeywords = [
+    'demonstration', 'demo', 'example', 'case study', 'walkthrough',
+    'how to', 'step by step', 'showing', 'practice', 'real world',
+    'applied', 'in action', 'hands on', 'workshop', 'masterclass'
+  ];
+  
+  // GUIDED PRACTICE indicators  
+  const guidedPracticeKeywords = [
+    'exercise', 'practice', 'try it', 'interactive', 'worksheet',
+    'lab', 'problem set', 'coding challenge', 'quiz'
+  ];
+  
+  // PRE-EXPOSURE indicators
+  const preExposureKeywords = [
+    'preview', 'introduction to', 'before you start', 'overview',
+    'what you\'ll learn', 'getting started', 'primer'
+  ];
+  
+  // RETRIEVAL PRACTICE indicators
+  const retrievalKeywords = [
+    'quiz', 'test', 'exam', 'assessment', 'check your understanding',
+    'review', 'flashcard', 'practice test'
+  ];
+  
+  const allText = `${title} ${author} ${description} ${url}`;
+  
+  // Check for retrieval practice (quizzes, tests)
+  if (retrievalKeywords.some(kw => allText.includes(kw))) {
+    return 'retrieval_practice';
+  }
+  
+  // Check for guided practice (exercises)
+  if (guidedPracticeKeywords.some(kw => allText.includes(kw))) {
+    return 'guided_practice';
+  }
+  
+  // Check for expert demonstration
+  if (expertDemoKeywords.some(kw => allText.includes(kw))) {
+    return 'expert_demonstration';
+  }
+  
+  // Check for pre-exposure
+  if (preExposureKeywords.some(kw => allText.includes(kw))) {
+    return 'pre_exposure';
+  }
+  
+  // Check for concept exposition (most common for videos/readings)
+  if (conceptExpositionKeywords.some(kw => allText.includes(kw))) {
+    return 'concept_exposition';
+  }
+  
+  // For academic/authoritative sources, default to concept_exposition
+  const isAuthoritative = Object.keys(AUTHORITY_DOMAINS).some(d => url.includes(d)) ||
+    ['youtube.com', 'youtu.be'].some(d => url.includes(d));
+  
+  if (isAuthoritative && (type === 'video' || type === 'reading')) {
+    return 'concept_exposition';
+  }
+  
+  // ⚠️ HARD GATE: If no clear function, return null to DISCARD
+  console.log(`⚠️ No pedagogical function for: ${resource.title?.substring(0, 50)}`);
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ULTRALEARNING APPROACH: Authoritative YouTube Channels
+// ═══════════════════════════════════════════════════════════════
+
+// Authoritative YouTube channels (Ultralearning requirement)
+const AUTHORITATIVE_YOUTUBE_CHANNELS = [
+  // Academic/Institutional
+  'mit opencourseware', 'stanford', 'harvard', 'yale courses', 'oxford',
+  'khan academy', 'crashcourse', 'ted-ed', 'national geographic',
+  // Expert educators
+  '3blue1brown', 'veritasium', 'kurzgesagt', 'minutephysics', 'numberphile',
+  'computerphile', 'smarter every day', 'vsauce', 'scishow',
+  // Professional/Industry
+  'freecodecamp', 'traversy media', 'the coding train', 'fireship',
+  'google developers', 'microsoft', 'amazon web services',
+  // History/Humanities
+  'history matters', 'overly sarcastic productions', 'the great courses',
+  'extra credits', 'world history encyclopedia'
+];
+
+// Reject patterns (entertainment, not instructional)
+const REJECT_PATTERNS = [
+  'shorts', 'reaction', 'unboxing', 'compilation', 'funny', 'meme',
+  'podcast clip', 'interview snippet', 'trailer', 'teaser', 'behind the scenes',
+  'vlog', 'day in the life', 'what i', 'my experience', 'rant'
+];
+
+function isAuthoritativeYouTubeSource(channelName: string, title: string): boolean {
+  const channelLower = channelName.toLowerCase();
+  const titleLower = title.toLowerCase();
+  
+  // Check if channel is in authoritative list
+  const isAuthoritativeChannel = AUTHORITATIVE_YOUTUBE_CHANNELS.some(
+    auth => channelLower.includes(auth)
+  );
+  
+  // Check for reject patterns in title
+  const hasRejectPattern = REJECT_PATTERNS.some(pattern => titleLower.includes(pattern));
+  
+  if (hasRejectPattern) {
+    console.log(`🚫 REJECTING (entertainment pattern): ${title.substring(0, 50)}`);
+    return false;
+  }
+  
+  // If from authoritative channel, accept
+  if (isAuthoritativeChannel) return true;
+  
+  // Check for educational indicators in title
+  const educationalIndicators = [
+    'lecture', 'course', 'tutorial', 'explained', 'introduction',
+    'learn', 'education', 'class', 'lesson', 'professor', 'university'
+  ];
+  
+  return educationalIndicators.some(ind => titleLower.includes(ind));
+}
+
 // Helper to infer proper MOOC source name from URL
 function inferMOOCSource(url: string, domain?: string): string {
   if (url.includes('coursera.org') || url.includes('coursera.com')) return 'Coursera';
