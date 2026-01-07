@@ -1,6 +1,6 @@
-import { MapPin, Sparkles, BookOpen, Award, ExternalLink } from "lucide-react";
+import { MapPin, Sparkles, BookOpen, Award, ExternalLink, Target, Lightbulb, Eye, Play, PenTool, Compass, ClipboardCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { MissionControlStep, ViewMode } from "@/hooks/useMissionControl";
+import { MissionControlStep, ViewMode, PedagogicalFunction, CognitiveLevel } from "@/hooks/useMissionControl";
 import { StepSummary } from "@/components/StepSummary";
 import { CuratedLearningPlayer } from "@/components/CuratedLearningPlayer";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
@@ -24,6 +24,58 @@ interface StagePanelProps {
   extractCourseCode: (url: string, courseName?: string) => string;
   getSourceColorByUrl: (url: string) => string;
 }
+
+// Pedagogical function configuration
+const PEDAGOGICAL_CONFIG: Record<PedagogicalFunction, { label: string; description: string; className: string; icon: typeof Eye }> = {
+  pre_exposure: { 
+    label: 'Preview', 
+    description: 'Activating prior knowledge and preparing your mental framework',
+    className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    icon: Eye 
+  },
+  concept_exposition: { 
+    label: 'Concept Exposition', 
+    description: 'Deep dive into core concepts and theoretical foundations',
+    className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    icon: BookOpen 
+  },
+  expert_demonstration: { 
+    label: 'Expert Demonstration', 
+    description: 'Learning from expert examples and real-world applications',
+    className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    icon: Play 
+  },
+  guided_practice: { 
+    label: 'Guided Practice', 
+    description: 'Applying concepts with structured guidance and feedback',
+    className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+    icon: PenTool 
+  },
+  independent_practice: { 
+    label: 'Independent Practice', 
+    description: 'Self-directed application to solidify understanding',
+    className: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400',
+    icon: Compass 
+  },
+  assessment_checkpoint: { 
+    label: 'Assessment Checkpoint', 
+    description: 'Evaluating mastery and identifying gaps',
+    className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    icon: ClipboardCheck 
+  },
+};
+
+// Bloom's cognitive level labels
+const COGNITIVE_LEVELS: CognitiveLevel[] = ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'];
+
+const COGNITIVE_LABELS: Record<CognitiveLevel, string> = {
+  remember: 'Remember',
+  understand: 'Understand',
+  apply: 'Apply',
+  analyze: 'Analyze',
+  evaluate: 'Evaluate',
+  create: 'Create',
+};
 
 export function StagePanel({
   mode,
@@ -92,6 +144,12 @@ export function StagePanel({
 
   const isCapstone = currentStep.isCapstone || currentStep.tag === 'Capstone Integration';
   const urls = currentStep.sourceUrls || (currentStep.sourceUrl ? [currentStep.sourceUrl] : []);
+  const pedagogicalConfig = currentStep.pedagogicalFunction 
+    ? PEDAGOGICAL_CONFIG[currentStep.pedagogicalFunction as PedagogicalFunction] 
+    : null;
+  const currentCognitiveIndex = currentStep.cognitiveLevel 
+    ? COGNITIVE_LEVELS.indexOf(currentStep.cognitiveLevel as CognitiveLevel)
+    : -1;
 
   // Active Mode: Show current step content
   return (
@@ -115,32 +173,99 @@ export function StagePanel({
               <BookOpen className="h-6 w-6 text-primary flex-shrink-0 mt-1" />
             )}
             <div className="min-w-0 flex-1">
-              {/* AI Discovered Badge */}
-              {currentStep.isAIDiscovered && (
-                <Badge 
-                  variant="outline" 
-                  className="text-xs mb-2 border-violet-300 text-violet-600 dark:border-violet-400 dark:text-violet-400 gap-1"
-                >
-                  <Sparkles className="h-3 w-3" />
-                  {t('learning.aiDiscovered')}
-                </Badge>
-              )}
+              {/* Badges Row */}
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                {/* Pedagogical Function Badge */}
+                {pedagogicalConfig && (
+                  <span className={cn(
+                    "text-xs px-2 py-1 rounded inline-flex items-center gap-1",
+                    pedagogicalConfig.className
+                  )}>
+                    <pedagogicalConfig.icon className="h-3 w-3" />
+                    {pedagogicalConfig.label}
+                  </span>
+                )}
+                
+                {/* AI Discovered Badge */}
+                {currentStep.isAIDiscovered && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs border-violet-300 text-violet-600 dark:border-violet-400 dark:text-violet-400 gap-1"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    {t('learning.aiDiscovered')}
+                  </Badge>
+                )}
+
+                {/* Module/Pillar Badge */}
+                {currentStep.pillar && (
+                  <span className={cn(
+                    "text-xs px-2 py-1 rounded",
+                    isCapstone
+                      ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]"
+                      : "bg-primary/10 text-primary"
+                  )}>
+                    {currentStep.pillar}
+                  </span>
+                )}
+              </div>
+
               <h1 className="text-base sm:text-xl font-bold mb-1 break-words">{currentStep.title}</h1>
-              <span className={cn(
-                "text-xs px-2 py-1 rounded inline-block",
-                isCapstone
-                  ? "bg-[hsl(var(--gold))]/20 text-[hsl(var(--gold))]"
-                  : currentStep.isAIDiscovered
-                    ? "bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400"
-                    : "bg-primary/10 text-primary"
-              )}>
-                {currentStep.tag}
-              </span>
             </div>
           </div>
 
           {currentStep.description && (
             <p className="text-muted-foreground mb-4 break-words">{currentStep.description}</p>
+          )}
+
+          {/* Learning Objective */}
+          {currentStep.learningObjective && (
+            <div className="bg-background/50 rounded-lg p-3 mb-4 border border-border/50">
+              <div className="flex items-start gap-2">
+                <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Learning Objective</p>
+                  <p className="text-sm">{currentStep.learningObjective}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Narrative Position (Why this, why now) */}
+          {currentStep.narrativePosition && (
+            <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-lg p-3 mb-4 border border-amber-200/50 dark:border-amber-800/30">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">Why this, why now</p>
+                  <p className="text-sm text-amber-900 dark:text-amber-200">{currentStep.narrativePosition}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Cognitive Level Indicator */}
+          {currentCognitiveIndex >= 0 && (
+            <div className="mb-4">
+              <p className="text-xs text-muted-foreground mb-2">Cognitive Depth</p>
+              <div className="flex items-center gap-1">
+                {COGNITIVE_LEVELS.map((level, idx) => (
+                  <div
+                    key={level}
+                    className={cn(
+                      "flex-1 h-1.5 rounded-full transition-colors",
+                      idx <= currentCognitiveIndex
+                        ? "bg-primary"
+                        : "bg-muted"
+                    )}
+                    title={COGNITIVE_LABELS[level]}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-primary mt-1 font-medium">
+                {COGNITIVE_LABELS[currentStep.cognitiveLevel as CognitiveLevel]}
+              </p>
+            </div>
           )}
 
           {/* Source Badges */}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { CurriculumMetroMap } from "@/components/CurriculumMetroMap";
 import { StagePanel } from "@/components/StagePanel";
-import { useMissionControl, MissionControlStep, MissionControlPersistedState } from "@/hooks/useMissionControl";
+import { useMissionControl, MissionControlStep, MissionControlPersistedState, PedagogicalFunction, CognitiveLevel } from "@/hooks/useMissionControl";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,13 @@ interface Module {
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
   isAIDiscovered?: boolean;
+  // Pedagogical metadata
+  learningObjective?: string;
+  pedagogicalFunction?: PedagogicalFunction;
+  cognitiveLevel?: CognitiveLevel;
+  narrativePosition?: string;
+  evidenceOfMastery?: string;
+  pillar?: string;
 }
 
 interface DiscoveredSource {

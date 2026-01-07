@@ -2,6 +2,24 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 
 export type ViewMode = 'draft' | 'active';
 
+// Pedagogical function types from Course Grammar
+export type PedagogicalFunction = 
+  | 'pre_exposure'
+  | 'concept_exposition'
+  | 'expert_demonstration'
+  | 'guided_practice'
+  | 'independent_practice'
+  | 'assessment_checkpoint';
+
+// Bloom's cognitive levels
+export type CognitiveLevel = 
+  | 'remember'
+  | 'understand'
+  | 'apply'
+  | 'analyze'
+  | 'evaluate'
+  | 'create';
+
 export interface MissionControlStep {
   title: string;
   tag: string;
@@ -15,8 +33,15 @@ export interface MissionControlStep {
   isHiddenForTime?: boolean;
   isHiddenForDepth?: boolean;
   isAIDiscovered?: boolean;
-  fromCustomPillar?: string; // Track which custom focus area this step came from
+  fromCustomPillar?: string;
   originalIndex: number;
+  // Pedagogical metadata from Course Grammar
+  learningObjective?: string;
+  pedagogicalFunction?: PedagogicalFunction;
+  cognitiveLevel?: CognitiveLevel;
+  narrativePosition?: string;
+  evidenceOfMastery?: string;
+  pillar?: string;
 }
 
 export interface MissionControlState {
