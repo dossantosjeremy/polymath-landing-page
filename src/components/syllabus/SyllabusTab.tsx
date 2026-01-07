@@ -7,8 +7,9 @@ import { CustomFocusPills } from "@/components/CustomFocusPills";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Sparkles, BookOpen, ShieldCheck, ChevronDown, Loader2, Wand2 } from "lucide-react";
+import { Sparkles, BookOpen, ShieldCheck, ChevronDown, Loader2, Wand2, Library, AlertCircle } from "lucide-react";
 import { useSyllabusContext } from "./SyllabusContext";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function SyllabusTab() {
   const {
@@ -37,9 +38,30 @@ export function SyllabusTab() {
     isApplyingPillars,
     inferPillars,
     isInferringPillars,
+    sourcesConfirmed,
   } = useSyllabusContext();
 
   if (!syllabusData) return null;
+
+  // Soft gate: show notice if sources not confirmed
+  if (!sourcesConfirmed) {
+    return (
+      <div className="space-y-6 max-w-3xl">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="flex items-center justify-between flex-wrap gap-3">
+            <span>Please review and confirm your curriculum sources before configuring your learning path.</span>
+            <Button variant="outline" size="sm" className="gap-2" asChild>
+              <a href="#" onClick={(e) => { e.preventDefault(); /* Tab switch handled by parent */ }}>
+                <Library className="h-4 w-4" />
+                Go to Sources
+              </a>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   const contentSource = determineContentSource({
     fromCache: useCache,

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ProvenanceBadge, determineContentSource } from "@/components/ProvenanceBadge";
 import { AuthorityBadge } from "@/components/AuthorityBadge";
-import { Loader2, ExternalLink, ChevronDown, Lightbulb, Plus, BookmarkCheck } from "lucide-react";
+import { Loader2, ExternalLink, ChevronDown, Lightbulb, Plus, BookmarkCheck, CheckCircle2, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSyllabusContext } from "./SyllabusContext";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,8 @@ export function SourcesTab() {
     useCache,
     getDomainShortName,
     getSourceColorByUrl,
+    sourcesConfirmed,
+    confirmSources,
   } = useSyllabusContext();
 
   const [expandedSourceContent, setExpandedSourceContent] = useState<Set<number>>(new Set());
@@ -314,6 +316,37 @@ export function SourcesTab() {
           </div>
         </div>
       )}
+
+      {/* Source Confirmation CTA */}
+      <div className={cn(
+        "p-4 border-2 rounded-lg transition-colors",
+        sourcesConfirmed 
+          ? "border-primary/30 bg-primary/5" 
+          : "border-primary bg-primary/10"
+      )}>
+        {sourcesConfirmed ? (
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-primary" />
+            <div>
+              <p className="font-medium text-primary">Sources Confirmed</p>
+              <p className="text-sm text-muted-foreground">
+                You've acknowledged these as your curriculum's authoritative sources.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              By confirming, you acknowledge these as your curriculum's authoritative sources. 
+              This unlocks syllabus configuration and learning content.
+            </p>
+            <Button onClick={confirmSources} className="w-full sm:w-auto gap-2">
+              Confirm Sources & Continue
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
