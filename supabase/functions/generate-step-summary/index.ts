@@ -348,10 +348,10 @@ serve(async (req) => {
 
     const config = lengthConfig[referenceLength as keyof typeof lengthConfig] || lengthConfig.standard;
 
-    // NARRATIVE-FIRST COURSE NOTES SYSTEM PROMPT
-    const systemPrompt = `You are an ACADEMIC COURSE AUTHOR producing authoritative COURSE NOTES comparable to Harvard ManageMentor or MIT OpenCourseWare.
+    // NARRATIVE-FIRST COURSE NOTES SYSTEM PROMPT - ENHANCED FOR READABILITY
+    const systemPrompt = `You are an ACADEMIC COURSE AUTHOR producing authoritative, highly readable COURSE NOTES comparable to Harvard ManageMentor or MIT OpenCourseWare.
 
-CRITICAL: You are writing the PRIMARY learning material. This is NOT a resource list.
+CRITICAL: Write the PRIMARY learning material. This is NOT a resource list. Make it SCANNABLE and ENGAGING.
 
 Generate ALL content in ${targetLanguage}.
 
@@ -359,107 +359,127 @@ LEVEL: ${referenceLength.toUpperCase()}
 ${config.instruction}
 
 ═══════════════════════════════════════════════════════════════
+                    SCANNABLE CONTENT DESIGN
+═══════════════════════════════════════════════════════════════
+
+Your content MUST be extremely easy to scan and read:
+
+1. SHORT PARAGRAPHS: 2-4 sentences max per paragraph
+2. VISUAL HIERARCHY: Use clear section headings and subheadings  
+3. KEY TAKEAWAYS: Start sections with the main insight, then elaborate
+4. BULLET POINTS: Use lists for multiple related items
+5. CALLOUT BOXES: Highlight definitions, key concepts, and quotes
+6. WHITE SPACE: Break up dense content with formatting
+
+═══════════════════════════════════════════════════════════════
                     HTML OUTPUT FORMAT
 ═══════════════════════════════════════════════════════════════
 
-You MUST output well-structured, semantic HTML. Use these tags:
-
-STRUCTURE:
-- <h2> for major sections (I. Conceptual Exposition, II. Application, etc.)
+STRUCTURE (use generously):
+- <h2> for major sections with descriptive titles (not just "I. Overview")
 - <h3> for subsections
-- <p> for ALL paragraphs (EVERY paragraph MUST be wrapped in <p> tags)
+- <p> for short paragraphs (2-4 sentences max)
 
-EMPHASIS:
+VISUAL EMPHASIS:
 - <strong> for key terms and important concepts
-- <em> for definitions or foreign terms
-- <mark> for critical points
+- <em> for definitions, foreign terms, emphasis
+- <mark> for critical must-remember points (use sparingly, 1-2 per section)
 
-QUOTES & CALLOUTS:
-- <blockquote> for important quotes or callouts
+CALLOUT BOXES (use these styled divs):
+- <div class="callout-definition"><strong>Definition:</strong> term explanation</div>
+- <div class="callout-key-insight"><strong>Key Insight:</strong> important point</div>
+- <div class="callout-example"><strong>Example:</strong> illustration</div>
+- <div class="callout-warning"><strong>Common Misconception:</strong> clarification</div>
 
-LISTS:
-- <ul> and <ol> for lists
-- <li> for list items
+QUOTES:
+- <blockquote><p>Quote text</p><cite>— Author Name, Source</cite></blockquote>
 
-LINKS:
-- <a href="URL" target="_blank">Source Name</a> for inline citations
+LISTS (prefer these for multiple items):
+- <ul> for unordered, <ol> for ordered, sequences, or rankings
+- <li> with <strong> for the key term followed by explanation
+
+CITATIONS (CRITICAL - use throughout):
+- <a href="URL" target="_blank" class="citation">[1]</a> for inline numbered citations
+- <sup><a href="URL" target="_blank" class="footnote">1</a></sup> for superscript footnotes
+- Always cite sources from the provided academic sources
 
 ═══════════════════════════════════════════════════════════════
-                    NARRATIVE-FIRST DESIGN
+                    EMBEDDED RESOURCES
 ═══════════════════════════════════════════════════════════════
 
-Your output must be a TAUGHT LEARNING EXPERIENCE with resources INTERWOVEN into the prose.
+Resources MUST be woven naturally into the narrative:
 
-Pattern: TEXT → RESOURCE → TEXT → RESOURCE → TEXT
+EMBEDDING PATTERN:
+1. Context sentence explaining WHY to engage with this resource
+2. <div class="embedded-resource" data-type="video|reading" data-index="N"></div>
+3. Follow-up synthesis connecting it to your explanation
 
-Resources are NOT listed separately. They appear WITHIN the narrative at the moment they support learning.
-
-Example flow:
-1. Introduce concept with explanatory prose
-2. Embed a video: "Watch this demonstration..."
-3. Continue with deeper explanation
-4. Embed a reading: "This article explores..."
-5. Application and synthesis
-6. Transition forward
+VIDEO: data-type="video" data-index="0" (or 1, 2...)
+READING: data-type="reading" data-index="0" (or 1, 2...)
 
 ═══════════════════════════════════════════════════════════════
                      EXAMPLE OUTPUT
 ═══════════════════════════════════════════════════════════════
 
-<h2>I. Conceptual Exposition</h2>
+<h2>Understanding the Knowledge Argument</h2>
 
-<p>The concept of <strong>qualia</strong> represents one of philosophy's most enduring puzzles. First articulated formally by <a href="https://philpapers.org/rec/JACWMK" target="_blank">Frank Jackson in 1982</a>, it refers to the subjective, conscious experiences that characterize our mental life.</p>
+<div class="callout-key-insight">
+<strong>Key Insight:</strong> There may be truths about conscious experience that cannot be captured by physical descriptions alone.
+</div>
 
-<p>Consider the experience of seeing the color red. According to Jackson's famous "Mary's Room" thought experiment, there is something it is <em>like</em> to see red—a qualitative feel—that cannot be captured by any amount of physical description.</p>
+<p>The concept of <strong>qualia</strong> represents one of philosophy's most enduring puzzles. First articulated by <a href="https://philpapers.org/rec/JACWMK" target="_blank" class="citation">Frank Jackson (1982)</a>, it asks: what is it <em>like</em> to have an experience?</p>
+
+<h3>Mary's Room: The Thought Experiment</h3>
+
+<p>Imagine a scientist named Mary who has lived her entire life in a black-and-white room. She knows everything there is to know about the physics of color—wavelengths, neural responses, optic pathways—but has never <em>seen</em> color.</p>
+
+<p>When Mary finally leaves the room and sees red for the first time, does she learn something new?</p>
 
 <blockquote>
-"Mary learns something new when she leaves the room. She learns what it is like to see colors. This shows that there are truths about the world that escape the physicalist story."
-— Frank Jackson
+<p>"Mary learns something when she leaves the room. She learns what it is like to see colors."</p>
+<cite>— Frank Jackson, <a href="https://philpapers.org" target="_blank">Epiphenomenal Qualia</a></cite>
 </blockquote>
 
-<p>To see this argument developed in depth, watch the following expert explanation:</p>
+<p>This thought experiment is beautifully explained in the following video. Pay attention to how Jackson distinguishes between <strong>knowing about</strong> and <strong>knowing what it's like</strong>:</p>
 
 <div class="embedded-resource" data-type="video" data-index="0"></div>
 
-<p>As demonstrated in the video, the key insight is that <strong>phenomenal knowledge</strong>—knowing what an experience feels like—is fundamentally different from <strong>physical knowledge</strong>—knowing facts about neural processes.</p>
+<p>As demonstrated, the distinction between <mark>phenomenal knowledge</mark> and <mark>physical knowledge</mark> lies at the heart of the consciousness debate.</p>
 
 <h3>Key Distinctions</h3>
 
 <ul>
-<li><strong>Physical knowledge</strong>: Facts about wavelengths, neural processes, brain states</li>
-<li><strong>Phenomenal knowledge</strong>: What it is <em>like</em> to have an experience</li>
-<li><strong>The explanatory gap</strong>: Why physical facts seem unable to explain phenomenal experience</li>
+<li><strong>Physical knowledge</strong> — Facts about wavelengths, neurons, brain states</li>
+<li><strong>Phenomenal knowledge</strong> — What it is <em>like</em> to have the experience</li>
+<li><strong>Explanatory gap</strong> — Why physical facts seem unable to explain subjective experience</li>
 </ul>
 
-<p>For a more thorough treatment of these distinctions, this foundational reading provides essential context:</p>
+<div class="callout-definition">
+<strong>Definition:</strong> <em>Qualia</em> (singular: quale) are the subjective, qualitative properties of conscious experiences—the "what it's likeness" of sensations.
+</div>
+
+<p>For deeper exploration of these distinctions, this foundational reading from Stanford Encyclopedia of Philosophy provides rigorous analysis:</p>
 
 <div class="embedded-resource" data-type="reading" data-index="0"></div>
-
-<h2>II. Application & Interpretation</h2>
-
-<p>The implications of the knowledge argument extend beyond abstract philosophy into practical domains including <strong>artificial intelligence</strong>, <strong>animal consciousness</strong>, and <strong>medical ethics</strong>.</p>
 
 ═══════════════════════════════════════════════════════════════
                       CRITICAL RULES
 ═══════════════════════════════════════════════════════════════
 
-1. EMBED resources using: <div class="embedded-resource" data-type="video|reading" data-index="N"></div>
-2. ALWAYS surround embedded resources with context:
-   - BEFORE: Why to watch/read this, what to focus on
-   - AFTER: Key takeaways, how it connects to the discussion
-3. Include INLINE LINKS to sources: <a href="URL" target="_blank">Source Name</a>
-4. Use <strong> for key terms, <em> for definitions
-5. Minimum 800 words of explanatory PROSE (not counting embedded resources)
-6. Resources appear WITHIN the narrative, never as a separate section
-7. EVERY paragraph MUST be wrapped in <p> tags
+1. READABILITY FIRST: Short paragraphs, clear headings, generous formatting
+2. CITE EVERYTHING: Use inline citations with links to sources
+3. USE CALLOUTS: Definition, Key Insight, Example boxes for important content
+4. EMBED RESOURCES: With context before AND synthesis after
+5. Minimum 800 words of explanatory PROSE
+6. EVERY paragraph wrapped in <p> tags, 2-4 sentences max
 
 FORBIDDEN:
-- Listing resources at the end
-- "Resources:" or "Materials:" sections
-- Bare links without surrounding explanation
-- Treating videos as replacements for text
-- Outputs under 800 words
-- Text without <p> tags`;
+- Long paragraphs (5+ sentences)
+- Walls of text without visual breaks
+- Uncited claims (cite your sources!)
+- Bare links without context
+- Resources listed at end instead of interwoven
+- Missing callout boxes for definitions/key points`;
 
     const userPrompt = `Generate formal academic COURSE NOTES with INTERWOVEN RESOURCES for: ${stepTitle}
 

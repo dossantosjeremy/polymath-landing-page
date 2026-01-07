@@ -78,12 +78,13 @@ function NarrativeLoadingSkeleton() {
   );
 }
 
-// Render an embedded video
+// Render an embedded video with better styling
 function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
   const videoId = resource.url?.match(/(?:v=|youtu\.be\/|embed\/)([^&?/]+)/)?.[1];
   
   return (
-    <div className="my-6 rounded-lg overflow-hidden border bg-card shadow-sm">
+    <div className="my-8 rounded-xl overflow-hidden border-2 border-primary/20 bg-card shadow-lg">
+      {/* Video Player */}
       {videoId ? (
         <div className="aspect-video bg-black">
           <iframe
@@ -99,72 +100,83 @@ function EmbeddedVideo({ resource }: { resource: CuratedResource }) {
           href={resource.url} 
           target="_blank" 
           rel="noopener noreferrer"
-          className="block aspect-video bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+          className="block aspect-video bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center hover:from-primary/20 transition-colors"
         >
           <div className="text-center">
-            <Play className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+            <Play className="h-16 w-16 text-primary mx-auto mb-3" />
             <span className="text-sm text-muted-foreground">Watch Video</span>
           </div>
         </a>
       )}
-      <div className="p-4 bg-muted/30">
-        <div className="flex items-start justify-between gap-3">
+      {/* Video Info */}
+      <div className="p-5 bg-gradient-to-b from-muted/50 to-transparent">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <h4 className="font-medium text-sm line-clamp-2">{resource.title}</h4>
+            <div className="flex items-center gap-2 mb-2">
+              <Badge className="bg-red-500 text-white text-xs px-2">Video</Badge>
+              {resource.duration && (
+                <Badge variant="outline" className="text-xs">{resource.duration}</Badge>
+              )}
+            </div>
+            <h4 className="font-semibold text-base leading-snug">{resource.title}</h4>
             {resource.author && (
-              <p className="text-xs text-muted-foreground mt-0.5">by {resource.author}</p>
-            )}
-            {resource.duration && (
-              <Badge variant="secondary" className="text-xs mt-2">{resource.duration}</Badge>
+              <p className="text-sm text-muted-foreground mt-1">by {resource.author}</p>
             )}
           </div>
           <a 
             href={resource.url} 
             target="_blank" 
             rel="noopener noreferrer"
-            className="text-muted-foreground hover:text-primary transition-colors"
+            className="p-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
           >
             <ExternalLink className="h-4 w-4" />
           </a>
         </div>
         {resource.rationale && (
-          <p className="text-xs text-muted-foreground mt-2 italic">{resource.rationale}</p>
+          <p className="text-sm text-muted-foreground mt-3 pt-3 border-t border-border/50 italic">
+            💡 {resource.rationale}
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-// Render an embedded reading
+// Render an embedded reading with better styling
 function EmbeddedReading({ resource }: { resource: CuratedResource }) {
   return (
-    <div className="my-6">
+    <div className="my-8">
       <a 
         href={resource.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="block p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors shadow-sm"
+        className="block p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800/50 bg-gradient-to-br from-blue-50/80 to-white dark:from-blue-950/30 dark:to-card hover:border-blue-400 dark:hover:border-blue-600 transition-all shadow-md hover:shadow-lg group"
       >
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-lg bg-blue-500/10 shrink-0">
-            <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+          <div className="p-3 rounded-xl bg-blue-500/10 shrink-0 group-hover:bg-blue-500/20 transition-colors">
+            <FileText className="h-7 w-7 text-blue-600 dark:text-blue-400" />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <h4 className="font-medium text-sm line-clamp-2">{resource.title}</h4>
-              <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div className="flex items-center gap-2 mb-2">
+              <Badge className="bg-blue-500 text-white text-xs px-2">Reading</Badge>
+              {resource.consumptionTime && (
+                <Badge variant="outline" className="text-xs">{resource.consumptionTime}</Badge>
+              )}
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <h4 className="font-semibold text-base leading-snug group-hover:text-primary transition-colors">{resource.title}</h4>
+              <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0 group-hover:text-primary transition-colors" />
             </div>
             {resource.domain && (
-              <p className="text-xs text-muted-foreground mt-1">{resource.domain}</p>
+              <p className="text-xs text-muted-foreground mt-1.5 font-medium">{resource.domain}</p>
             )}
             {resource.snippet && (
-              <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{resource.snippet}</p>
+              <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{resource.snippet}</p>
             )}
             {resource.rationale && (
-              <p className="text-xs text-primary mt-2 italic">{resource.rationale}</p>
-            )}
-            {resource.consumptionTime && (
-              <Badge variant="outline" className="text-xs mt-2">{resource.consumptionTime} read</Badge>
+              <p className="text-sm text-blue-700 dark:text-blue-400 mt-3 pt-3 border-t border-blue-200/50 dark:border-blue-800/30 italic">
+                📖 {resource.rationale}
+              </p>
             )}
           </div>
         </div>
@@ -247,7 +259,7 @@ function NarrativeContent({
   }, [html]);
 
   return (
-    <div className="narrative-content">
+    <div className="narrative-content space-y-4">
       {parts.map((part, i) => {
         if (part.type === 'html') {
           return (
@@ -255,23 +267,40 @@ function NarrativeContent({
               key={i}
               className={cn(
                 "prose prose-slate dark:prose-invert max-w-none",
-                // Headers
-                "prose-headings:font-semibold prose-headings:text-foreground prose-headings:scroll-mt-20",
-                "prose-h1:text-2xl prose-h1:mt-8 prose-h1:mb-4",
-                "prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:pb-2 prose-h2:border-b prose-h2:border-border",
-                "prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3",
-                // Paragraphs
-                "prose-p:text-base prose-p:leading-7 prose-p:mb-4 prose-p:text-foreground",
-                // Links
-                "prose-a:text-primary prose-a:underline prose-a:underline-offset-2 hover:prose-a:text-primary/80",
-                // Lists
-                "prose-ul:my-4 prose-ul:ml-6 prose-ol:my-4 prose-ol:ml-6 prose-li:my-2",
-                // Blockquotes
-                "prose-blockquote:border-l-4 prose-blockquote:border-primary/30 prose-blockquote:pl-4 prose-blockquote:my-4 prose-blockquote:italic prose-blockquote:text-muted-foreground",
-                // Strong/emphasis
-                "prose-strong:font-semibold prose-strong:text-foreground prose-em:italic",
-                // Code
-                "prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm"
+                // --- HEADERS - Strong visual hierarchy ---
+                "prose-headings:font-bold prose-headings:text-foreground prose-headings:scroll-mt-20",
+                "prose-h1:text-2xl prose-h1:mt-10 prose-h1:mb-6 prose-h1:text-primary",
+                "prose-h2:text-xl prose-h2:mt-10 prose-h2:mb-4 prose-h2:pb-3 prose-h2:border-b-2 prose-h2:border-primary/20",
+                "prose-h3:text-lg prose-h3:mt-8 prose-h3:mb-3 prose-h3:text-foreground/90",
+                "prose-h4:text-base prose-h4:font-semibold prose-h4:mt-6 prose-h4:mb-2",
+                // --- PARAGRAPHS - Readable line height, good spacing ---
+                "prose-p:text-base prose-p:leading-relaxed prose-p:mb-5 prose-p:text-foreground/90",
+                // --- LINKS - Clearly clickable citations ---
+                "prose-a:text-primary prose-a:font-medium prose-a:no-underline prose-a:border-b prose-a:border-primary/40 hover:prose-a:border-primary hover:prose-a:text-primary/80",
+                // --- LISTS - Scannable with proper spacing ---
+                "prose-ul:my-5 prose-ul:ml-5 prose-ul:space-y-2",
+                "prose-ol:my-5 prose-ol:ml-5 prose-ol:space-y-2",
+                "prose-li:text-foreground/90 prose-li:leading-relaxed prose-li:pl-1",
+                // --- BLOCKQUOTES - Prominent callouts ---
+                "prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:bg-primary/5 prose-blockquote:pl-5 prose-blockquote:pr-4 prose-blockquote:py-4 prose-blockquote:my-6 prose-blockquote:rounded-r-lg",
+                "prose-blockquote:not-italic prose-blockquote:text-foreground",
+                // --- STRONG/EM - Clear visual emphasis ---
+                "prose-strong:font-bold prose-strong:text-foreground",
+                "prose-em:italic prose-em:text-foreground/80",
+                // --- MARK - Highlighted key points ---
+                "[&_mark]:bg-yellow-100 [&_mark]:dark:bg-yellow-900/40 [&_mark]:px-1 [&_mark]:py-0.5 [&_mark]:rounded [&_mark]:font-medium",
+                // --- CITATIONS - Superscript footnotes ---
+                "[&_.citation]:text-primary [&_.citation]:font-semibold [&_.citation]:text-sm",
+                "[&_.footnote]:text-primary [&_.footnote]:text-xs [&_.footnote]:font-bold",
+                // --- CALLOUT BOXES - Styled definition/insight/example boxes ---
+                "[&_.callout-definition]:bg-blue-50 [&_.callout-definition]:dark:bg-blue-950/30 [&_.callout-definition]:border-l-4 [&_.callout-definition]:border-blue-500 [&_.callout-definition]:p-4 [&_.callout-definition]:my-6 [&_.callout-definition]:rounded-r-lg",
+                "[&_.callout-key-insight]:bg-amber-50 [&_.callout-key-insight]:dark:bg-amber-950/30 [&_.callout-key-insight]:border-l-4 [&_.callout-key-insight]:border-amber-500 [&_.callout-key-insight]:p-4 [&_.callout-key-insight]:my-6 [&_.callout-key-insight]:rounded-r-lg",
+                "[&_.callout-example]:bg-green-50 [&_.callout-example]:dark:bg-green-950/30 [&_.callout-example]:border-l-4 [&_.callout-example]:border-green-500 [&_.callout-example]:p-4 [&_.callout-example]:my-6 [&_.callout-example]:rounded-r-lg",
+                "[&_.callout-warning]:bg-red-50 [&_.callout-warning]:dark:bg-red-950/30 [&_.callout-warning]:border-l-4 [&_.callout-warning]:border-red-500 [&_.callout-warning]:p-4 [&_.callout-warning]:my-6 [&_.callout-warning]:rounded-r-lg",
+                // --- CITE in blockquotes ---
+                "[&_cite]:block [&_cite]:text-sm [&_cite]:text-muted-foreground [&_cite]:mt-3 [&_cite]:not-italic",
+                // --- CODE ---
+                "prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm prose-code:font-mono"
               )}
               dangerouslySetInnerHTML={{ __html: part.content }}
             />
