@@ -12,9 +12,31 @@ serve(async (req) => {
   }
 
   try {
-    const { stepTitle, discipline, stepDescription, sourceContent, resources, referenceLength = 'standard', forceRefresh, locale = 'en' } = await req.json();
+    const { 
+      stepTitle, 
+      discipline, 
+      stepDescription, 
+      sourceContent, 
+      resources, 
+      referenceLength = 'standard', 
+      forceRefresh, 
+      locale = 'en',
+      // NEW: Pedagogical metadata from Course Grammar
+      learningObjective,
+      pedagogicalFunction,
+      cognitiveLevel,
+      narrativePosition,
+      evidenceOfMastery
+    } = await req.json();
 
-    console.log('Generating step summary for:', { stepTitle, discipline, referenceLength, forceRefresh, locale });
+    console.log('Generating step summary for:', { 
+      stepTitle, 
+      discipline, 
+      referenceLength, 
+      forceRefresh, 
+      locale,
+      hasPedagogicalMeta: !!(learningObjective || pedagogicalFunction)
+    });
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -53,12 +75,55 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY not configured');
     }
 
-    // Build comprehensive context
+    // Build comprehensive context including pedagogical metadata
     let contextParts = [
       `Step Title: ${stepTitle}`,
       `Discipline: ${discipline}`,
       `Step Description: ${stepDescription || 'Not provided'}`,
     ];
+
+    // Add Course Grammar pedagogical context if available
+    if (learningObjective || pedagogicalFunction || narrativePosition) {
+      contextParts.push('\n--- PEDAGOGICAL CONTEXT (Course Grammar) ---');
+      
+      if (learningObjective) {
+        contextParts.push(`Learning Objective: ${learningObjective}`);
+      }
+      
+      if (pedagogicalFunction) {
+        const functionDescriptions: Record<string, string> = {
+          'pre_exposure': 'This is a PRE-EXPOSURE module: activate prior knowledge, preview key concepts',
+          'concept_exposition': 'This is a CONCEPT EXPOSITION module: explain ideas deeply, build understanding',
+          'expert_demonstration': 'This is an EXPERT DEMONSTRATION module: show mastery in action, model expert thinking',
+          'guided_practice': 'This is a GUIDED PRACTICE module: scaffold learner doing with feedback',
+          'independent_practice': 'This is an INDEPENDENT PRACTICE module: learner applies solo',
+          'assessment_checkpoint': 'This is an ASSESSMENT CHECKPOINT: evidence of mastery'
+        };
+        contextParts.push(`Pedagogical Function: ${functionDescriptions[pedagogicalFunction] || pedagogicalFunction}`);
+      }
+      
+      if (cognitiveLevel) {
+        const levelDescriptions: Record<string, string> = {
+          'remember': 'Focus on RECALL: facts, terms, definitions',
+          'understand': 'Focus on EXPLANATION: interpret, summarize, paraphrase',
+          'apply': 'Focus on APPLICATION: use in new situations',
+          'analyze': 'Focus on ANALYSIS: draw connections, find patterns',
+          'evaluate': 'Focus on EVALUATION: justify, critique, assess',
+          'create': 'Focus on CREATION: produce, design, synthesize new work'
+        };
+        contextParts.push(`Cognitive Level: ${levelDescriptions[cognitiveLevel] || cognitiveLevel}`);
+      }
+      
+      if (narrativePosition) {
+        contextParts.push(`Narrative Position: ${narrativePosition}`);
+      }
+      
+      if (evidenceOfMastery) {
+        contextParts.push(`Evidence of Mastery: ${evidenceOfMastery}`);
+      }
+      
+      contextParts.push('--- END PEDAGOGICAL CONTEXT ---\n');
+    }
 
     if (sourceContent && sourceContent.trim()) {
       contextParts.push(`\nOriginal Syllabus Content:\n${sourceContent}`);
