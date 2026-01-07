@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, BookOpen, Target, Lightbulb, CheckCircle, AlertTriangle, ExternalLink, Play, FileText } from 'lucide-react';
+import { Loader2, BookOpen, Target, Lightbulb, CheckCircle, AlertTriangle, ExternalLink, Play, FileText, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -253,7 +253,26 @@ function NarrativeContent({
           return (
             <div 
               key={i}
-              className="prose prose-slate dark:prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
+              className={cn(
+                "prose prose-slate dark:prose-invert max-w-none",
+                // Headers
+                "prose-headings:font-semibold prose-headings:text-foreground prose-headings:scroll-mt-20",
+                "prose-h1:text-2xl prose-h1:mt-8 prose-h1:mb-4",
+                "prose-h2:text-xl prose-h2:mt-8 prose-h2:mb-4 prose-h2:pb-2 prose-h2:border-b prose-h2:border-border",
+                "prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-3",
+                // Paragraphs
+                "prose-p:text-base prose-p:leading-7 prose-p:mb-4 prose-p:text-foreground",
+                // Links
+                "prose-a:text-primary prose-a:underline prose-a:underline-offset-2 hover:prose-a:text-primary/80",
+                // Lists
+                "prose-ul:my-4 prose-ul:ml-6 prose-ol:my-4 prose-ol:ml-6 prose-li:my-2",
+                // Blockquotes
+                "prose-blockquote:border-l-4 prose-blockquote:border-primary/30 prose-blockquote:pl-4 prose-blockquote:my-4 prose-blockquote:italic prose-blockquote:text-muted-foreground",
+                // Strong/emphasis
+                "prose-strong:font-semibold prose-strong:text-foreground prose-em:italic",
+                // Code
+                "prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-sm"
+              )}
               dangerouslySetInnerHTML={{ __html: part.content }}
             />
           );
@@ -284,37 +303,35 @@ export function NarrativeLearningContent({
   narrativePosition,
   evidenceOfMastery,
   resources,
-  autoLoad = true,
+  autoLoad = false, // Changed to false by default
 }: NarrativeLearningContentProps) {
-  const { summary, isLoading, error, generateSummary } = useStepSummary();
-  const [hasTriggeredGeneration, setHasTriggeredGeneration] = useState(false);
-
-  // Auto-generate on mount if autoLoad is true
-  useEffect(() => {
-    if (autoLoad && !hasTriggeredGeneration && !summary && !isLoading) {
-      setHasTriggeredGeneration(true);
-      generateSummary(
-        stepTitle, 
-        discipline, 
-        stepDescription, 
-        sourceContent, 
-        resources,
-        'comprehensive',
-        false
-      );
-    }
-  }, [autoLoad, hasTriggeredGeneration, summary, isLoading, stepTitle, discipline, stepDescription, sourceContent, resources, generateSummary]);
-
-  // Reset when step changes
-  useEffect(() => {
-    setHasTriggeredGeneration(false);
-  }, [stepTitle]);
+  const { summary, isLoading, error, generateSummary, currentStepTitle } = useStepSummary();
+  
+  // Check if we have a summary for THIS step
+  const hasCurrentSummary = summary && currentStepTitle === stepTitle;
 
   // Hydrate embedded resources in the summary
   const { html: hydratedHtml } = useMemo(() => {
-    if (!summary) return { html: '', resourcePlacements: [] };
+    if (!hasCurrentSummary) return { html: '', resourcePlacements: [] };
     return hydrateEmbeddedResources(summary, resources);
-  }, [summary, resources]);
+  }, [hasCurrentSummary, summary, resources]);
+
+  const handleGenerate = () => {
+    generateSummary(
+      stepTitle, 
+      discipline, 
+      stepDescription, 
+      sourceContent, 
+      resources,
+      'comprehensive',
+      false,
+      learningObjective,
+      pedagogicalFunction,
+      cognitiveLevel,
+      narrativePosition,
+      evidenceOfMastery
+    );
+  };
 
   const handleRegenerate = () => {
     generateSummary(
@@ -324,7 +341,12 @@ export function NarrativeLearningContent({
       sourceContent, 
       resources,
       'comprehensive',
-      true
+      true, // force refresh
+      learningObjective,
+      pedagogicalFunction,
+      cognitiveLevel,
+      narrativePosition,
+      evidenceOfMastery
     );
   };
 
@@ -384,7 +406,7 @@ export function NarrativeLearningContent({
       )}
 
       {/* Generated Content with Interwoven Resources */}
-      {hydratedHtml && !isLoading && (
+      {hasCurrentSummary && !isLoading && (
         <div className="space-y-6">
           <NarrativeContent html={hydratedHtml} resources={resources} />
           
@@ -438,12 +460,16 @@ export function NarrativeLearningContent({
         </div>
       )}
 
-      {/* No content yet state */}
-      {!summary && !isLoading && !error && (
-        <div className="text-center py-8">
+      {/* No content yet - Show Generate Button */}
+      {!hasCurrentSummary && !isLoading && !error && (
+        <div className="text-center py-12 border-2 border-dashed rounded-lg bg-muted/20">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Course notes will appear here</p>
-          <Button onClick={handleRegenerate} size="sm" className="mt-4">
+          <h3 className="font-medium mb-2">Course Notes</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+            Generate AI-authored course notes for this step with embedded videos and readings
+          </p>
+          <Button onClick={handleGenerate} className="gap-2">
+            <Sparkles className="h-4 w-4" />
             Generate Course Notes
           </Button>
         </div>

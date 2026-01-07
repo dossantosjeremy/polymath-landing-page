@@ -142,7 +142,7 @@ function NarrativeContentArea({
           coreVideos: resources.coreVideos,
           coreReadings: resources.coreReadings,
         } : undefined}
-        autoLoad={true}
+        autoLoad={false}
       />
 
       {/* SECONDARY: Collapsible Supporting Resources */}

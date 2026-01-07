@@ -359,6 +359,32 @@ LEVEL: ${referenceLength.toUpperCase()}
 ${config.instruction}
 
 ═══════════════════════════════════════════════════════════════
+                    HTML OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════
+
+You MUST output well-structured, semantic HTML. Use these tags:
+
+STRUCTURE:
+- <h2> for major sections (I. Conceptual Exposition, II. Application, etc.)
+- <h3> for subsections
+- <p> for ALL paragraphs (EVERY paragraph MUST be wrapped in <p> tags)
+
+EMPHASIS:
+- <strong> for key terms and important concepts
+- <em> for definitions or foreign terms
+- <mark> for critical points
+
+QUOTES & CALLOUTS:
+- <blockquote> for important quotes or callouts
+
+LISTS:
+- <ul> and <ol> for lists
+- <li> for list items
+
+LINKS:
+- <a href="URL" target="_blank">Source Name</a> for inline citations
+
+═══════════════════════════════════════════════════════════════
                     NARRATIVE-FIRST DESIGN
 ═══════════════════════════════════════════════════════════════
 
@@ -377,38 +403,41 @@ Example flow:
 6. Transition forward
 
 ═══════════════════════════════════════════════════════════════
-                     OUTPUT STRUCTURE
+                     EXAMPLE OUTPUT
 ═══════════════════════════════════════════════════════════════
 
-<h1>Topic Title</h1>
-
 <h2>I. Conceptual Exposition</h2>
-<p>Begin with substantive explanatory prose (300-500 words). Define key terms, establish context, explain WHY this matters...</p>
 
-<p>After establishing the foundation, introduce the first resource naturally:</p>
+<p>The concept of <strong>qualia</strong> represents one of philosophy's most enduring puzzles. First articulated formally by <a href="https://philpapers.org/rec/JACWMK" target="_blank">Frank Jackson in 1982</a>, it refers to the subjective, conscious experiences that characterize our mental life.</p>
 
-<p class="resource-intro">To see these principles in action, watch this demonstration by [Author]:</p>
+<p>Consider the experience of seeing the color red. According to Jackson's famous "Mary's Room" thought experiment, there is something it is <em>like</em> to see red—a qualitative feel—that cannot be captured by any amount of physical description.</p>
+
+<blockquote>
+"Mary learns something new when she leaves the room. She learns what it is like to see colors. This shows that there are truths about the world that escape the physicalist story."
+— Frank Jackson
+</blockquote>
+
+<p>To see this argument developed in depth, watch the following expert explanation:</p>
+
 <div class="embedded-resource" data-type="video" data-index="0"></div>
-<p class="resource-follow">As demonstrated in the video, the key insight is...</p>
 
-<h2>II. Framework & Models</h2>
-<p>Continue with deeper exposition. Use tables or lists to show relationships...</p>
+<p>As demonstrated in the video, the key insight is that <strong>phenomenal knowledge</strong>—knowing what an experience feels like—is fundamentally different from <strong>physical knowledge</strong>—knowing facts about neural processes.</p>
 
-<p class="resource-intro">For a more detailed treatment, this reading from [Source] provides essential context:</p>
+<h3>Key Distinctions</h3>
+
+<ul>
+<li><strong>Physical knowledge</strong>: Facts about wavelengths, neural processes, brain states</li>
+<li><strong>Phenomenal knowledge</strong>: What it is <em>like</em> to have an experience</li>
+<li><strong>The explanatory gap</strong>: Why physical facts seem unable to explain phenomenal experience</li>
+</ul>
+
+<p>For a more thorough treatment of these distinctions, this foundational reading provides essential context:</p>
+
 <div class="embedded-resource" data-type="reading" data-index="0"></div>
-<p class="resource-follow">The article highlights that...</p>
 
-<h2>III. Application & Interpretation</h2>
-<p>How this is used in practice. Trade-offs, failure modes, real-world examples...</p>
+<h2>II. Application & Interpretation</h2>
 
-<h2>IV. Transition Forward</h2>
-<p>What this enables next. How it connects to following concepts...</p>
-
-<div class="cognitive-metadata">
-  <p><strong>Cognitive Level:</strong> [Level]</p>
-  <p><strong>Learner can now:</strong> [Specific capability]</p>
-  <p><strong>Misconception addressed:</strong> [What this prevents]</p>
-</div>
+<p>The implications of the knowledge argument extend beyond abstract philosophy into practical domains including <strong>artificial intelligence</strong>, <strong>animal consciousness</strong>, and <strong>medical ethics</strong>.</p>
 
 ═══════════════════════════════════════════════════════════════
                       CRITICAL RULES
@@ -419,16 +448,18 @@ Example flow:
    - BEFORE: Why to watch/read this, what to focus on
    - AFTER: Key takeaways, how it connects to the discussion
 3. Include INLINE LINKS to sources: <a href="URL" target="_blank">Source Name</a>
-4. Use <em> for key terms being defined
+4. Use <strong> for key terms, <em> for definitions
 5. Minimum 800 words of explanatory PROSE (not counting embedded resources)
 6. Resources appear WITHIN the narrative, never as a separate section
+7. EVERY paragraph MUST be wrapped in <p> tags
 
 FORBIDDEN:
 - Listing resources at the end
 - "Resources:" or "Materials:" sections
 - Bare links without surrounding explanation
 - Treating videos as replacements for text
-- Outputs under 800 words`;
+- Outputs under 800 words
+- Text without <p> tags`;
 
     const userPrompt = `Generate formal academic COURSE NOTES with INTERWOVEN RESOURCES for: ${stepTitle}
 

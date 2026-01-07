@@ -1,14 +1,19 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useStepSummary = () => {
-  const [summary, setSummary] = useState<string | null>(null);
+  // Cache summaries by step title to avoid showing same content across steps
+  const summaryCache = useRef<Map<string, string>>(new Map());
+  const [currentStepTitle, setCurrentStepTitle] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { i18n } = useTranslation();
 
-  const generateSummary = async (
+  // Get summary for current step from cache
+  const summary = currentStepTitle ? summaryCache.current.get(currentStepTitle) || null : null;
+
+  const generateSummary = useCallback(async (
     stepTitle: string,
     discipline: string,
     stepDescription: string,
@@ -16,13 +21,21 @@ export const useStepSummary = () => {
     resources?: any,
     referenceLength: 'brief' | 'standard' | 'comprehensive' = 'standard',
     forceRefresh: boolean = false,
-    // NEW: Pedagogical metadata from Course Grammar
     learningObjective?: string,
     pedagogicalFunction?: string,
     cognitiveLevel?: string,
     narrativePosition?: string,
     evidenceOfMastery?: string
   ) => {
+    // Update current step
+    setCurrentStepTitle(stepTitle);
+    
+    // Check cache first (unless force refresh)
+    if (!forceRefresh && summaryCache.current.has(stepTitle)) {
+      console.log('[Summary] Using cached summary for:', stepTitle);
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -37,7 +50,6 @@ export const useStepSummary = () => {
           referenceLength,
           forceRefresh,
           locale: i18n.language,
-          // Pass pedagogical metadata
           learningObjective,
           pedagogicalFunction,
           cognitiveLevel,
@@ -50,15 +62,25 @@ export const useStepSummary = () => {
         throw functionError;
       }
 
-      setSummary(data.summary);
+      // Store in cache
+      summaryCache.current.set(stepTitle, data.summary);
+      // Force re-render by updating the current step title state
+      setCurrentStepTitle(stepTitle);
     } catch (err) {
       console.error('Error generating step summary:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate summary');
-      setSummary(null);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [i18n.language]);
 
-  return { summary, isLoading, error, generateSummary };
+  // Clear summary for a specific step (used when step changes)
+  const clearSummary = useCallback((stepTitle?: string) => {
+    if (stepTitle) {
+      summaryCache.current.delete(stepTitle);
+    }
+    setCurrentStepTitle('');
+  }, []);
+
+  return { summary, isLoading, error, generateSummary, clearSummary, currentStepTitle };
 };
