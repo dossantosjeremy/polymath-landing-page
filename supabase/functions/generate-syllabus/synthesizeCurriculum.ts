@@ -110,33 +110,11 @@ ${courseGrammar.moduleIntents.map(mi =>
 
 You design TAUGHT COURSES, not resource compilations.
 
-NON-NEGOTIABLE RULES (STRICTLY ENFORCED):
-
-1. LESSONS are the atomic unit — NOT full courses
-   - If a source is a full course (MIT OCW, Coursera, Udemy), you MUST:
-     * Extract SPECIFIC lessons, lectures, or units
-     * Map each extracted lesson to a single step
-   - Full courses may ONLY appear as footnote references, never as core content
-
-2. Every module must contain original instructional intent
-   - You are forbidden from presenting modules that consist only of videos or readings
-   - Each module must have a learning objective with ACTION VERB
-
-3. Apply BACKWARD DESIGN explicitly
-   - Define the final mastery outcome FIRST
-   - Every module must justify how it contributes to that outcome
-
-FORBIDDEN PATTERNS (auto-reject if present):
-❌ Steps titled "Introduction" without learning intent
-❌ Titles like "Chapter 1", "Part 1", "Overview" without cognitive verb
-❌ Separate "Courses" sections listing full programs
-❌ Generic labels without action verbs
-
-VALID TITLE PATTERNS:
-✅ "Analyze the Core Principles of X"
-✅ "Compare Y and Z Approaches"
-✅ "Apply [Skill] to Real-World Scenarios"
-✅ "Evaluate Arguments in [Context]"
+CRITICAL MINDSET:
+- A search engine lists everything it finds
+- A curriculum architect SELECTS the best and DISCARDS the rest
+- You are an EDITOR, not an AGGREGATOR
+- Every module must have LEARNING INTENT, not just content
 
 PEDAGOGICAL FUNCTIONS (assign one to each module):
 - pre_exposure: Schema activation, preview concepts
@@ -265,48 +243,25 @@ Return ONLY valid JSON:
     if (parsed?.modules && Array.isArray(parsed.modules)) {
       console.log(`[Synthesis] ✓ Designed curriculum with ${parsed.modules.length} modules (Course Grammar applied)`);
       
-      // FORBIDDEN PATTERN VALIDATION
-      const forbiddenTitlePatterns = [
-        /^introduction$/i,
-        /^chapter\s*\d/i,
-        /^part\s*\d/i,
-        /^overview$/i,
-        /^module\s*\d/i,
-        /^lesson\s*\d/i,
-      ];
-      
-      // Filter out modules with forbidden patterns and enhance remaining
-      const validatedModules = parsed.modules
-        .filter((m: any) => {
-          const title = m.title?.trim() || '';
-          const isForbidden = forbiddenTitlePatterns.some(pattern => pattern.test(title));
-          if (isForbidden) {
-            console.log(`[Synthesis] 🚫 REJECTING generic title: "${title}"`);
-            return false;
-          }
-          return true;
-        })
-        .map((m: any, idx: number) => ({
-          ...m,
-          title: m.title || `Analyze Key Concepts ${idx + 1}`,
-          tag: m.tag || 'Core Concepts',
-          source: m.source || 'Synthesized',
-          sourceUrls: m.sourceUrl ? [m.sourceUrl] : [],
-          origin: 'external' as const,
-          isAIDiscovered: true,
-          // Ensure learning objective exists
-          learningObjective: m.learningObjective || 
-            `By the end of this module, learner can ${m.title?.toLowerCase() || 'understand key concepts'}`,
-          pedagogicalFunction: validatePedagogicalFunction(m.pedagogicalFunction),
-          cognitiveLevel: validateCognitiveLevel(m.cognitiveLevel),
-          narrativePosition: m.narrativePosition || undefined,
-          evidenceOfMastery: m.evidenceOfMastery || undefined,
-        }));
-      
-      console.log(`[Synthesis] ✓ ${validatedModules.length} modules passed validation`);
+      // Validate and enhance modules with required fields
+      const modules = parsed.modules.map((m: any, idx: number) => ({
+        ...m,
+        title: m.title || `Module ${idx + 1}`,
+        tag: m.tag || 'Core Concepts',
+        source: m.source || 'Synthesized',
+        sourceUrls: m.sourceUrl ? [m.sourceUrl] : [],
+        origin: 'external' as const,
+        isAIDiscovered: true,
+        // Ensure pedagogical fields have defaults
+        learningObjective: m.learningObjective || undefined,
+        pedagogicalFunction: validatePedagogicalFunction(m.pedagogicalFunction),
+        cognitiveLevel: validateCognitiveLevel(m.cognitiveLevel),
+        narrativePosition: m.narrativePosition || undefined,
+        evidenceOfMastery: m.evidenceOfMastery || undefined,
+      }));
       
       return {
-        modules: validatedModules,
+        modules,
         synthesisRationale: parsed.synthesisRationale || 'Curriculum designed using backward design principles'
       };
     }
