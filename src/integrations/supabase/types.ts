@@ -380,6 +380,7 @@ export type Database = {
           raw_sources: Json | null
           source: string
           source_url: string | null
+          sources_confirmed: boolean | null
           topic_pillars: Json | null
           updated_at: string | null
           user_id: string
@@ -394,6 +395,7 @@ export type Database = {
           raw_sources?: Json | null
           source: string
           source_url?: string | null
+          sources_confirmed?: boolean | null
           topic_pillars?: Json | null
           updated_at?: string | null
           user_id: string
@@ -408,6 +410,7 @@ export type Database = {
           raw_sources?: Json | null
           source?: string
           source_url?: string | null
+          sources_confirmed?: boolean | null
           topic_pillars?: Json | null
           updated_at?: string | null
           user_id?: string

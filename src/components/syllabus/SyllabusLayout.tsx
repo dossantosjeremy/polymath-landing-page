@@ -1,12 +1,13 @@
-import { BookOpen, Settings, Library } from "lucide-react";
+import { BookOpen, Settings, Library, CheckCircle2, Lock } from "lucide-react";
 import { NestedTabs, NestedTabItem } from "@/components/ui/nested-tabs";
 import { ContentTab } from "./ContentTab";
 import { SyllabusTab } from "./SyllabusTab";
 import { SourcesTab } from "./SourcesTab";
-import { SyllabusProvider, SyllabusData, DiscoveredSource, MissionControlPersistedState } from "./SyllabusContext";
+import { SyllabusProvider, SyllabusData, DiscoveredSource, MissionControlPersistedState, useSyllabusContext } from "./SyllabusContext";
 import { LearningPathConstraints, PruningStats } from "@/components/SmartLearningPathSettings";
 import { BackgroundLoadingBanner } from "@/components/BackgroundLoadingBanner";
 import { useTranslation } from "react-i18next";
+import { Badge } from "@/components/ui/badge";
 
 interface SyllabusLayoutProps {
   // Data
@@ -29,6 +30,10 @@ interface SyllabusLayoutProps {
   selectAllSources: () => void;
   deselectAllSources: () => void;
   regenerateWithSelectedSources: () => Promise<void>;
+  
+  // Source Confirmation (Epistemic Gate)
+  sourcesConfirmed: boolean;
+  confirmSources: () => void;
   
   // Learning Settings
   learningSettings: LearningPathConstraints;
@@ -122,23 +127,39 @@ function SyllabusLayoutInner({
   onTabChange?: (tab: string) => void;
 }) {
   const { t } = useTranslation();
+  const { sourcesConfirmed } = useSyllabusContext();
 
   const tabs: NestedTabItem[] = [
     {
       value: "sources",
-      label: t('syllabus.sources'),
+      label: (
+        <span className="flex items-center gap-1.5">
+          {t('syllabus.sources')}
+          {sourcesConfirmed && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
+        </span>
+      ),
       icon: <Library className="h-4 w-4" />,
       content: <SourcesTab />,
     },
     {
       value: "syllabus",
-      label: t('syllabus.overview'),
+      label: (
+        <span className="flex items-center gap-1.5">
+          {t('syllabus.overview')}
+          {!sourcesConfirmed && <Lock className="h-3 w-3 text-muted-foreground" />}
+        </span>
+      ),
       icon: <Settings className="h-4 w-4" />,
       content: <SyllabusTab />,
     },
     {
       value: "content",
-      label: t('syllabus.content'),
+      label: (
+        <span className="flex items-center gap-1.5">
+          {t('syllabus.content')}
+          {!sourcesConfirmed && <Lock className="h-3 w-3 text-muted-foreground" />}
+        </span>
+      ),
       icon: <BookOpen className="h-4 w-4" />,
       content: <ContentTab />,
     },

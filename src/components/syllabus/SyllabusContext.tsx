@@ -88,6 +88,10 @@ interface SyllabusContextValue {
   deselectAllSources: () => void;
   regenerateWithSelectedSources: () => Promise<void>;
   
+  // Source Confirmation (Epistemic Gate)
+  sourcesConfirmed: boolean;
+  confirmSources: () => void;
+  
   // Learning Settings
   learningSettings: LearningPathConstraints;
   pruningStats: PruningStats | undefined;

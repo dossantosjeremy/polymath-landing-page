@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 export interface NestedTabItem {
   value: string;
-  label: string;
+  label: React.ReactNode;
   icon?: React.ReactNode;
   content?: React.ReactNode;
   subTabs?: NestedTabItem[];

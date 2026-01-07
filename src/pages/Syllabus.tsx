@@ -64,7 +64,10 @@ const SyllabusContent = () => {
   const [showAIContent, setShowAIContent] = useState(true);
   
   // Tab state
-  const [activeTab, setActiveTab] = useState("content");
+  const [activeTab, setActiveTab] = useState("sources");
+  
+  // Source Confirmation (Epistemic Gate)
+  const [sourcesConfirmed, setSourcesConfirmed] = useState(false);
   
   // Mission Control State (persisted across tab switches)
   const [missionControlState, setMissionControlState] = useState<MissionControlPersistedState | null>(null);
@@ -344,6 +347,9 @@ const SyllabusContent = () => {
         narrativeFlow: (data as any).narrative_flow || undefined
       });
       
+      // Restore sources_confirmed from database
+      setSourcesConfirmed((data as any).sources_confirmed === true);
+      
       setIsSaved(true);
       
       if (data.discipline_path) {
@@ -558,6 +564,28 @@ const SyllabusContent = () => {
       setApplyingConstraints(false);
     }
   };
+
+  // Source confirmation handler (epistemic gate)
+  const confirmSources = useCallback(() => {
+    setSourcesConfirmed(true);
+    setActiveTab("syllabus");
+    
+    // Persist to database if this is a saved syllabus
+    if (savedId && user) {
+      supabase
+        .from('saved_syllabi')
+        .update({ sources_confirmed: true, updated_at: new Date().toISOString() })
+        .eq('id', savedId)
+        .then(({ error }) => {
+          if (error) console.error('Failed to persist sources_confirmed:', error);
+        });
+    }
+    
+    toast({
+      title: "Sources Confirmed",
+      description: "You can now configure your learning path and access content.",
+    });
+  }, [savedId, user, toast]);
 
   // Topic Focus Pills handlers
   const togglePillar = useCallback((pillarName: string) => {
@@ -868,6 +896,8 @@ const SyllabusContent = () => {
               selectAllSources={selectAllSources}
               deselectAllSources={deselectAllSources}
               regenerateWithSelectedSources={regenerateWithSelectedSources}
+              sourcesConfirmed={sourcesConfirmed}
+              confirmSources={confirmSources}
               learningSettings={learningSettings}
               pruningStats={pruningStats}
               handleApplyConstraints={handleApplyConstraints}
