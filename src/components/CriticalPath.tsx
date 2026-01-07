@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TrustBadge, ScoreBreakdownBadge, ResourceOrigin } from './TrustBadge';
-import { ExternalLink, Clock, Target, Play, FileText, Flag, Loader2, ChevronDown, ChevronUp, LinkIcon, Ban, BookOpen, AlertTriangle, Info } from 'lucide-react';
+import { ExternalLink, Clock, Target, Play, FileText, Flag, Loader2, ChevronDown, ChevronUp, LinkIcon, Ban, BookOpen, AlertTriangle, Info, GraduationCap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useReportResource } from '@/hooks/useReportResource';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -11,6 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { ArticleReaderDialog } from './ArticleReaderDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { CuratedResource, AvailabilityReport, EpistemicRole } from '@/hooks/useCuratedResources';
+import { getGranularityLabel, getDecompositionMessage } from '@/types/learningObjects';
 
 interface CriticalPathProps {
   learningObjective: string;
@@ -426,6 +427,17 @@ function CoreResourceCard({ type, resource, discipline, stepTitle, onReplace, is
           <p className="text-xs text-muted-foreground line-clamp-2">
             {resource.snippet}
           </p>
+        )}
+        
+        {/* Decomposition warning for full courses that shouldn't be in Essential Path */}
+        {resource.requiresDecomposition && resource.granularity && (
+          <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded flex items-start gap-2">
+            <GraduationCap className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+            <div className="text-xs text-amber-700 dark:text-amber-400">
+              <span className="font-medium">{getGranularityLabel(resource.granularity)}: </span>
+              {getDecompositionMessage(resource.granularity, stepTitle || '')}
+            </div>
+          </div>
         )}
         
         {/* Rationale */}

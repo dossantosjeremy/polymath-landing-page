@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ResourceOrigin } from '@/components/TrustBadge';
 
+import { LearningObjectGranularity, GranularityClassification } from '@/types/learningObjects';
+
 // Epistemic classification for rule-based core selection
 export interface EpistemicRole {
   isFoundational: boolean;
@@ -36,6 +38,10 @@ export interface CuratedResource {
   verificationStatus?: 'verified' | 'unverified' | 'failed';
   epistemicRole?: EpistemicRole;
   whySecondary?: string;
+  // NEW: Explicit granularity classification
+  granularity?: LearningObjectGranularity;
+  granularityConfidence?: 'high' | 'medium' | 'low';
+  requiresDecomposition?: boolean;
 }
 
 // Excluded resource tracking for transparency

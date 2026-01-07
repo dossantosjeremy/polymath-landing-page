@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ExternalLink, GraduationCap, AlertTriangle, PlusCircle, Search, Loader2 } from 'lucide-react';
+import { ExternalLink, GraduationCap, AlertTriangle, PlusCircle, Search, Loader2, BookOpen, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { ResourceFallback } from './ResourceFallback';
 import { useFindMoreResource } from '@/hooks/useFindMoreResource';
 import { useToast } from '@/hooks/use-toast';
+import { LearningObjectGranularity, classifyGranularity, getGranularityLabel, isEssentialPathEligible } from '@/types/learningObjects';
 
 interface MOOC {
   type?: 'video' | 'text' | 'lesson' | 'exercise';
@@ -24,6 +25,8 @@ interface MOOC {
   course_url?: string;     // Course landing page
   authority_level?: 'academic' | 'professional' | 'community';
   is_atomic?: boolean;     // true = direct lesson, false = course fallback
+  // NEW: Explicit granularity (if provided by backend)
+  granularity?: LearningObjectGranularity;
   // Legacy field (deprecated)
   courseName?: string;
 }
@@ -152,10 +155,17 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
   const renderMOOCCard = (mooc: MOOC, index: number) => {
     const parentCourse = getParentCourse(mooc);
     const authorityBadge = getAuthorityBadge(mooc.authority_level);
-    const isAtomicLesson = mooc.is_atomic === true;
-    const isCourseFallback = mooc.is_atomic === false;
     const pricingInfo = getPricingInfo(mooc.source);
     const isCoursera = mooc.source?.toLowerCase().includes('coursera');
+    
+    // Use explicit granularity if provided, otherwise classify from URL/is_atomic
+    const classification = mooc.granularity 
+      ? { granularity: mooc.granularity, confidence: 'high' as const, requiresDecomposition: !isEssentialPathEligible(mooc.granularity) }
+      : classifyGranularity(mooc.url, { is_atomic: mooc.is_atomic, course_title: mooc.course_title, course_url: mooc.course_url });
+    
+    const isAtomicLesson = classification.granularity === 'atomic_lesson';
+    const isCourseFallback = classification.granularity === 'full_course' || classification.granularity === 'syllabus';
+    const granularityLabel = getGranularityLabel(classification.granularity);
 
     return (
       <Card key={index} className={`border-2 p-3 sm:p-5 space-y-3 sm:space-y-4 h-full w-full max-w-full overflow-hidden ${isCourseFallback ? 'border-dashed border-muted-foreground/50' : 'border-border'}`}>
@@ -188,9 +198,23 @@ export const MOOCSection = ({ moocs, stepTitle, discipline, isLoading = false, o
                 {authorityBadge.label}
               </Badge>
             )}
+            {/* Granularity-based badge */}
             {isAtomicLesson && (
               <Badge variant="outline" className="bg-green-500/10 text-green-700 border-green-500/20 text-[10px] w-fit">
-                Lesson
+                <Video className="h-2.5 w-2.5 mr-1" />
+                Direct {granularityLabel}
+              </Badge>
+            )}
+            {classification.granularity === 'module' && (
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/20 text-[10px] w-fit">
+                <BookOpen className="h-2.5 w-2.5 mr-1" />
+                {granularityLabel}
+              </Badge>
+            )}
+            {isCourseFallback && (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/20 text-[10px] w-fit">
+                <GraduationCap className="h-2.5 w-2.5 mr-1" />
+                {granularityLabel}
               </Badge>
             )}
             {mooc.verified === false && (

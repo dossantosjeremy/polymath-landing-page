@@ -332,6 +332,21 @@ interface ScoreBreakdown {
   total: number;
 }
 
+// Learning Object Granularity - explicit classification for pedagogical correctness
+type LearningObjectGranularity = 
+  | 'atomic_lesson'     // Single video, article, or exercise (5-30 mins) - CAN appear in Essential Path
+  | 'module'            // Coherent topic unit (1-4 hours) - CAN appear in Essential Path  
+  | 'full_course'       // Complete course requiring enrollment (10-40+ hours) - CANNOT appear in Essential Path
+  | 'syllabus'          // Curriculum blueprint (program-level) - CANNOT appear in Essential Path
+  | 'unknown';          // Unclassified
+
+// Granularity classification result
+interface GranularityClassification {
+  granularity: LearningObjectGranularity;
+  confidence: 'high' | 'medium' | 'low';
+  requiresDecomposition: boolean;
+}
+
 // Epistemic classification for rule-based (not score-based) core selection
 interface EpistemicRole {
   isFoundational: boolean;      // Introduces key terminology/framework
@@ -366,6 +381,10 @@ interface CuratedResource {
   courseName?: string; // Parent course name for MOOC video lessons
   epistemicRole?: EpistemicRole;
   whySecondary?: string; // Explanation if not in core
+  // NEW: Explicit granularity classification
+  granularity?: LearningObjectGranularity;
+  granularityConfidence?: 'high' | 'medium' | 'low';
+  requiresDecomposition?: boolean;
 }
 
 // Excluded resource tracking for transparency
@@ -560,6 +579,98 @@ function scoreResource(
   };
 }
 
+// Classify granularity of a learning resource
+// CRITICAL: This determines what can appear in the Essential Path
+function classifyResourceGranularity(url: string, resource?: any): GranularityClassification {
+  const urlLower = url.toLowerCase();
+  
+  // 1. Check explicit is_atomic flag first (from MOOC search)
+  if (resource?.is_atomic === true) {
+    return { granularity: 'atomic_lesson', confidence: 'high', requiresDecomposition: false };
+  }
+  
+  if (resource?.is_atomic === false) {
+    return { granularity: 'full_course', confidence: 'high', requiresDecomposition: true };
+  }
+  
+  // 2. Detect placeholder/fake URLs
+  const hasPlaceholderID = 
+    /\/lecture\/[A-Z_]+$/.test(url) ||
+    /\/video\/[A-Z_]+$/.test(url) ||
+    url.includes('VIDEO_ID') ||
+    url.includes('LECTURE_ID');
+    
+  if (hasPlaceholderID) {
+    return { granularity: 'unknown', confidence: 'low', requiresDecomposition: false };
+  }
+  
+  // 3. Atomic lesson patterns (high confidence)
+  const atomicPatterns = [
+    /youtube\.com\/watch/i,
+    /youtu\.be\//i,
+    /vimeo\.com\/\d+/i,
+    /coursera\.org\/learn\/[^\/]+\/lecture\//i,
+    /coursera\.org\/learn\/[^\/]+\/quiz\//i,
+    /edx\.org\/.*\/block/i,
+    /khanacademy\.org\/.*\/v\//i,
+    /khanacademy\.org\/.*\/video\//i,
+    /plato\.stanford\.edu\/entries\//i,
+    /wikipedia\.org\/wiki\//i,
+    /medium\.com\/@?[^\/]+\/[^\/]+/i,
+    /\.pdf(\?|$)/i,
+    /\/article\//i,
+    /\/post\//i,
+    /\/blog\//i,
+  ];
+  
+  for (const pattern of atomicPatterns) {
+    if (pattern.test(urlLower)) {
+      return { granularity: 'atomic_lesson', confidence: 'high', requiresDecomposition: false };
+    }
+  }
+  
+  // 4. Full course patterns (high confidence)
+  const fullCoursePatterns = [
+    /coursera\.org\/learn\/[^\/]+\/?$/i,
+    /coursera\.org\/specializations\//i,
+    /edx\.org\/course\/[^\/]+\/?$/i,
+    /udemy\.com\/course\/[^\/]+\/?$/i,
+    /linkedin\.com\/learning\/[^\/]+\/?$/i,
+    /skillshare\.com\/classes\/[^\/]+\/?$/i,
+    /pluralsight\.com\/courses\//i,
+    /udacity\.com\/course\//i,
+    /masterclass\.com\/classes\//i,
+    /futurelearn\.com\/courses\//i,
+  ];
+  
+  for (const pattern of fullCoursePatterns) {
+    if (pattern.test(urlLower)) {
+      return { granularity: 'full_course', confidence: 'high', requiresDecomposition: true };
+    }
+  }
+  
+  // 5. Syllabus patterns (high confidence)
+  const syllabusPatterns = [
+    /ocw\.mit\.edu\/courses\/[^\/]+\/?$/i,
+    /\/syllabus/i,
+    /\/curriculum/i,
+  ];
+  
+  for (const pattern of syllabusPatterns) {
+    if (pattern.test(urlLower)) {
+      return { granularity: 'syllabus', confidence: 'high', requiresDecomposition: true };
+    }
+  }
+  
+  // 6. Default: module-level (articles, docs without clear atomic signals)
+  return { granularity: 'module', confidence: 'medium', requiresDecomposition: false };
+}
+
+// Check if a resource is eligible for the Essential Path (core videos/readings)
+function isEssentialPathEligible(granularity: LearningObjectGranularity): boolean {
+  return granularity === 'atomic_lesson' || granularity === 'module';
+}
+
 // Generate learning objective for a step
 function generateLearningObjective(stepTitle: string, discipline: string): string {
   const cleanTitle = stepTitle.replace(/^\d+\.\s*/, '').trim();
@@ -632,6 +743,9 @@ function transformToCuratedResource(
 
   // Classify epistemic role (rule-based, not score-based)
   const epistemicRole = classifyEpistemicRole(resource, type, syllabusContent);
+  
+  // CRITICAL: Classify granularity for Essential Path gating
+  const granularityResult = classifyResourceGranularity(resource.url || '', resource);
 
   return {
     url: resource.url || '',
@@ -655,7 +769,11 @@ function transformToCuratedResource(
     focusHighlight: resource.focusHighlight,
     keyMoments: resource.keyMoments,
     archivedUrl: resource.archivedUrl,
-    epistemicRole
+    epistemicRole,
+    // NEW: Granularity classification
+    granularity: granularityResult.granularity,
+    granularityConfidence: granularityResult.confidence,
+    requiresDecomposition: granularityResult.requiresDecomposition
   };
 }
 
@@ -731,15 +849,47 @@ function curateResources(
     .map(a => transformToCuratedResource(a, a.type || 'article', syllabusContent))
     .sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
 
+  // CRITICAL: Filter out full courses and syllabi from Essential Path candidates
+  // These go ONLY to MOOCs tab or Expansion Pack - they violate the ontology rules
+  const coreEligibleVideos = allVideos.filter(v => {
+    if (!isEssentialPathEligible(v.granularity || 'unknown')) {
+      console.log(`🚫 Excluding from Essential Path (${v.granularity}): ${v.title}`);
+      excludedCore.push({ 
+        resource: v, 
+        reason: 'low_relevance', 
+        originalScore: v.scoreBreakdown.total 
+      });
+      return false;
+    }
+    return true;
+  });
+  
+  const coreEligibleReadings = allReadings.filter(r => {
+    if (!isEssentialPathEligible(r.granularity || 'unknown')) {
+      console.log(`🚫 Excluding from Essential Path (${r.granularity}): ${r.title}`);
+      excludedCore.push({ 
+        resource: r, 
+        reason: 'low_relevance', 
+        originalScore: r.scoreBreakdown.total 
+      });
+      return false;
+    }
+    return true;
+  });
+  
+  // Full courses go to MOOCs or Expansion Pack
+  const fullCourseVideos = allVideos.filter(v => !isEssentialPathEligible(v.granularity || 'unknown'));
+  const fullCourseReadings = allReadings.filter(r => !isEssentialPathEligible(r.granularity || 'unknown'));
+
   // RULE-BASED CORE SELECTION: Select resources satisfying ≥2 epistemic criteria
   // Then fall back to score-based ranking for remainder
   
-  // Separate essential (≥2 criteria) from non-essential
-  const essentialVideos = allVideos.filter(v => (v.epistemicRole?.criteriaCount || 0) >= 2);
-  const nonEssentialVideos = allVideos.filter(v => (v.epistemicRole?.criteriaCount || 0) < 2);
+  // Separate essential (≥2 criteria) from non-essential (only from core-eligible)
+  const essentialVideos = coreEligibleVideos.filter(v => (v.epistemicRole?.criteriaCount || 0) >= 2);
+  const nonEssentialVideos = coreEligibleVideos.filter(v => (v.epistemicRole?.criteriaCount || 0) < 2);
   
-  const essentialReadings = allReadings.filter(r => (r.epistemicRole?.criteriaCount || 0) >= 2);
-  const nonEssentialReadings = allReadings.filter(r => (r.epistemicRole?.criteriaCount || 0) < 2);
+  const essentialReadings = coreEligibleReadings.filter(r => (r.epistemicRole?.criteriaCount || 0) >= 2);
+  const nonEssentialReadings = coreEligibleReadings.filter(r => (r.epistemicRole?.criteriaCount || 0) < 2);
   
   // Sort each group by score (for ordering, not visibility gating)
   essentialVideos.sort((a, b) => b.scoreBreakdown.total - a.scoreBreakdown.total);
