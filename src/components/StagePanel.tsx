@@ -9,6 +9,12 @@ import { useCuratedResources } from "@/hooks/useCuratedResources";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { useState, useEffect } from "react";
+
+// Get clean step title (without "Module X - Step Y:" prefix)
+function getCleanStepTitle(title: string): string {
+  const cleaned = title.replace(/^Module\s*\d+\s*-\s*Step\s*\d+:\s*/i, '').trim();
+  return cleaned || title;
+}
 interface StagePanelProps {
   mode: ViewMode;
   currentStep: MissionControlStep | null;
@@ -309,7 +315,7 @@ export function StagePanel({
                 )}
               </div>
 
-              <h1 className="text-base sm:text-xl font-bold mb-1 break-words">{currentStep.title}</h1>
+              <h1 className="text-base sm:text-xl font-bold mb-1 break-words">{getCleanStepTitle(currentStep.title)}</h1>
             </div>
           </div>
 
