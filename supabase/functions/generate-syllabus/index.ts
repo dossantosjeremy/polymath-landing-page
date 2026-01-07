@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { analyzeTopicComposition } from "./analyzeTopicComposition.ts";
 import { synthesizeCurriculum } from "./synthesizeCurriculum.ts";
 import { identifyDomainAuthorities, DomainAuthority } from "./identifyDomainAuthorities.ts";
+import { designCourseGrammar, validateCourseGrammar, type CourseGrammar, type PedagogicalFunction, type CognitiveLevel } from "./designCourseGrammar.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +23,16 @@ interface Module {
   isHiddenForDepth?: boolean;
   authorityType?: 'industry_standard' | 'academic' | 'practitioner' | 'standard_body';
   authorityReason?: string;
-  isAIDiscovered?: boolean; // True if this module was added via AI enhancement
+  isAIDiscovered?: boolean;
+  // NEW: Pedagogical metadata from Course Grammar
+  learningObjective?: string;         // What learner will be able to DO
+  pedagogicalFunction?: PedagogicalFunction;
+  cognitiveLevel?: CognitiveLevel;
+  evidenceOfMastery?: string;         // How learner proves understanding
+  bottleneckConcept?: string;         // Known difficulty to drill
+  narrativePosition?: string;         // Why this, why now, what next
+  pillar?: string;                    // Which pedagogical pillar this serves
+  selectionRationale?: string;        // Why this was chosen over alternatives
 }
 
 interface DiscoveredSource {
@@ -126,6 +136,7 @@ serve(async (req) => {
     let vocationalFirst = false;
     let synthesisRationale = '';
     let discoveredAuthorities: DomainAuthority[] = [];
+    let courseGrammar: CourseGrammar | undefined;
     
     // Determine if we should use Magistrate authority discovery
     // - Always for ad-hoc topics
@@ -143,6 +154,13 @@ serve(async (req) => {
     vocationalFirst = compositionAnalysis.vocationalFirst || false;
     console.log(`[Topic Analysis] Type: ${compositionType}, Pillars: ${topicPillars.map(p => p.name).join(', ')}`);
     console.log(`[Topic Analysis] Vocational First: ${vocationalFirst}, Narrative: ${narrativeFlow}`);
+    
+    // NEW: Design Course Grammar using backward design (for ad-hoc and AI-enhanced)
+    if (shouldUseAuthorities && topicPillars.length > 0) {
+      console.log('[Course Grammar] Designing course architecture with backward design...');
+      courseGrammar = await designCourseGrammar(discipline, topicPillars, narrativeFlow, LOVABLE_API_KEY);
+      console.log(`[Course Grammar] ✓ Mastery: ${courseGrammar.masteryOutcome.shortTerm.slice(0, 50)}...`);
+    }
     
     // THE MAGISTRATE: Identify domain authorities for ad-hoc OR AI-enhanced searches
     if (shouldUseAuthorities) {
