@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useTranslation } from "react-i18next";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 interface CurriculumMetroMapProps {
   steps: MissionControlStep[];
@@ -132,8 +132,8 @@ export function CurriculumMetroMap({
     });
   };
 
-  // Initialize all groups as expanded
-  useMemo(() => {
+  // Initialize all groups as expanded - use useEffect, not useMemo
+  useEffect(() => {
     const allPillars = new Set(steps.map(s => s.pillar || s.tag));
     setExpandedGroups(allPillars);
   }, [steps]);
