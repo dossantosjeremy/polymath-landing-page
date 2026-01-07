@@ -1,11 +1,13 @@
-import { MapPin, Sparkles, BookOpen, Award, ExternalLink, Target, Lightbulb, Eye, Play, PenTool, Compass, ClipboardCheck } from "lucide-react";
+import { MapPin, Sparkles, BookOpen, Award, ExternalLink, Target, Lightbulb, Eye, Play, PenTool, Compass, ClipboardCheck, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { MissionControlStep, ViewMode, PedagogicalFunction, CognitiveLevel } from "@/hooks/useMissionControl";
-import { StepSummary } from "@/components/StepSummary";
+import { NarrativeLearningContent } from "@/components/NarrativeLearningContent";
 import { CuratedLearningPlayer } from "@/components/CuratedLearningPlayer";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { useCuratedResources } from "@/hooks/useCuratedResources";
 
 interface StagePanelProps {
   mode: ViewMode;
@@ -91,6 +93,9 @@ export function StagePanel({
   getSourceColorByUrl,
 }: StagePanelProps) {
   const { t } = useTranslation();
+  
+  // Fetch curated resources to pass to NarrativeLearningContent
+  const { resources: curatedResources } = useCuratedResources();
 
   // Draft Mode: Show placeholder
   if (mode === 'draft') {
@@ -308,7 +313,7 @@ export function StagePanel({
           </div>
         </div>
 
-        {/* Content Area */}
+        {/* Content Area - Narrative-First Design */}
         <div className="w-full min-w-0 overflow-hidden">
           {isCapstone ? (
             <CapstoneAssignment
@@ -317,16 +322,10 @@ export function StagePanel({
               syllabusUrls={syllabusUrls}
             />
           ) : (
-            <>
-              <CuratedLearningPlayer 
-                key={currentStep.title}
-                stepTitle={currentStep.title}
-                discipline={discipline}
-                syllabusUrls={syllabusUrls}
-                isCapstone={false}
-                autoLoad={true}
-              />
-              <StepSummary
+            <div className="space-y-6">
+              {/* PRIMARY: AI Course Notes (narrative-first) */}
+              <NarrativeLearningContent
+                key={`narrative-${currentStep.title}`}
                 stepTitle={currentStep.title}
                 discipline={discipline}
                 stepDescription={currentStep.description || ""}
@@ -337,8 +336,39 @@ export function StagePanel({
                     .filter(Boolean)
                     .join('\n\n---\n\n');
                 })()}
+                learningObjective={currentStep.learningObjective}
+                pedagogicalFunction={currentStep.pedagogicalFunction}
+                cognitiveLevel={currentStep.cognitiveLevel}
+                narrativePosition={currentStep.narrativePosition}
+                evidenceOfMastery={currentStep.evidenceOfMastery}
+                resources={{
+                  coreVideos: curatedResources?.coreVideos,
+                  coreReadings: curatedResources?.coreReadings,
+                }}
+                autoLoad={true}
               />
-            </>
+              
+              {/* SECONDARY: Collapsible supporting resources */}
+              <Collapsible className="border-t pt-4">
+                <CollapsibleTrigger className="flex items-center gap-2 w-full py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group">
+                  <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+                  <span>Supporting Resources & Online Courses</span>
+                  <Badge variant="outline" className="text-xs ml-auto">
+                    Videos, Readings, MOOCs
+                  </Badge>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-4">
+                  <CuratedLearningPlayer 
+                    key={currentStep.title}
+                    stepTitle={currentStep.title}
+                    discipline={discipline}
+                    syllabusUrls={syllabusUrls}
+                    isCapstone={false}
+                    autoLoad={true}
+                  />
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           )}
         </div>
       </div>
