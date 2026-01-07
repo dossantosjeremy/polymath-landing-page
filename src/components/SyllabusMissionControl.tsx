@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { CurriculumMetroMap } from "@/components/CurriculumMetroMap";
 import { StagePanel } from "@/components/StagePanel";
 import { useMissionControl, MissionControlStep, MissionControlPersistedState, PedagogicalFunction, CognitiveLevel } from "@/hooks/useMissionControl";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Map, PanelLeftClose, PanelLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Module {
   title: string;
@@ -106,6 +108,58 @@ export function SyllabusMissionControl({
   });
 
   const syllabusUrls = rawSources.map(s => s.url);
+  const [generatingModule, setGeneratingModule] = useState<string | null>(null);
+
+  // Handler for generating all notes in a module
+  const handleGenerateModuleNotes = useCallback(async (pillar: string, stepTitles: string[]) => {
+    setGeneratingModule(pillar);
+    toast.info(`Generating notes for ${stepTitles.length} steps in "${pillar}"...`);
+    
+    try {
+      // Generate notes sequentially to avoid rate limiting
+      for (let i = 0; i < stepTitles.length; i++) {
+        const stepTitle = stepTitles[i];
+        const step = confirmedSteps.find(s => s.title === stepTitle);
+        if (!step) continue;
+
+        toast.info(`Generating ${i + 1}/${stepTitles.length}: ${stepTitle}`);
+
+        const sourceContent = rawSources
+          .filter(s => step.sourceUrls?.includes(s.url) || step.sourceUrl === s.url)
+          .map(s => s.content && s.content !== '[[EXTRACTION_FAILED]]' ? s.content : '')
+          .filter(Boolean)
+          .join('\n\n---\n\n');
+
+        await supabase.functions.invoke('generate-step-summary', {
+          body: {
+            stepTitle,
+            discipline,
+            stepDescription: step.description || '',
+            sourceContent,
+            referenceLength: 'comprehensive',
+            forceRefresh: false,
+            learningObjective: step.learningObjective,
+            pedagogicalFunction: step.pedagogicalFunction,
+            cognitiveLevel: step.cognitiveLevel,
+            narrativePosition: step.narrativePosition,
+            evidenceOfMastery: step.evidenceOfMastery,
+          }
+        });
+
+        // Small delay to avoid rate limiting
+        if (i < stepTitles.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      toast.success(`Generated notes for all ${stepTitles.length} steps in "${pillar}"`);
+    } catch (error) {
+      console.error('Error generating module notes:', error);
+      toast.error('Failed to generate some notes');
+    } finally {
+      setGeneratingModule(null);
+    }
+  }, [confirmedSteps, discipline, rawSources]);
 
   // Metro Map Component
   const metroMap = (
@@ -123,6 +177,8 @@ export function SyllabusMissionControl({
       onConfirm={confirmPath}
       onNavigateToStep={navigateToStep}
       onReEnableStep={reEnableStep}
+      onGenerateModuleNotes={handleGenerateModuleNotes}
+      generatingModule={generatingModule}
     />
   );
 

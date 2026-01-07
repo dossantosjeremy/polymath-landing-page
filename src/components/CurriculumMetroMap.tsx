@@ -28,6 +28,8 @@ interface CurriculumMetroMapProps {
   onConfirm: () => void;
   onNavigateToStep: (index: number) => void;
   onReEnableStep: (originalIndex: number) => void;
+  onGenerateModuleNotes?: (pillar: string, stepTitles: string[]) => void;
+  generatingModule?: string | null;
 }
 
 // Pedagogical function badge configuration
@@ -66,6 +68,8 @@ export function CurriculumMetroMap({
   onConfirm,
   onNavigateToStep,
   onReEnableStep,
+  onGenerateModuleNotes,
+  generatingModule,
 }: CurriculumMetroMapProps) {
   const { t } = useTranslation();
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
@@ -377,6 +381,8 @@ export function CurriculumMetroMap({
             groupedConfirmedSteps.map((group) => {
               const isExpanded = expandedGroups.has(group.pillar);
               const hasActiveStep = group.steps.some(({ index }) => index === activeStepIndex);
+              const isGenerating = generatingModule === group.pillar;
+              const stepTitles = group.steps.map(({ step }) => step.title);
 
               return (
                 <Collapsible 
@@ -385,13 +391,13 @@ export function CurriculumMetroMap({
                   onOpenChange={() => toggleGroup(group.pillar)}
                 >
                   {/* Module Header */}
-                  <CollapsibleTrigger className="w-full">
-                    <div className={cn(
-                      "flex items-center gap-2 p-2 rounded-lg border transition-colors",
-                      hasActiveStep 
-                        ? "border-primary bg-primary/5" 
-                        : "border-border bg-card hover:bg-muted/50"
-                    )}>
+                  <div className={cn(
+                    "flex items-center gap-2 p-2 rounded-lg border transition-colors",
+                    hasActiveStep 
+                      ? "border-primary bg-primary/5" 
+                      : "border-border bg-card hover:bg-muted/50"
+                  )}>
+                    <CollapsibleTrigger className="flex items-center gap-2 flex-1 min-w-0">
                       <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                       <span className="font-medium text-sm flex-1 text-left truncate">
                         {group.pillar}
@@ -403,8 +409,34 @@ export function CurriculumMetroMap({
                         "h-4 w-4 text-muted-foreground transition-transform",
                         (isExpanded || hasActiveStep) && "rotate-90"
                       )} />
-                    </div>
-                  </CollapsibleTrigger>
+                    </CollapsibleTrigger>
+                    
+                    {/* Generate All Notes Button */}
+                    {onGenerateModuleNotes && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onGenerateModuleNotes(group.pillar, stepTitles);
+                            }}
+                            disabled={isGenerating}
+                          >
+                            <Sparkles className={cn(
+                              "h-3.5 w-3.5",
+                              isGenerating && "animate-pulse text-primary"
+                            )} />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {isGenerating ? 'Generating notes...' : 'Generate all notes for this module'}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
 
                   {/* Nested Steps */}
                   <CollapsibleContent>
