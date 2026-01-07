@@ -64,7 +64,6 @@ export function ContentTab() {
         aiEnabled={showAIContent}
         initialPersistedState={missionControlState}
         onStateChange={setMissionControlState}
-        onPathConfirmed={startBackgroundLoading}
       />
     </div>
   );
