@@ -5,10 +5,11 @@ import { NarrativeLearningContent } from "@/components/NarrativeLearningContent"
 import { CuratedLearningPlayer } from "@/components/CuratedLearningPlayer";
 import { CapstoneAssignment } from "@/components/CapstoneAssignment";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { useCuratedResources } from "@/hooks/useCuratedResources";
+import { useResourceCache } from "@/contexts/ResourceCacheContext";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+
 
 // Get clean step title (without "Module X - Step Y:" prefix)
 function getCleanStepTitle(title: string): string {
@@ -102,14 +103,16 @@ function NarrativeContentArea({
   urls: string[];
 }) {
   const [resourcesOpen, setResourcesOpen] = useState(false);
-  const { resources, fetchResources, isLoading: resourcesLoading } = useCuratedResources();
+  const { getResource } = useResourceCache();
 
-  // Fetch resources for embedding in narrative
-  useEffect(() => {
-    if (!isCapstone && currentStep.title) {
-      fetchResources(currentStep.title, discipline, syllabusUrls, '', undefined, false);
-    }
-  }, [currentStep.title, discipline, syllabusUrls, isCapstone, fetchResources]);
+  const cachedResources = getResource(currentStep.title);
+  const embeddedResources = cachedResources
+    ? {
+        coreVideos: cachedResources.coreVideos,
+        coreReadings: cachedResources.coreReadings,
+      }
+    : undefined;
+
 
   const sourceContent = (() => {
     const relevantSources = rawSources.filter(s => urls.includes(s.url));
@@ -144,12 +147,10 @@ function NarrativeContentArea({
         cognitiveLevel={currentStep.cognitiveLevel}
         narrativePosition={currentStep.narrativePosition}
         evidenceOfMastery={currentStep.evidenceOfMastery}
-        resources={resources ? {
-          coreVideos: resources.coreVideos,
-          coreReadings: resources.coreReadings,
-        } : undefined}
+        resources={embeddedResources}
         autoLoad={false}
       />
+
 
       {/* SECONDARY: Collapsible Supporting Resources */}
       <Collapsible open={resourcesOpen} onOpenChange={setResourcesOpen}>
@@ -157,28 +158,34 @@ function NarrativeContentArea({
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-sm">Supporting Resources & Online Courses</span>
-            {resources && (
+            {cachedResources && (
               <Badge variant="secondary" className="text-xs">
-                {(resources.coreVideos?.length || 0) + (resources.coreReadings?.length || 0) + (resources.moocs?.length || 0)} items
+                {(cachedResources.coreVideos?.length || 0) +
+                  (cachedResources.coreReadings?.length || 0) +
+                  (cachedResources.moocs?.length || 0)}{' '}
+                items
               </Badge>
             )}
           </div>
-          <ChevronDown className={cn(
-            "h-4 w-4 text-muted-foreground transition-transform",
-            resourcesOpen && "rotate-180"
-          )} />
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-muted-foreground transition-transform",
+              resourcesOpen && "rotate-180"
+            )}
+          />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-4">
-          <CuratedLearningPlayer 
+          <CuratedLearningPlayer
             key={currentStep.title}
             stepTitle={currentStep.title}
             discipline={discipline}
             syllabusUrls={syllabusUrls}
             isCapstone={false}
-            autoLoad={true}
+            autoLoad={false}
           />
         </CollapsibleContent>
       </Collapsible>
+
     </div>
   );
 }

@@ -191,10 +191,9 @@ export function useMissionControl({
       
       setMode('active');
       
-      // Trigger background loading for all confirmed steps
-      if (onPathConfirmed) {
-        onPathConfirmed(confirmed.map(s => s.title));
-      }
+      // Resource loading is intentionally manual and step-scoped (no background bulk loading).
+      // If you want bulk preloading again later, re-introduce it behind an explicit user action.
+
     } finally {
       setIsConfirming(false);
     }

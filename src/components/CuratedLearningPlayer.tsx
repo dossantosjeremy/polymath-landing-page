@@ -81,10 +81,11 @@ export const CuratedLearningPlayer = ({
     }
   }, [stepTitle, getResource]);
 
-  // Re-check cache periodically while waiting (background loader may populate it)
+  // Re-check cache periodically while waiting (ONLY when autoLoad is enabled)
   useEffect(() => {
+    if (!autoLoad) return;
     if (hasLoaded || localResources || isCapstone) return;
-    
+
     // Check cache every 500ms while waiting for background loader
     const intervalId = setInterval(() => {
       const cached = getResource(stepTitle);
@@ -95,17 +96,17 @@ export const CuratedLearningPlayer = ({
         clearInterval(intervalId);
       }
     }, 500);
-    
+
     // Stop checking after 10 seconds and fall back to direct fetch
     const timeoutId = setTimeout(() => {
       clearInterval(intervalId);
-      if (!hasLoaded && !localResources && autoLoad) {
+      if (!hasLoaded && !localResources) {
         console.log(`[CuratedLearningPlayer] Cache timeout, fetching directly for "${stepTitle}"`);
         setHasLoaded(true);
         fetchResources(stepTitle, discipline, syllabusUrls, rawSourcesContent, userTimeBudget, false);
       }
     }, 10000);
-    
+
     return () => {
       clearInterval(intervalId);
       clearTimeout(timeoutId);
