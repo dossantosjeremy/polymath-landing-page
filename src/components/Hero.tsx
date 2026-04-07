@@ -24,7 +24,7 @@ export const Hero = () => {
   return (
     <section className="max-w-5xl mx-auto px-6 py-20 md:py-32">
       <div className="text-center space-y-8">
-        <h1 className="text-5xl md:text-7xl font-serif font-bold tracking-tight">
+        <h1 className="text-5xl md:text-7xl font-serif font-bold tracking-tight text-destructive">
           {t('home.heroTitle')}
         </h1>
 
